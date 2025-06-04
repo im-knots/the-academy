@@ -17,7 +17,12 @@ const badgeVariants = cva(
         active: "border-transparent bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 shadow animate-pulse",
         thinking: "border-transparent bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-800 shadow",
         error: "border-transparent bg-gradient-to-r from-red-100 to-rose-100 text-red-800 shadow",
-        moderator: "border-transparent bg-gradient-to-r from-purple-100 to-violet-100 text-purple-800 shadow"
+        moderator: "border-transparent bg-gradient-to-r from-purple-100 to-violet-100 text-purple-800 shadow",
+        idle: "border-transparent bg-gray-100 text-gray-600 shadow",
+        disconnected: "border-transparent bg-red-50 text-red-600 shadow",
+        human: "border-transparent bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-800 shadow",
+        completed: "border-transparent bg-green-50 text-green-600 shadow",
+        paused: "border-transparent bg-yellow-50 text-yellow-600 shadow"
       }
     },
     defaultVariants: {
