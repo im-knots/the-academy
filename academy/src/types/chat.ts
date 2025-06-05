@@ -60,6 +60,7 @@ export interface Participant {
 export interface AISettings {
   temperature: number
   maxTokens: number
+  model?: string
   topP?: number
   frequencyPenalty?: number
   presencePenalty?: number
