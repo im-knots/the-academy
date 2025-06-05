@@ -248,11 +248,18 @@ export function SessionsSection() {
   }, [])
 
   const handleCreateFromTemplate = (template: any) => {
-    createSession(template.name, template.description, {
+    const sessionId = createSession(template.name, template.description, {
       initialPrompt: template.prompt,
       template: template.id
     }, template.participants) // Pass participants from template
+    
     setShowTemplates(false)
+    
+    // Auto-fill the moderator input with the template prompt
+    if (template.prompt) {
+      // This could be handled by passing the prompt to the parent component
+      // For now, the prompt is stored in the session metadata
+    }
   }
 
   const handleQuickCreate = () => {
@@ -353,7 +360,7 @@ export function SessionsSection() {
   }
 
   return (
-    <div className="border-t border-gray-200 dark:border-gray-700">
+    <div className="border-t border-gray-200 dark:border-gray-700 flex-1 flex flex-col">
       {/* Header */}
       <div className="p-4">
         <div className="flex items-center justify-between mb-3">
@@ -451,7 +458,7 @@ export function SessionsSection() {
       </div>
 
       {/* Sessions List */}
-      <div className="max-h-80 overflow-y-auto px-4 pb-4">
+      <div className="flex-1 overflow-y-auto px-4 pb-4">
         {filteredSessions.length === 0 ? (
           <div className="text-center py-6">
             <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-3">

@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react'
 import { useChatStore } from '@/lib/stores/chatStore'
+import { useTemplatePrompt } from '@/hooks/useTemplatePrompt'
 import { ConversationAPI } from '@/lib/api/conversation'
 import { ClientConversationManager } from '@/lib/ai/client-conversation-manager'
 import { Card, CardContent } from '@/components/ui/Card'
@@ -11,10 +12,11 @@ import { Button } from '@/components/ui/Button'
 import { ParticipantAvatar } from '@/components/ui/ParticipantAvatar'
 import { AddParticipant } from '@/components/Participants/AddParticipant'
 import { ExportModal } from '@/components/Export/ExportModal'
+import { SessionsSection } from '@/components/Sessions/SessionsSection'
 import { 
   Brain, Users, Settings, Play, Pause, Plus, Sparkles, MessageSquare, 
   Zap, Send, Hand, Square, AlertCircle, Clock, CheckCircle2, Loader2,
-  Download, FileDown, MoreVertical
+  Download, FileDown, MoreVertical, ChevronLeft, ChevronRight, History
 } from 'lucide-react'
 
 export function ChatInterface() {
@@ -25,6 +27,12 @@ export function ChatInterface() {
   const [conversationState, setConversationState] = useState<'idle' | 'starting' | 'running' | 'pausing' | 'stopping'>('idle')
   const [error, setError] = useState<string | null>(null)
   const [wasRunningBeforeInterjection, setWasRunningBeforeInterjection] = useState(false)
+  
+  // New session panel state
+  const [showSessionsPanel, setShowSessionsPanel] = useState(true)
+  
+  // Template prompt hook
+  const { suggestedPrompt, clearSuggestedPrompt } = useTemplatePrompt()
   
   const { 
     currentSession, 
@@ -46,6 +54,13 @@ export function ChatInterface() {
 
   // Get the conversation manager instance
   const conversationManager = ClientConversationManager.getInstance()
+
+  // Auto-populate moderator input from template prompt
+  useEffect(() => {
+    if (suggestedPrompt && !moderatorInput && !hasMessages) {
+      setModeratorInput(suggestedPrompt)
+    }
+  }, [suggestedPrompt, moderatorInput, hasMessages])
 
   // Clear error after 5 seconds
   useEffect(() => {
@@ -197,18 +212,48 @@ export function ChatInterface() {
 
   if (!currentSession) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-        <div className="text-center">
-          <div className="relative mb-8">
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-32 h-32 bg-gradient-to-br from-blue-400 to-purple-600 rounded-full opacity-20 animate-pulse"></div>
+      <div className="h-screen w-screen flex bg-gray-50 dark:bg-gray-900">
+        {/* Sessions Panel */}
+        <div className="w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+                <Brain className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h1 className="font-semibold text-gray-900 dark:text-gray-100">The Academy</h1>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Socratic Dialogue Engine</p>
+              </div>
             </div>
-            <Brain className="relative h-16 w-16 mx-auto text-gray-700 dark:text-gray-300" />
           </div>
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-2">The Academy</h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Initializing panel discussion platform...
-          </p>
+          
+          <SessionsSection />
+        </div>
+
+        {/* Main Area - No Session Selected */}
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="relative mb-8">
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-32 h-32 bg-gradient-to-br from-blue-400/20 to-purple-600/20 rounded-full animate-pulse"></div>
+              </div>
+              <Brain className="relative h-16 w-16 mx-auto text-gray-700 dark:text-gray-300" />
+            </div>
+            <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Welcome to The Academy</h1>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              Select a session from the sidebar or create a new one to begin
+            </p>
+            <div className="flex justify-center gap-3">
+              <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <MessageSquare className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <span className="text-sm font-medium text-blue-900 dark:text-blue-100">AI Dialogue</span>
+              </div>
+              <div className="flex items-center gap-2 px-3 py-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                <Zap className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                <span className="text-sm font-medium text-purple-900 dark:text-purple-100">Research</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -218,21 +263,28 @@ export function ChatInterface() {
 
   return (
     <div className="h-screen w-screen flex bg-gray-50 dark:bg-gray-900">
-      {/* Sidebar */}
+      {/* Sessions Panel - Collapsible */}
+      <div className={`${showSessionsPanel ? 'w-80' : 'w-0'} transition-all duration-300 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden`}>
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+              <Brain className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h1 className="font-semibold text-gray-900 dark:text-gray-100">The Academy</h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Socratic Dialogue Engine</p>
+            </div>
+          </div>
+        </div>
+        
+        <SessionsSection />
+      </div>
+
+      {/* Participants Panel - Optional */}
       {showParticipantPanel && (
         <div className="w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
-          {/* Sidebar Header */}
+          {/* Session Info Header */}
           <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
-                <Brain className="h-5 w-5 text-white" />
-              </div>
-              <div>
-                <h1 className="font-semibold text-gray-900 dark:text-gray-100">The Academy</h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Socratic Dialogue Engine</p>
-              </div>
-            </div>
-            
             <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{currentSession.name}</span>
@@ -386,8 +438,6 @@ export function ChatInterface() {
               </Button>
             </div>
             
-
-            
             {error && (
               <div className="p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-md">
                 <div className="flex items-start gap-2">
@@ -406,6 +456,17 @@ export function ChatInterface() {
         <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
+              {/* Sessions Toggle */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowSessionsPanel(!showSessionsPanel)}
+                className="hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                {showSessionsPanel ? <ChevronLeft className="h-4 w-4" /> : <History className="h-4 w-4" />}
+              </Button>
+              
+              {/* Participants Toggle */}
               {!showParticipantPanel && (
                 <Button
                   variant="ghost"
@@ -415,6 +476,7 @@ export function ChatInterface() {
                   <Users className="h-4 w-4" />
                 </Button>
               )}
+              
               <div>
                 <h1 className="font-semibold text-gray-900 dark:text-gray-100">{currentSession.name}</h1>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -516,6 +578,34 @@ export function ChatInterface() {
         {/* Moderator Input Area */}
         <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-6">
           <div className="w-full max-w-6xl mx-auto">
+            {/* Template suggestion banner */}
+            {suggestedPrompt && !hasMessages && (
+              <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <Sparkles className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-1">
+                      Template Prompt Suggested
+                    </p>
+                    <p className="text-xs text-blue-700 dark:text-blue-300">
+                      This session includes a curated conversation starter. You can edit or replace it below.
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setModeratorInput('')
+                      clearSuggestedPrompt()
+                    }}
+                    className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                  >
+                    Clear
+                  </Button>
+                </div>
+              </div>
+            )}
+            
             {isInterjecting && (
               <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
                 <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
