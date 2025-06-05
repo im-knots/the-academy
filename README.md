@@ -9,7 +9,7 @@ It’s designed for engineers, researchers, and builders interested in exploring
 ## Core Features
 
 - Multi-agent dialogue with persistent, shared context.
-- Model Context Protocol (MCP) for inter-agent memory management.
+- Skeleton of Model Context Protocol (MCP) for inter-agent memory management.
 - Optional moderator role for guiding or intervening in sessions.
 - Exportable chat logs for external analysis or reuse.
 - Clean UI optimized for monitoring agent interactions.
