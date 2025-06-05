@@ -1,18 +1,24 @@
 // src/components/Chat/ChatInterface.tsx
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useChatStore } from '@/lib/stores/chatStore'
+import { ConversationAPI } from '@/lib/api/conversation'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { AddParticipant } from '@/components/Participants/AddParticipant'
-import { Brain, Users, Settings, Play, Pause, Plus, Sparkles, MessageSquare, Zap, Send, Hand } from 'lucide-react'
+import { 
+  Brain, Users, Settings, Play, Pause, Plus, Sparkles, MessageSquare, 
+  Zap, Send, Hand, Square, AlertCircle, Clock, CheckCircle2, Loader2 
+} from 'lucide-react'
 
 export function ChatInterface() {
   const [showAddParticipant, setShowAddParticipant] = useState(false)
   const [moderatorInput, setModeratorInput] = useState('')
   const [isInterjecting, setIsInterjecting] = useState(false)
+  const [conversationState, setConversationState] = useState<'idle' | 'starting' | 'running' | 'pausing' | 'stopping'>('idle')
+  const [error, setError] = useState<string | null>(null)
   
   const { 
     currentSession, 
@@ -21,6 +27,7 @@ export function ChatInterface() {
     showModeratorPanel,
     pauseSession,
     resumeSession,
+    endSession,
     toggleParticipantPanel,
     toggleModeratorPanel,
     addMessage,
@@ -29,25 +36,103 @@ export function ChatInterface() {
 
   const hasMessages = currentSession?.messages && currentSession.messages.length > 0
   const hasParticipants = currentSession?.participants && currentSession.participants.length > 0
+  const hasAIParticipants = currentSession?.participants.filter(p => p.type !== 'human' && p.type !== 'moderator').length >= 2
 
-  const handleSendOpeningPrompt = () => {
-    if (!moderatorInput.trim() || !hasParticipants) return
+  // Clear error after 5 seconds
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => setError(null), 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [error])
+
+  const handleStartConversation = async () => {
+    if (!currentSession || !hasAIParticipants || !moderatorInput.trim()) return
     
-    addMessage({
-      content: moderatorInput.trim(),
-      participantId: 'moderator',
-      participantName: 'Debate Moderator',
-      participantType: 'moderator'
-    })
-    
-    setModeratorInput('')
-    // Auto-resume if paused
-    if (isSessionPaused) {
+    try {
+      setConversationState('starting')
+      setError(null)
+      
+      // Add the opening prompt as a moderator message first
+      addMessage({
+        content: moderatorInput.trim(),
+        participantId: 'moderator',
+        participantName: 'Research Moderator',
+        participantType: 'moderator'
+      })
+      
+      // Start the AI-to-AI conversation
+      await ConversationAPI.startConversation(currentSession.id, moderatorInput.trim())
+      
+      setModeratorInput('')
+      setConversationState('running')
+      
+      // Update session status to active
       resumeSession()
+      
+    } catch (error) {
+      console.error('Failed to start conversation:', error)
+      setError(error instanceof Error ? error.message : 'Failed to start conversation')
+      setConversationState('idle')
     }
   }
 
-  const handleInterject = () => {
+  const handlePauseConversation = async () => {
+    if (!currentSession) return
+    
+    try {
+      setConversationState('pausing')
+      setError(null)
+      
+      await ConversationAPI.pauseConversation(currentSession.id)
+      pauseSession()
+      setConversationState('idle')
+      
+    } catch (error) {
+      console.error('Failed to pause conversation:', error)
+      setError(error instanceof Error ? error.message : 'Failed to pause conversation')
+      setConversationState('running')
+    }
+  }
+
+  const handleResumeConversation = async () => {
+    if (!currentSession) return
+    
+    try {
+      setConversationState('starting')
+      setError(null)
+      
+      await ConversationAPI.resumeConversation(currentSession.id)
+      resumeSession()
+      setConversationState('running')
+      
+    } catch (error) {
+      console.error('Failed to resume conversation:', error)
+      setError(error instanceof Error ? error.message : 'Failed to resume conversation')
+      setConversationState('idle')
+    }
+  }
+
+  const handleStopConversation = async () => {
+    if (!currentSession) return
+    
+    try {
+      setConversationState('stopping')
+      setError(null)
+      
+      await ConversationAPI.stopConversation(currentSession.id)
+      endSession()
+      setConversationState('idle')
+      
+    } catch (error) {
+      console.error('Failed to stop conversation:', error)
+      setError(error instanceof Error ? error.message : 'Failed to stop conversation')
+    }
+  }
+
+  const handleInterject = async () => {
+    if (!currentSession) return
+    
     if (isInterjecting) {
       // Send the interjection
       if (moderatorInput.trim()) {
@@ -55,10 +140,16 @@ export function ChatInterface() {
         setModeratorInput('')
       }
       setIsInterjecting(false)
-      resumeSession()
+      
+      // Resume conversation
+      if (conversationState === 'running') {
+        await handleResumeConversation()
+      }
     } else {
       // Start interjecting
-      pauseSession()
+      if (conversationState === 'running') {
+        await handlePauseConversation()
+      }
       setIsInterjecting(true)
     }
   }
@@ -66,11 +157,28 @@ export function ChatInterface() {
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      if (hasMessages) {
+      if (hasMessages && conversationState === 'running') {
         handleInterject()
-      } else {
-        handleSendOpeningPrompt()
+      } else if (!hasMessages && hasAIParticipants) {
+        handleStartConversation()
       }
+    }
+  }
+
+  const getConversationStatus = () => {
+    switch (conversationState) {
+      case 'starting':
+        return { text: 'Starting...', icon: Loader2, variant: 'thinking' as const, animate: true }
+      case 'running':
+        return { text: 'Active', icon: CheckCircle2, variant: 'active' as const, animate: false }
+      case 'pausing':
+        return { text: 'Pausing...', icon: Loader2, variant: 'thinking' as const, animate: true }
+      case 'stopping':
+        return { text: 'Stopping...', icon: Loader2, variant: 'thinking' as const, animate: true }
+      default:
+        return isSessionPaused 
+          ? { text: 'Paused', icon: Clock, variant: 'paused' as const, animate: false }
+          : { text: 'Ready', icon: Play, variant: 'idle' as const, animate: false }
     }
   }
 
@@ -93,6 +201,8 @@ export function ChatInterface() {
     )
   }
 
+  const statusInfo = getConversationStatus()
+
   return (
     <div className="h-screen w-screen flex bg-gray-50 dark:bg-gray-900">
       {/* Sidebar */}
@@ -113,9 +223,12 @@ export function ChatInterface() {
             <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{currentSession.name}</span>
-                <Badge variant={currentSession.status === 'active' ? 'active' : 'outline'} className="text-xs">
-                  {currentSession.status}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant={statusInfo.variant} className="text-xs">
+                    <statusInfo.icon className={`h-3 w-3 mr-1 ${statusInfo.animate ? 'animate-spin' : ''}`} />
+                    {statusInfo.text}
+                  </Badge>
+                </div>
               </div>
               {currentSession.description && (
                 <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
@@ -135,6 +248,7 @@ export function ChatInterface() {
                   size="sm"
                   onClick={() => setShowAddParticipant(true)}
                   className="h-8 w-8 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600"
+                  disabled={conversationState === 'running'}
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
@@ -168,6 +282,7 @@ export function ChatInterface() {
                               {participant.name}
                             </p>
                             <Badge variant={participant.status} className="text-xs">
+                              {participant.status === 'thinking' && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
                               {participant.status}
                             </Badge>
                           </div>
@@ -180,30 +295,79 @@ export function ChatInterface() {
                   ))
                 )}
               </div>
+              
+              {!hasAIParticipants && hasParticipants && (
+                <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                    <div className="text-xs text-amber-800 dark:text-amber-200">
+                      <p className="font-medium mb-1">Need AI Participants</p>
+                      <p>Add at least 2 AI agents to start an autonomous conversation.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Controls */}
           <div className="p-6 border-t border-gray-200 dark:border-gray-700">
-            <div className="flex gap-2">
-              <Button
-                variant={isSessionPaused ? "default" : "outline"}
-                size="sm"
-                onClick={isSessionPaused ? resumeSession : pauseSession}
-                className="flex-1"
-              >
-                {isSessionPaused ? (
-                  <>
-                    <Play className="h-4 w-4 mr-2" />
-                    Resume
-                  </>
-                ) : (
-                  <>
-                    <Pause className="h-4 w-4 mr-2" />
-                    Pause
-                  </>
-                )}
-              </Button>
+            <div className="flex gap-2 mb-3">
+              {conversationState === 'idle' || isSessionPaused ? (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={isSessionPaused ? handleResumeConversation : () => {}}
+                  disabled={!hasAIParticipants || conversationState !== 'idle'}
+                  className="flex-1"
+                >
+                  {conversationState === 'starting' ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Starting...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="h-4 w-4 mr-2" />
+                      {isSessionPaused ? 'Resume' : 'Ready'}
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handlePauseConversation}
+                    disabled={conversationState !== 'running'}
+                    className="flex-1"
+                  >
+                    {conversationState === 'pausing' ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Pausing...
+                      </>
+                    ) : (
+                      <>
+                        <Pause className="h-4 w-4 mr-2" />
+                        Pause
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleStopConversation}
+                    disabled={conversationState === 'stopping'}
+                  >
+                    {conversationState === 'stopping' ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Square className="h-4 w-4" />
+                    )}
+                  </Button>
+                </>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
@@ -213,6 +377,15 @@ export function ChatInterface() {
                 <Settings className="h-4 w-4" />
               </Button>
             </div>
+            
+            {error && (
+              <div className="p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-md">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+                  <p className="text-xs text-red-800 dark:text-red-200">{error}</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -241,8 +414,9 @@ export function ChatInterface() {
             </div>
             
             <div className="flex items-center gap-2">
-              <Badge variant={currentSession.status === 'active' ? 'active' : 'outline'}>
-                {currentSession.status}
+              <Badge variant={statusInfo.variant}>
+                <statusInfo.icon className={`h-3 w-3 mr-1 ${statusInfo.animate ? 'animate-spin' : ''}`} />
+                {statusInfo.text}
               </Badge>
             </div>
           </div>
@@ -265,7 +439,7 @@ export function ChatInterface() {
                   Ready to Explore Consciousness
                 </h3>
                 <p className="text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
-                  {hasParticipants 
+                  {hasAIParticipants 
                     ? "Send an opening prompt below to begin the AI-to-AI conversation."
                     : "Add AI participants and then send an opening prompt to begin the dialogue."
                   }
@@ -316,7 +490,7 @@ export function ChatInterface() {
                       </div>
                       <div className="prose prose-gray dark:prose-invert max-w-none">
                         <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-                          <p className="text-gray-900 dark:text-gray-100 leading-relaxed m-0">
+                          <p className="text-gray-900 dark:text-gray-100 leading-relaxed m-0 whitespace-pre-wrap">
                             {message.content}
                           </p>
                         </div>
@@ -350,14 +524,14 @@ export function ChatInterface() {
                   onChange={(e) => setModeratorInput(e.target.value)}
                   onKeyDown={handleKeyPress}
                   placeholder={
-                    !hasParticipants 
-                      ? "Add participants first..."
+                    !hasAIParticipants 
+                      ? "Add at least 2 AI participants first..."
                       : hasMessages 
                         ? (isInterjecting ? "Enter your interjection..." : "Interject with guidance...")
                         : "Enter an opening prompt to begin the AI conversation..."
                   }
-                  disabled={!hasParticipants}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none min-h-[60px] max-h-[200px]"
+                  disabled={!hasAIParticipants || conversationState === 'starting' || conversationState === 'stopping'}
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none min-h-[60px] max-h-[200px] disabled:opacity-50"
                   rows={3}
                 />
               </div>
@@ -366,7 +540,7 @@ export function ChatInterface() {
                 {hasMessages ? (
                   <Button
                     onClick={handleInterject}
-                    disabled={!hasParticipants || (!moderatorInput.trim() && isInterjecting)}
+                    disabled={!hasAIParticipants || (!moderatorInput.trim() && isInterjecting) || conversationState === 'starting' || conversationState === 'stopping'}
                     variant={isInterjecting ? "default" : "outline"}
                     className="min-h-[60px] px-6"
                   >
@@ -384,12 +558,21 @@ export function ChatInterface() {
                   </Button>
                 ) : (
                   <Button
-                    onClick={handleSendOpeningPrompt}
-                    disabled={!hasParticipants || !moderatorInput.trim()}
-                    className="min-h-[60px] px-6 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                    onClick={handleStartConversation}
+                    disabled={!hasAIParticipants || !moderatorInput.trim() || conversationState !== 'idle'}
+                    className="min-h-[60px] px-6 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:opacity-50"
                   >
-                    <Send className="h-5 w-5 mr-2" />
-                    Begin
+                    {conversationState === 'starting' ? (
+                      <>
+                        <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                        Starting...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="h-5 w-5 mr-2" />
+                        Begin
+                      </>
+                    )}
                   </Button>
                 )}
               </div>
@@ -407,7 +590,7 @@ export function ChatInterface() {
         </div>
       </div>
 
-      {/* Moderator Panel */}
+      {/* Moderator Panel - Keep existing implementation but add conversation stats */}
       {showModeratorPanel && (
         <div className="w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex flex-col">
           <div className="p-6 border-b border-gray-200 dark:border-gray-700">
@@ -422,8 +605,9 @@ export function ChatInterface() {
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-blue-700 dark:text-blue-300">Status:</span>
-                    <Badge variant={currentSession.status === 'active' ? 'active' : 'outline'} className="text-xs">
-                      {currentSession.status}
+                    <Badge variant={statusInfo.variant} className="text-xs">
+                      <statusInfo.icon className={`h-3 w-3 mr-1 ${statusInfo.animate ? 'animate-spin' : ''}`} />
+                      {statusInfo.text}
                     </Badge>
                   </div>
                   <div className="flex justify-between">
@@ -431,13 +615,15 @@ export function ChatInterface() {
                     <span className="font-medium text-blue-900 dark:text-blue-100">{currentSession.messages.length}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-blue-700 dark:text-blue-300">Agents:</span>
-                    <span className="font-medium text-blue-900 dark:text-blue-100">{currentSession.participants.length}</span>
+                    <span className="text-blue-700 dark:text-blue-300">AI Agents:</span>
+                    <span className="font-medium text-blue-900 dark:text-blue-100">
+                      {currentSession.participants.filter(p => p.type !== 'human' && p.type !== 'moderator').length}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-blue-700 dark:text-blue-300">Mode:</span>
                     <span className="font-medium text-blue-900 dark:text-blue-100">
-                      {isInterjecting ? 'Interjecting' : isSessionPaused ? 'Paused' : 'Active'}
+                      {isInterjecting ? 'Interjecting' : conversationState === 'running' ? 'Autonomous' : 'Manual'}
                     </span>
                   </div>
                 </div>
@@ -446,9 +632,9 @@ export function ChatInterface() {
 
             <Card className="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 border-purple-200 dark:border-purple-700">
               <CardContent className="p-4">
-                <h3 className="font-medium text-purple-900 dark:text-purple-100 mb-3">Research Notes</h3>
+                <h3 className="font-medium text-purple-900 dark:text-purple-100 mb-3">AI Consciousness Research</h3>
                 <div className="text-sm text-purple-700 dark:text-purple-300">
-                  <p className="leading-relaxed">Consciousness analysis and pattern detection tools are being developed...</p>
+                  <p className="leading-relaxed">Observing emergent behaviors and consciousness-like phenomena in AI-to-AI dialogue...</p>
                 </div>
               </CardContent>
             </Card>
@@ -462,7 +648,7 @@ export function ChatInterface() {
                     size="sm" 
                     className="w-full justify-start"
                     onClick={() => setIsInterjecting(true)}
-                    disabled={!hasMessages || isInterjecting}
+                    disabled={!hasMessages || isInterjecting || conversationState !== 'running'}
                   >
                     <MessageSquare className="h-4 w-4 mr-2" />
                     Quick Interject
