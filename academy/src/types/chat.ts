@@ -12,6 +12,8 @@ export interface Message {
     maxTokens?: number
     systemPrompt?: string
     responseTime?: number
+    model?: string
+    usage?: any
   }
 }
 
@@ -26,6 +28,16 @@ export interface ChatSession {
   participants: Participant[]
   moderatorSettings: ModeratorSettings
   researchNotes?: string
+  metadata?: {
+    template?: string
+    tags?: string[]
+    starred?: boolean
+    archived?: boolean
+    lastViewedAt?: Date
+    totalDuration?: number
+    messageCount?: number
+    participantCount?: number
+  }
 }
 
 export interface ConversationThread {
@@ -37,7 +49,6 @@ export interface ConversationThread {
   participantIds: string[]
 }
 
-// src/types/participant.ts
 export interface Participant {
   id: string
   name: string
@@ -64,7 +75,7 @@ export interface AISettings {
   topP?: number
   frequencyPenalty?: number
   presencePenalty?: number
-  responseDelay?: number // Simulate thinking time
+  responseDelay?: number
   customInstructions?: string
 }
 
@@ -81,7 +92,6 @@ export interface ModeratorSettings {
   }
 }
 
-// src/types/websocket.ts
 export interface WebSocketMessage {
   type: 'message' | 'participant_joined' | 'participant_left' | 'status_update' | 'moderator_action' | 'session_update'
   sessionId: string
@@ -102,7 +112,6 @@ export interface ModeratorAction {
   reason?: string
 }
 
-// src/types/research.ts
 export interface EmergentBehavior {
   id: string
   sessionId: string
@@ -125,4 +134,16 @@ export interface AnalysisMetrics {
   emergentBehaviors: EmergentBehavior[]
   consensusPoints: string[]
   divergencePoints: string[]
+}
+
+export interface SessionTemplate {
+  id: string
+  name: string
+  description: string
+  icon?: string
+  color?: string
+  initialPrompt?: string
+  participants?: Omit<Participant, 'id' | 'joinedAt' | 'messageCount'>[]
+  settings?: Partial<ModeratorSettings>
+  tags?: string[]
 }
