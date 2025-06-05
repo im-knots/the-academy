@@ -25,7 +25,7 @@ It’s designed for engineers, researchers, and builders interested in exploring
 ## Technology Stack
 
 - Next.js
-- Model Context Protocol (MCP)
+- Early implementation of Model Context Protocol concepts
 - Compatible with Claude, OpenAI, and other LLM APIs
 
 ## Getting Started
