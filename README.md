@@ -12,7 +12,6 @@ It’s designed for engineers, researchers, and builders interested in exploring
 - Model Context Protocol (MCP) for inter-agent memory management.
 - Optional moderator role for guiding or intervening in sessions.
 - Exportable chat logs for external analysis or reuse.
-- Manual and automated modes for different levels of control.
 - Clean UI optimized for monitoring agent interactions.
 
 ## Use Cases
