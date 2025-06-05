@@ -3,10 +3,12 @@
 
 import { useState, useEffect } from 'react'
 import { useChatStore } from '@/lib/stores/chatStore'
+import { ConversationAPI } from '@/lib/api/conversation'
 import { ClientConversationManager } from '@/lib/ai/client-conversation-manager'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
+import { ParticipantAvatar } from '@/components/ui/ParticipantAvatar'
 import { AddParticipant } from '@/components/Participants/AddParticipant'
 import { 
   Brain, Users, Settings, Play, Pause, Plus, Sparkles, MessageSquare, 
@@ -34,12 +36,12 @@ export function ChatInterface() {
     injectPrompt
   } = useChatStore()
 
-  // Get conversation manager instance
-  const conversationManager = ClientConversationManager.getInstance()
-
   const hasMessages = currentSession?.messages && currentSession.messages.length > 0
   const hasParticipants = currentSession?.participants && currentSession.participants.length > 0
   const hasAIParticipants = currentSession?.participants.filter(p => p.type !== 'human' && p.type !== 'moderator').length >= 2
+
+  // Get the conversation manager instance
+  const conversationManager = ClientConversationManager.getInstance()
 
   // Clear error after 5 seconds
   useEffect(() => {
@@ -64,7 +66,7 @@ export function ChatInterface() {
         participantType: 'moderator'
       })
       
-      // Start the AI-to-AI conversation using client manager
+      // Start the AI-to-AI conversation using the client-side manager
       await conversationManager.startConversation(currentSession.id, moderatorInput.trim())
       
       setModeratorInput('')
@@ -270,15 +272,10 @@ export function ChatInterface() {
                   currentSession.participants.map((participant) => (
                     <div key={participant.id} className="group relative">
                       <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                          participant.type === 'claude' 
-                            ? 'bg-gradient-to-br from-orange-400 to-red-500' 
-                            : participant.type === 'gpt'
-                            ? 'bg-gradient-to-br from-green-400 to-teal-500'
-                            : 'bg-gradient-to-br from-blue-400 to-purple-500'
-                        }`}>
-                          <Sparkles className="h-5 w-5 text-white" />
-                        </div>
+                        <ParticipantAvatar 
+                          participantType={participant.type} 
+                          size="md"
+                        />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <p className="font-medium text-gray-900 dark:text-gray-100 truncate">
@@ -464,21 +461,10 @@ export function ChatInterface() {
               {currentSession.messages.map((message, index) => (
                 <div key={message.id} className="message-appear">
                   <div className="flex gap-4">
-                    <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
-                      message.participantType === 'claude' 
-                        ? 'bg-gradient-to-br from-orange-400 to-red-500' 
-                        : message.participantType === 'gpt'
-                        ? 'bg-gradient-to-br from-green-400 to-teal-500'
-                        : message.participantType === 'moderator'
-                        ? 'bg-gradient-to-br from-purple-400 to-purple-600'
-                        : 'bg-gradient-to-br from-blue-400 to-purple-500'
-                    }`}>
-                      {message.participantType === 'moderator' ? (
-                        <Settings className="h-5 w-5 text-white" />
-                      ) : (
-                        <Sparkles className="h-5 w-5 text-white" />
-                      )}
-                    </div>
+                    <ParticipantAvatar 
+                      participantType={message.participantType} 
+                      size="md"
+                    />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3 mb-2">
                         <span className="font-medium text-gray-900 dark:text-gray-100">

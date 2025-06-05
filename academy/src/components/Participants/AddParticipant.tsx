@@ -6,6 +6,7 @@ import { useChatStore } from '@/lib/stores/chatStore'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
+import { ParticipantAvatar } from '@/components/ui/ParticipantAvatar'
 import { X, Plus, Brain, MessageSquare, User, Sparkles, Settings } from 'lucide-react'
 import { Participant } from '@/types/chat'
 
@@ -50,24 +51,18 @@ export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
       type: 'claude' as const,
       name: 'Claude',
       description: 'Anthropic\'s AI assistant with deep reasoning capabilities',
-      icon: Brain,
-      gradient: 'from-orange-400 to-red-500',
       badge: 'claude'
     },
     {
       type: 'gpt' as const,
       name: 'GPT',
       description: 'OpenAI\'s conversational AI model',
-      icon: MessageSquare,
-      gradient: 'from-green-400 to-teal-500',
       badge: 'gpt'
     },
     {
       type: 'human' as const,
       name: 'Human',
       description: 'Human participant observer',
-      icon: User,
-      gradient: 'from-blue-400 to-purple-500',
       badge: 'human'
     }
   ]
@@ -134,7 +129,6 @@ export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
               </label>
               <div className="grid grid-cols-1 gap-3">
                 {participantTypes.map((type) => {
-                  const Icon = type.icon
                   const isSelected = selectedType === type.type
                   
                   return (
@@ -148,9 +142,11 @@ export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
                       }`}
                     >
                       <div className="flex items-center gap-4">
-                        <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${type.gradient} flex items-center justify-center flex-shrink-0`}>
-                          <Icon className="h-6 w-6 text-white" />
-                        </div>
+                        <ParticipantAvatar 
+                          participantType={type.type} 
+                          size="lg"
+                          className="flex-shrink-0"
+                        />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <h3 className="font-medium text-gray-900 dark:text-gray-100">{type.name}</h3>
