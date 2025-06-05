@@ -360,7 +360,7 @@ export function SessionsSection() {
   }
 
   return (
-    <div className="border-t border-gray-200 dark:border-gray-700 flex-1 flex flex-col">
+    <div className="flex-1 flex flex-col">
       {/* Header */}
       <div className="p-4">
         <div className="flex items-center justify-between mb-3">
@@ -535,6 +535,20 @@ export function SessionsSection() {
                       </div>
                       
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {/* Direct Delete Button */}
+                        {sessions.length > 1 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => handleDeleteSession(session.id, e)}
+                            className="h-7 w-7 p-0 hover:bg-red-100 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-600 dark:hover:text-red-400"
+                            title="Delete session"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        )}
+                        
+                        {/* More Options Dropdown */}
                         <div className="relative" ref={dropdownRef}>
                           <Button
                             variant="ghost"
@@ -564,15 +578,6 @@ export function SessionsSection() {
                                 <Copy className="h-4 w-4" />
                                 Duplicate
                               </button>
-                              {sessions.length > 1 && (
-                                <button
-                                  onClick={(e) => handleDeleteSession(session.id, e)}
-                                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 text-red-600 dark:text-red-400"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                  Delete
-                                </button>
-                              )}
                             </div>
                           )}
                         </div>

@@ -28,8 +28,8 @@ export function ChatInterface() {
   const [error, setError] = useState<string | null>(null)
   const [wasRunningBeforeInterjection, setWasRunningBeforeInterjection] = useState(false)
   
-  // New session panel state
-  const [showSessionsPanel, setShowSessionsPanel] = useState(true)
+  // Combined left panel state
+  const [showLeftPanel, setShowLeftPanel] = useState(true)
   
   // Template prompt hook
   const { suggestedPrompt, clearSuggestedPrompt } = useTemplatePrompt()
@@ -37,12 +37,10 @@ export function ChatInterface() {
   const { 
     currentSession, 
     isSessionPaused, 
-    showParticipantPanel, 
     showModeratorPanel,
     pauseSession,
     resumeSession,
     endSession,
-    toggleParticipantPanel,
     toggleModeratorPanel,
     addMessage,
     injectPrompt
@@ -213,7 +211,7 @@ export function ChatInterface() {
   if (!currentSession) {
     return (
       <div className="h-screen w-screen flex bg-gray-50 dark:bg-gray-900">
-        {/* Sessions Panel */}
+        {/* Combined Left Panel */}
         <div className="w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
           <div className="p-6 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-3">
@@ -263,8 +261,9 @@ export function ChatInterface() {
 
   return (
     <div className="h-screen w-screen flex bg-gray-50 dark:bg-gray-900">
-      {/* Sessions Panel - Collapsible */}
-      <div className={`${showSessionsPanel ? 'w-80' : 'w-0'} transition-all duration-300 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden`}>
+      {/* Combined Left Panel - Academy + Participants + Sessions */}
+      <div className={`${showLeftPanel ? 'w-80' : 'w-0'} transition-all duration-300 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden`}>
+        {/* Academy Header */}
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
@@ -276,206 +275,173 @@ export function ChatInterface() {
             </div>
           </div>
         </div>
-        
-        <SessionsSection />
-      </div>
 
-      {/* Participants Panel - Optional */}
-      {showParticipantPanel && (
-        <div className="w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
-          {/* Session Info Header */}
-          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{currentSession.name}</span>
-                <div className="flex items-center gap-2">
-                  <Badge variant={statusInfo.variant} className="text-xs">
-                    <statusInfo.icon className={`h-3 w-3 mr-1 ${statusInfo.animate ? 'animate-spin' : ''}`} />
-                    {statusInfo.text}
-                  </Badge>
-                </div>
-              </div>
-              {currentSession.description && (
-                <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
-                  {currentSession.description}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Participants */}
-          <div className="flex-1 overflow-y-auto">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-medium text-gray-900 dark:text-gray-100">Participants</h2>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowAddParticipant(true)}
-                  className="h-8 w-8 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600"
-                  disabled={conversationState === 'running'}
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
-              
-              <div className="space-y-3">
-                {currentSession.participants.length === 0 ? (
-                  <div className="text-center py-8">
-                    <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-3">
-                      <Users className="h-6 w-6 text-gray-400" />
-                    </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">No participants yet</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-500">Add AI agents to begin</p>
-                  </div>
-                ) : (
-                  currentSession.participants.map((participant) => (
-                    <div key={participant.id} className="group relative">
-                      <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                        <ParticipantAvatar 
-                          participantType={participant.type} 
-                          size="md"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium text-gray-900 dark:text-gray-100 truncate">
-                              {participant.name}
-                            </p>
-                            <Badge variant={participant.status} className="text-xs">
-                              {participant.status === 'thinking' && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
-                              {participant.status}
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            {participant.messageCount} messages • {participant.type.toUpperCase()}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-              
-              {!hasAIParticipants && hasParticipants && (
-                <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
-                  <div className="flex items-start gap-2">
-                    <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
-                    <div className="text-xs text-amber-800 dark:text-amber-200">
-                      <p className="font-medium mb-1">Need AI Participants</p>
-                      <p>Add at least 2 AI agents to start an autonomous conversation.</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Controls */}
-          <div className="p-6 border-t border-gray-200 dark:border-gray-700">
-            <div className="flex gap-2 mb-3">
-              {conversationState === 'idle' || isSessionPaused ? (
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={isSessionPaused ? handleResumeConversation : () => {}}
-                  disabled={!hasAIParticipants || conversationState !== 'idle'}
-                  className="flex-1"
-                >
-                  {conversationState === 'starting' ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Starting...
-                    </>
-                  ) : (
-                    <>
-                      <Play className="h-4 w-4 mr-2" />
-                      {isSessionPaused ? 'Resume' : 'Ready'}
-                    </>
-                  )}
-                </Button>
-              ) : (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handlePauseConversation}
-                    disabled={conversationState !== 'running'}
-                    className="flex-1"
-                  >
-                    {conversationState === 'pausing' ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Pausing...
-                      </>
-                    ) : (
-                      <>
-                        <Pause className="h-4 w-4 mr-2" />
-                        Pause
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={handleStopConversation}
-                    disabled={conversationState === 'stopping'}
-                  >
-                    {conversationState === 'stopping' ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Square className="h-4 w-4" />
-                    )}
-                  </Button>
-                </>
-              )}
+        {/* Participants Section */}
+        <div className="border-b border-gray-200 dark:border-gray-700 flex flex-col">
+          <div className="p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-medium text-gray-900 dark:text-gray-100">Participants</h2>
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={toggleModeratorPanel}
-                className={showModeratorPanel ? 'bg-gray-100 dark:bg-gray-700' : ''}
+                onClick={() => setShowAddParticipant(true)}
+                className="h-8 w-8 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600"
+                disabled={conversationState === 'running'}
               >
-                <Settings className="h-4 w-4" />
+                <Plus className="h-4 w-4" />
               </Button>
             </div>
             
-            {error && (
-              <div className="p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-md">
+            <div className="space-y-3 max-h-60 overflow-y-auto">
+              {currentSession.participants.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <Users className="h-6 w-6 text-gray-400" />
+                  </div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">No participants yet</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-500">Add AI agents to begin</p>
+                </div>
+              ) : (
+                currentSession.participants.map((participant) => (
+                  <div key={participant.id} className="group relative">
+                    <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                      <ParticipantAvatar 
+                        participantType={participant.type} 
+                        size="md"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-gray-900 dark:text-gray-100 truncate">
+                            {participant.name}
+                          </p>
+                          <Badge variant={participant.status} className="text-xs">
+                            {participant.status === 'thinking' && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+                            {participant.status}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {participant.messageCount} messages • {participant.type.toUpperCase()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            
+            {!hasAIParticipants && hasParticipants && (
+              <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
                 <div className="flex items-start gap-2">
-                  <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
-                  <p className="text-xs text-red-800 dark:text-red-200">{error}</p>
+                  <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                  <div className="text-xs text-amber-800 dark:text-amber-200">
+                    <p className="font-medium mb-1">Need AI Participants</p>
+                    <p>Add at least 2 AI agents to start an autonomous conversation.</p>
+                  </div>
                 </div>
               </div>
             )}
           </div>
         </div>
-      )}
+
+        {/* Sessions Section */}
+        <div className="flex-1 overflow-hidden flex flex-col">
+          <SessionsSection />
+        </div>
+
+        {/* Controls at Bottom */}
+        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex gap-2 mb-3">
+            {conversationState === 'idle' || isSessionPaused ? (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={isSessionPaused ? handleResumeConversation : () => {}}
+                disabled={!hasAIParticipants || conversationState !== 'idle'}
+                className="flex-1"
+              >
+                {conversationState === 'starting' ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Starting...
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-4 w-4 mr-2" />
+                    {isSessionPaused ? 'Resume' : 'Ready'}
+                  </>
+                )}
+              </Button>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handlePauseConversation}
+                  disabled={conversationState !== 'running'}
+                  className="flex-1"
+                >
+                  {conversationState === 'pausing' ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Pausing...
+                    </>
+                  ) : (
+                    <>
+                      <Pause className="h-4 w-4 mr-2" />
+                      Pause
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleStopConversation}
+                  disabled={conversationState === 'stopping'}
+                >
+                  {conversationState === 'stopping' ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Square className="h-4 w-4" />
+                  )}
+                </Button>
+              </>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleModeratorPanel}
+              className={showModeratorPanel ? 'bg-gray-100 dark:bg-gray-700' : ''}
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
+          </div>
+          
+          {error && (
+            <div className="p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-md">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-red-800 dark:text-red-200">{error}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Chat Header */}
+        {/* Chat Header - Removed status badge */}
         <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              {/* Sessions Toggle */}
+              {/* Left Panel Toggle */}
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setShowSessionsPanel(!showSessionsPanel)}
+                onClick={() => setShowLeftPanel(!showLeftPanel)}
                 className="hover:bg-gray-100 dark:hover:bg-gray-700"
               >
-                {showSessionsPanel ? <ChevronLeft className="h-4 w-4" /> : <History className="h-4 w-4" />}
+                {showLeftPanel ? <ChevronLeft className="h-4 w-4" /> : <History className="h-4 w-4" />}
               </Button>
-              
-              {/* Participants Toggle */}
-              {!showParticipantPanel && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={toggleParticipantPanel}
-                >
-                  <Users className="h-4 w-4" />
-                </Button>
-              )}
               
               <div>
                 <h1 className="font-semibold text-gray-900 dark:text-gray-100">{currentSession.name}</h1>
@@ -497,10 +463,6 @@ export function ChatInterface() {
                   <FileDown className="h-4 w-4" />
                 </Button>
               )}
-              <Badge variant={statusInfo.variant}>
-                <statusInfo.icon className={`h-3 w-3 mr-1 ${statusInfo.animate ? 'animate-spin' : ''}`} />
-                {statusInfo.text}
-              </Badge>
             </div>
           </div>
         </div>
@@ -742,7 +704,7 @@ export function ChatInterface() {
                     disabled={!hasMessages}
                   >
                     <Download className="h-4 w-4 mr-2" />
-                    Export Analysis
+                    Export Chat Log
                   </Button>
                 </div>
               </CardContent>
