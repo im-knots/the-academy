@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Ensure alternating pattern
+    // Ensure alternating pattern and merge consecutive messages of same type
     const alternatingMessages = []
     let expectedRole = 'user'
 
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
       model: model,
       max_tokens: Math.min(maxTokens, 4000), // Claude has limits
       temperature: Math.max(0, Math.min(1, temperature)), // Ensure valid range
-      system: systemPrompt || 'You are a thoughtful AI participating in a Socratic dialogue.',
+      system: systemPrompt || 'You are a thoughtful AI participating in a research dialogue.',
       messages: alternatingMessages
     }
 
@@ -91,7 +91,8 @@ export async function POST(request: NextRequest) {
       model, 
       messageCount: alternatingMessages.length,
       temperature,
-      maxTokens: requestBody.max_tokens
+      maxTokens: requestBody.max_tokens,
+      hasSystemPrompt: !!systemPrompt
     })
 
     const startTime = Date.now()
@@ -110,15 +111,41 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text()
+      let errorData
+      try {
+        errorData = JSON.parse(errorText)
+      } catch {
+        errorData = { error: { message: errorText } }
+      }
+
       console.error('Claude API error:', {
         status: response.status,
         statusText: response.statusText,
-        error: errorText,
-        requestBody: JSON.stringify(requestBody, null, 2)
+        error: errorData,
+        requestPreview: {
+          model: requestBody.model,
+          messageCount: requestBody.messages.length,
+          temperature: requestBody.temperature
+        }
       })
       
+      // Provide more specific error messages based on Claude error types
+      let userFriendlyError = `Claude API error: ${response.status}`
+      
+      if (errorData.error?.type === 'rate_limit_error') {
+        userFriendlyError = 'Rate limit exceeded. Please wait a moment and try again.'
+      } else if (errorData.error?.type === 'invalid_request_error') {
+        userFriendlyError = `Invalid request: ${errorData.error.message}`
+      } else if (response.status === 401) {
+        userFriendlyError = 'Invalid Claude API key'
+      } else if (response.status === 400) {
+        userFriendlyError = `Bad request: ${errorData.error?.message || 'Invalid parameters'}`
+      } else if (response.status >= 500) {
+        userFriendlyError = 'Claude service temporarily unavailable'
+      }
+      
       return NextResponse.json(
-        { error: `Claude API error: ${response.status} - ${response.statusText}` },
+        { error: userFriendlyError },
         { status: response.status }
       )
     }
@@ -146,14 +173,16 @@ export async function POST(request: NextRequest) {
       model: data.model,
       responseTime: `${responseTime}ms`,
       contentLength: content.length,
-      usage: data.usage
+      usage: data.usage,
+      stopReason: data.stop_reason
     })
     
     return NextResponse.json({ 
       content: content,
       usage: data.usage,
       model: data.model,
-      responseTime
+      responseTime,
+      stopReason: data.stop_reason
     })
 
   } catch (error) {
@@ -171,6 +200,12 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           { error: 'Invalid request format' },
           { status: 400 }
+        )
+      }
+      if (error.message.includes('timeout')) {
+        return NextResponse.json(
+          { error: 'Claude API request timed out' },
+          { status: 504 }
         )
       }
     }

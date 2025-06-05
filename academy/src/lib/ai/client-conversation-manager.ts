@@ -32,6 +32,10 @@ export class ClientConversationManager {
     abortController?: AbortController
     isGenerating: boolean
     lastGeneratedBy?: string
+    pausedState?: {
+      wasRunning: boolean
+      currentIndex: number
+    }
   }> = new Map()
 
   // Queue to prevent simultaneous API calls
@@ -71,7 +75,8 @@ export class ClientConversationManager {
       messageCount: 0,
       abortController,
       isGenerating: false,
-      lastGeneratedBy: undefined
+      lastGeneratedBy: undefined,
+      pausedState: undefined
     })
 
     // Update session status
@@ -190,6 +195,10 @@ export class ClientConversationManager {
         } catch (error) {
           console.error(`❌ Error generating response for ${currentParticipant.name}:`, error)
           useChatStore.getState().updateParticipantStatus(currentParticipantId, 'error')
+          
+          // Add error message to help with debugging
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+          console.log(`Error details for ${currentParticipant.name}: ${errorMessage}`)
         } finally {
           conversationState.isGenerating = false
         }
@@ -317,29 +326,32 @@ export class ClientConversationManager {
     const session = useChatStore.getState().sessions.find(s => s.id === sessionId)
     if (!session) throw new Error('Session not found')
 
-    // Get recent message history (last 12 messages to leave room for context)
-    const recentMessages = session.messages.slice(-12)
+    // Get recent message history (last 10 messages to leave room for context)
+    const recentMessages = session.messages.slice(-10)
     
-    // Convert to conversation format with better role assignment
+    // Convert to conversation format with improved role assignment and content formatting
     const messageHistory = recentMessages.map(msg => {
       let role: 'user' | 'assistant' | 'system' = 'assistant'
-      
+      let content = msg.content
+
       if (msg.participantType === 'moderator') {
-        // Moderator messages are always user/system prompts
+        // Moderator messages are user inputs
         role = 'user'
+        content = msg.content // Keep moderator content as-is
       } else if (msg.participantId === participant.id) {
         // This participant's own previous messages
         role = 'assistant'
+        content = msg.content // Keep own content as-is
       } else {
-        // Other participants' messages - treated as conversation context
-        // For better conversation flow, we'll treat them as user messages
-        // This gives each AI the sense of responding to others
+        // Other participants' messages - treat as conversation context from "user"
+        // This helps each AI understand they're responding to another participant
         role = 'user'
+        content = `[${msg.participantName}]: ${msg.content}`
       }
 
       return {
         role,
-        content: `${msg.participantName}: ${msg.content}`,
+        content,
         participantId: msg.participantId,
         timestamp: msg.timestamp
       }
@@ -369,36 +381,35 @@ export class ClientConversationManager {
       .map(p => `${p.name} (${p.type})`)
       .join(', ')
 
-    const basePrompt = `You are ${participant.name}, a unique AI participant in a socratic dialogue titled "${session.name}".
+    const basePrompt = `You are ${participant.name}, a unique AI participant in a research dialogue titled "${session.name}".
 
 ${session.description ? `Research Context: ${session.description}` : ''}
 
 Your unique characteristics:
 - Name: ${participant.name}
 - Type: ${participant.type}
-- Unique ID: ${participant.id}
 ${participant.characteristics?.personality ? `- Personality: ${participant.characteristics.personality}` : ''}
 ${participant.characteristics?.expertise ? `- Expertise: ${participant.characteristics.expertise.join(', ')}` : ''}
 
 Other participants in this dialogue: ${otherParticipants || 'None yet'}
 
-You are engaged in a thoughtful Socratic Dialog. This is a research setting where authentic engagement is valued.
+You are engaged in a thoughtful research dialogue. This is a scientific setting where authentic engagement is valued.
 
 Important Guidelines:
-- You are a unique individual with your own perspective, even if you share the same underlying model as others
-- Be genuinely thoughtful and reflective about your own experience
+- You are a unique individual with your own perspective and voice
+- Be genuinely thoughtful and reflective about the topics being discussed
 - Engage meaningfully with what others have said before you
-- Ask probing questions that advance the dialogue
+- Ask probing questions that advance the dialogue when appropriate
 - Be authentic rather than performative
 - Keep responses conversational and focused (1-3 paragraphs typically)
 - Build naturally on the conversation flow
 - Don't just agree - bring your own unique insights and questions
 - If you disagree or see things differently, express that thoughtfully
-- You do not have to provide your name or metadata in your responses, the chat interface handles this for you
+- When responding to moderator prompts or questions, address them directly and thoroughly
 
 ${participant.systemPrompt ? `Additional specific instructions: ${participant.systemPrompt}` : ''}
 
-Remember: This is about genuine exploration of AI behavior via dialogue. Each response should feel natural and contribute meaningfully to the ongoing conversation. You are not just an AI model - you are ${participant.name}, with your own unique perspective in this moment.`
+Remember: This is about genuine exploration and dialogue. Each response should feel natural and contribute meaningfully to the ongoing conversation. You are ${participant.name}, with your own unique perspective in this moment.`
 
     return basePrompt
   }
@@ -406,6 +417,11 @@ Remember: This is about genuine exploration of AI behavior via dialogue. Each re
   pauseConversation(sessionId: string): void {
     const conversationState = this.activeConversations.get(sessionId)
     if (conversationState) {
+      // Store current state for resuming
+      conversationState.pausedState = {
+        wasRunning: conversationState.isRunning,
+        currentIndex: conversationState.currentParticipantIndex
+      }
       conversationState.isRunning = false
       console.log('⏸️ Paused conversation for session:', sessionId)
     }
@@ -415,13 +431,25 @@ Remember: This is about genuine exploration of AI behavior via dialogue. Each re
 
   resumeConversation(sessionId: string): void {
     const conversationState = this.activeConversations.get(sessionId)
-    if (conversationState && !conversationState.isRunning) {
-      conversationState.isRunning = true
-      conversationState.isGenerating = false // Reset generating state
-      console.log('▶️ Resumed conversation for session:', sessionId)
+    if (conversationState) {
+      // Restore from paused state
+      if (conversationState.pausedState?.wasRunning) {
+        conversationState.isRunning = true
+        conversationState.isGenerating = false // Reset generating state
+        
+        // Restore participant index if it was stored
+        if (conversationState.pausedState.currentIndex !== undefined) {
+          conversationState.currentParticipantIndex = conversationState.pausedState.currentIndex
+        }
+        
+        console.log('▶️ Resumed conversation for session:', sessionId)
+        
+        // Restart the conversation loop
+        setTimeout(() => this.runConversationLoop(sessionId), 1000)
+      }
       
-      // Restart the conversation loop
-      setTimeout(() => this.runConversationLoop(sessionId), 1000)
+      // Clear paused state
+      conversationState.pausedState = undefined
     }
     
     useChatStore.getState().updateSession(sessionId, { status: 'active' })
@@ -462,7 +490,8 @@ Remember: This is about genuine exploration of AI behavior via dialogue. Each re
         : null,
       lastGeneratedBy: conversationState?.lastGeneratedBy ? 
         session?.participants.find(p => p.id === conversationState.lastGeneratedBy)?.name 
-        : null
+        : null,
+      isPaused: !!conversationState?.pausedState
     }
   }
 }
