@@ -10,17 +10,21 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { ParticipantAvatar } from '@/components/ui/ParticipantAvatar'
 import { AddParticipant } from '@/components/Participants/AddParticipant'
+import { ExportModal } from '@/components/Export/ExportModal'
 import { 
   Brain, Users, Settings, Play, Pause, Plus, Sparkles, MessageSquare, 
-  Zap, Send, Hand, Square, AlertCircle, Clock, CheckCircle2, Loader2 
+  Zap, Send, Hand, Square, AlertCircle, Clock, CheckCircle2, Loader2,
+  Download, FileDown, MoreVertical
 } from 'lucide-react'
 
 export function ChatInterface() {
   const [showAddParticipant, setShowAddParticipant] = useState(false)
+  const [showExportModal, setShowExportModal] = useState(false)
   const [moderatorInput, setModeratorInput] = useState('')
   const [isInterjecting, setIsInterjecting] = useState(false)
   const [conversationState, setConversationState] = useState<'idle' | 'starting' | 'running' | 'pausing' | 'stopping'>('idle')
   const [error, setError] = useState<string | null>(null)
+  const [wasRunningBeforeInterjection, setWasRunningBeforeInterjection] = useState(false)
   
   const { 
     currentSession, 
@@ -146,13 +150,17 @@ export function ChatInterface() {
       }
       setIsInterjecting(false)
       
-      // Resume conversation
-      if (conversationState === 'running') {
+      // Resume conversation if it was running before interjection
+      if (wasRunningBeforeInterjection) {
         await handleResumeConversation()
+        setWasRunningBeforeInterjection(false)
       }
     } else {
       // Start interjecting
-      if (conversationState === 'running') {
+      const wasRunning = conversationState === 'running'
+      setWasRunningBeforeInterjection(wasRunning)
+      
+      if (wasRunning) {
         await handlePauseConversation()
       }
       setIsInterjecting(true)
@@ -162,7 +170,7 @@ export function ChatInterface() {
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      if (hasMessages && conversationState === 'running') {
+      if (hasMessages && (conversationState === 'running' || isInterjecting)) {
         handleInterject()
       } else if (!hasMessages && hasAIParticipants) {
         handleStartConversation()
@@ -378,6 +386,8 @@ export function ChatInterface() {
               </Button>
             </div>
             
+
+            
             {error && (
               <div className="p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-md">
                 <div className="flex items-start gap-2">
@@ -414,6 +424,17 @@ export function ChatInterface() {
             </div>
             
             <div className="flex items-center gap-2">
+              {hasMessages && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowExportModal(true)}
+                  disabled={conversationState === 'running'}
+                  className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+                >
+                  <FileDown className="h-4 w-4" />
+                </Button>
+              )}
               <Badge variant={statusInfo.variant}>
                 <statusInfo.icon className={`h-3 w-3 mr-1 ${statusInfo.animate ? 'animate-spin' : ''}`} />
                 {statusInfo.text}
@@ -584,7 +605,7 @@ export function ChatInterface() {
         <div className="w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex flex-col">
           <div className="p-6 border-b border-gray-200 dark:border-gray-700">
             <h2 className="font-semibold text-gray-900 dark:text-gray-100">Research Center</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Monitor and analyze dialoge patterns</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Monitor and analyze dialogue patterns</p>
           </div>
           
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
@@ -619,15 +640,6 @@ export function ChatInterface() {
               </CardContent>
             </Card>
 
-            <Card className="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 border-purple-200 dark:border-purple-700">
-              <CardContent className="p-4">
-                <h3 className="font-medium text-purple-900 dark:text-purple-100 mb-3">AI Socratic Dialogue Research</h3>
-                <div className="text-sm text-purple-700 dark:text-purple-300">
-                  <p className="leading-relaxed">Observing emergent behaviors in AI-to-AI dialogue...</p>
-                </div>
-              </CardContent>
-            </Card>
-
             <Card>
               <CardContent className="p-4">
                 <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-3">Quick Actions</h3>
@@ -636,19 +648,10 @@ export function ChatInterface() {
                     variant="outline" 
                     size="sm" 
                     className="w-full justify-start"
-                    onClick={() => setIsInterjecting(true)}
-                    disabled={!hasMessages || isInterjecting || conversationState !== 'running'}
+                    onClick={() => setShowExportModal(true)}
+                    disabled={!hasMessages}
                   >
-                    <MessageSquare className="h-4 w-4 mr-2" />
-                    Quick Interject
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-full justify-start"
-                    disabled
-                  >
-                    <Zap className="h-4 w-4 mr-2" />
+                    <Download className="h-4 w-4 mr-2" />
                     Export Analysis
                   </Button>
                 </div>
@@ -658,10 +661,15 @@ export function ChatInterface() {
         </div>
       )}
 
-      {/* Add Participant Modal */}
+      {/* Modals */}
       <AddParticipant 
         isOpen={showAddParticipant} 
         onClose={() => setShowAddParticipant(false)} 
+      />
+      
+      <ExportModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
       />
     </div>
   )
