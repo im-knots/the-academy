@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react'
 import { useChatStore } from '@/lib/stores/chatStore'
-import { ConversationAPI } from '@/lib/api/conversation'
+import { ClientConversationManager } from '@/lib/ai/client-conversation-manager'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -34,6 +34,9 @@ export function ChatInterface() {
     injectPrompt
   } = useChatStore()
 
+  // Get conversation manager instance
+  const conversationManager = ClientConversationManager.getInstance()
+
   const hasMessages = currentSession?.messages && currentSession.messages.length > 0
   const hasParticipants = currentSession?.participants && currentSession.participants.length > 0
   const hasAIParticipants = currentSession?.participants.filter(p => p.type !== 'human' && p.type !== 'moderator').length >= 2
@@ -61,8 +64,8 @@ export function ChatInterface() {
         participantType: 'moderator'
       })
       
-      // Start the AI-to-AI conversation
-      await ConversationAPI.startConversation(currentSession.id, moderatorInput.trim())
+      // Start the AI-to-AI conversation using client manager
+      await conversationManager.startConversation(currentSession.id, moderatorInput.trim())
       
       setModeratorInput('')
       setConversationState('running')
@@ -84,7 +87,7 @@ export function ChatInterface() {
       setConversationState('pausing')
       setError(null)
       
-      await ConversationAPI.pauseConversation(currentSession.id)
+      conversationManager.pauseConversation(currentSession.id)
       pauseSession()
       setConversationState('idle')
       
@@ -102,7 +105,7 @@ export function ChatInterface() {
       setConversationState('starting')
       setError(null)
       
-      await ConversationAPI.resumeConversation(currentSession.id)
+      conversationManager.resumeConversation(currentSession.id)
       resumeSession()
       setConversationState('running')
       
@@ -120,7 +123,7 @@ export function ChatInterface() {
       setConversationState('stopping')
       setError(null)
       
-      await ConversationAPI.stopConversation(currentSession.id)
+      conversationManager.stopConversation(currentSession.id)
       endSession()
       setConversationState('idle')
       
@@ -590,7 +593,7 @@ export function ChatInterface() {
         </div>
       </div>
 
-      {/* Moderator Panel - Keep existing implementation but add conversation stats */}
+      {/* Moderator Panel */}
       {showModeratorPanel && (
         <div className="w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex flex-col">
           <div className="p-6 border-b border-gray-200 dark:border-gray-700">

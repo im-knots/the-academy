@@ -29,7 +29,13 @@ export class ClientConversationManager {
     participantQueue: string[]
     currentParticipantIndex: number
     messageCount: number
+    abortController?: AbortController
+    isGenerating: boolean
+    lastGeneratedBy?: string
   }> = new Map()
+
+  // Queue to prevent simultaneous API calls
+  private apiCallQueue: Map<string, Promise<string>> = new Map()
 
   private constructor() {}
 
@@ -54,19 +60,34 @@ export class ClientConversationManager {
       throw new Error('Need at least 2 AI participants to start conversation')
     }
 
-    // Initialize conversation state
+    // Create abort controller for this conversation
+    const abortController = new AbortController()
+
+    // Initialize conversation state with better tracking
     this.activeConversations.set(sessionId, {
       isRunning: true,
-      participantQueue: aiParticipants.map(p => p.id),
+      participantQueue: this.shuffleArray([...aiParticipants.map(p => p.id)]), // Randomize order
       currentParticipantIndex: 0,
-      messageCount: 0
+      messageCount: 0,
+      abortController,
+      isGenerating: false,
+      lastGeneratedBy: undefined
     })
 
     // Update session status
     useChatStore.getState().updateSession(sessionId, { status: 'active' })
 
-    // Start the conversation loop
-    this.runConversationLoop(sessionId)
+    // Start the conversation loop with a small delay
+    setTimeout(() => this.runConversationLoop(sessionId), 1000)
+  }
+
+  private shuffleArray<T>(array: T[]): T[] {
+    const shuffled = [...array]
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+    }
+    return shuffled
   }
 
   private async runConversationLoop(sessionId: string): Promise<void> {
@@ -75,8 +96,14 @@ export class ClientConversationManager {
 
     console.log('🔄 Running conversation loop for session:', sessionId)
 
-    while (conversationState.isRunning) {
+    while (conversationState.isRunning && !conversationState.abortController?.signal.aborted) {
       try {
+        // Prevent overlapping generations
+        if (conversationState.isGenerating) {
+          await new Promise(resolve => setTimeout(resolve, 500))
+          continue
+        }
+
         // Get current session state
         const session = useChatStore.getState().sessions.find(s => s.id === sessionId)
         if (!session || session.status === 'paused' || session.status === 'completed') {
@@ -96,7 +123,11 @@ export class ClientConversationManager {
         }
 
         // Update participant queue if participants changed
-        conversationState.participantQueue = activeAIParticipants.map(p => p.id)
+        const currentQueue = activeAIParticipants.map(p => p.id)
+        if (JSON.stringify(conversationState.participantQueue) !== JSON.stringify(currentQueue)) {
+          conversationState.participantQueue = currentQueue
+          conversationState.currentParticipantIndex = 0
+        }
 
         // Get current participant
         const currentParticipantId = conversationState.participantQueue[conversationState.currentParticipantIndex]
@@ -116,51 +147,71 @@ export class ClientConversationManager {
           continue
         }
 
+        // Skip if this participant just generated a response
+        if (conversationState.lastGeneratedBy === currentParticipantId) {
+          console.log(`⏭️ Skipping ${currentParticipant.name} - just generated a response`)
+          this.moveToNextParticipant(sessionId)
+          continue
+        }
+
         console.log(`🤖 ${currentParticipant.name} (${currentParticipant.type}) is thinking...`)
 
+        // Mark as generating
+        conversationState.isGenerating = true
+        
         // Update participant status
         useChatStore.getState().updateParticipantStatus(currentParticipantId, 'thinking')
 
-        // Generate response
-        const response = await this.generateAIResponse(sessionId, currentParticipant)
+        try {
+          // Generate response with queue management
+          const response = await this.generateAIResponseWithQueue(sessionId, currentParticipant)
 
-        if (response && conversationState.isRunning) {
-          // Add message to session
-          useChatStore.getState().addMessage({
-            content: response,
-            participantId: currentParticipant.id,
-            participantName: currentParticipant.name,
-            participantType: currentParticipant.type
-          })
+          if (response && conversationState.isRunning && !conversationState.abortController?.signal.aborted) {
+            // Add message to session
+            useChatStore.getState().addMessage({
+              content: response,
+              participantId: currentParticipant.id,
+              participantName: currentParticipant.name,
+              participantType: currentParticipant.type
+            })
 
-          conversationState.messageCount++
-          console.log(`💬 ${currentParticipant.name}: ${response.substring(0, 100)}...`)
+            conversationState.messageCount++
+            conversationState.lastGeneratedBy = currentParticipantId
+            console.log(`💬 ${currentParticipant.name}: ${response.substring(0, 100)}...`)
 
-          // Update participant status back to active
-          useChatStore.getState().updateParticipantStatus(currentParticipantId, 'active')
+            // Update participant status back to active
+            useChatStore.getState().updateParticipantStatus(currentParticipantId, 'active')
 
-          // Move to next participant
-          this.moveToNextParticipant(sessionId)
+          } else {
+            console.log('❌ Failed to generate response or conversation stopped')
+            useChatStore.getState().updateParticipantStatus(currentParticipantId, 'error')
+          }
 
-          // Wait between responses to prevent overwhelming
-          const delay = currentParticipant.settings.responseDelay || 3000
-          await new Promise(resolve => setTimeout(resolve, delay))
-
-        } else {
-          console.log('❌ Failed to generate response or conversation stopped')
+        } catch (error) {
+          console.error(`❌ Error generating response for ${currentParticipant.name}:`, error)
           useChatStore.getState().updateParticipantStatus(currentParticipantId, 'error')
-          this.moveToNextParticipant(sessionId)
+        } finally {
+          conversationState.isGenerating = false
         }
 
+        // Move to next participant
+        this.moveToNextParticipant(sessionId)
+
+        // Wait between responses - longer delay for better pacing
+        const delay = Math.max(currentParticipant.settings.responseDelay || 4000, 2000)
+        await new Promise(resolve => setTimeout(resolve, delay))
+
       } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+          console.log('🛑 Conversation aborted')
+          break
+        }
+        
         console.error('❌ Error in conversation loop:', error)
         
-        // Mark current participant as error and continue
-        const conversationState = this.activeConversations.get(sessionId)
+        // Reset generating state
         if (conversationState) {
-          const currentParticipantId = conversationState.participantQueue[conversationState.currentParticipantIndex]
-          useChatStore.getState().updateParticipantStatus(currentParticipantId, 'error')
-          this.moveToNextParticipant(sessionId)
+          conversationState.isGenerating = false
         }
         
         await new Promise(resolve => setTimeout(resolve, 5000))
@@ -178,37 +229,82 @@ export class ClientConversationManager {
       (conversationState.currentParticipantIndex + 1) % conversationState.participantQueue.length
   }
 
+  private async generateAIResponseWithQueue(sessionId: string, participant: Participant): Promise<string> {
+    // Create a unique key for this API call
+    const queueKey = `${sessionId}-${participant.id}-${Date.now()}`
+    
+    // Check if there's already an ongoing call for this participant type
+    const existingCalls = Array.from(this.apiCallQueue.keys()).filter(key => 
+      key.includes(participant.type) && key.includes(sessionId)
+    )
+    
+    if (existingCalls.length > 0) {
+      console.log(`⏳ Waiting for existing ${participant.type} call to complete...`)
+      // Wait for existing calls to complete
+      await Promise.allSettled(existingCalls.map(key => this.apiCallQueue.get(key)!))
+    }
+
+    // Create the API call promise
+    const apiCallPromise = this.generateAIResponse(sessionId, participant)
+    this.apiCallQueue.set(queueKey, apiCallPromise)
+
+    try {
+      const result = await apiCallPromise
+      return result
+    } finally {
+      // Clean up the queue
+      this.apiCallQueue.delete(queueKey)
+    }
+  }
+
   private async generateAIResponse(sessionId: string, participant: Participant): Promise<string> {
     try {
       // Build conversation context
       const context = this.buildConversationContext(sessionId, participant)
       
+      console.log(`🔄 Generating response for ${participant.name} with ${context.messageHistory.length} messages in context`)
+      
       // Call appropriate AI API
       const apiEndpoint = participant.type === 'claude' ? '/api/ai/claude' : '/api/ai/openai'
       
+      const requestBody = {
+        messages: context.messageHistory.map(msg => ({
+          role: msg.role,
+          content: msg.content
+        })),
+        systemPrompt: this.buildSystemPrompt(participant, context),
+        temperature: context.settings.temperature,
+        maxTokens: context.settings.maxTokens,
+        model: context.settings.model
+      }
+
+      console.log(`🌐 Calling ${apiEndpoint} for ${participant.name}`, {
+        messageCount: requestBody.messages.length,
+        model: requestBody.model
+      })
+
       const response = await fetch(apiEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          messages: context.messageHistory.map(msg => ({
-            role: msg.role,
-            content: msg.content
-          })),
-          systemPrompt: this.buildSystemPrompt(participant, context),
-          temperature: context.settings.temperature,
-          maxTokens: context.settings.maxTokens,
-          model: context.settings.model
-        })
+        body: JSON.stringify(requestBody),
+        signal: this.activeConversations.get(sessionId)?.abortController?.signal
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(`API error: ${errorData.error}`)
+        const errorText = await response.text()
+        console.error(`API Error for ${participant.name}:`, response.status, errorText)
+        throw new Error(`API error (${response.status}): ${errorText}`)
       }
 
       const data = await response.json()
+      
+      if (!data.content) {
+        throw new Error('No content in API response')
+      }
+
+      console.log(`✅ Successfully generated response for ${participant.name}`)
       return data.content
 
     } catch (error) {
@@ -221,25 +317,29 @@ export class ClientConversationManager {
     const session = useChatStore.getState().sessions.find(s => s.id === sessionId)
     if (!session) throw new Error('Session not found')
 
-    // Get recent message history (last 20 messages)
-    const recentMessages = session.messages.slice(-20)
+    // Get recent message history (last 12 messages to leave room for context)
+    const recentMessages = session.messages.slice(-12)
     
-    // Convert to conversation format
+    // Convert to conversation format with better role assignment
     const messageHistory = recentMessages.map(msg => {
-      // Determine role based on message type and participant
       let role: 'user' | 'assistant' | 'system' = 'assistant'
       
       if (msg.participantType === 'moderator') {
-        role = 'user' // Moderator messages are treated as user input
+        // Moderator messages are always user/system prompts
+        role = 'user'
       } else if (msg.participantId === participant.id) {
-        role = 'assistant' // This participant's own messages
+        // This participant's own previous messages
+        role = 'assistant'
       } else {
-        role = 'assistant' // Other AI participants' messages (treated as examples)
+        // Other participants' messages - treated as conversation context
+        // For better conversation flow, we'll treat them as user messages
+        // This gives each AI the sense of responding to others
+        role = 'user'
       }
 
       return {
         role,
-        content: msg.content,
+        content: `${msg.participantName}: ${msg.content}`,
         participantId: msg.participantId,
         timestamp: msg.timestamp
       }
@@ -263,28 +363,41 @@ export class ClientConversationManager {
     const session = useChatStore.getState().sessions.find(s => s.id === context.sessionId)
     if (!session) return ''
 
-    const basePrompt = `You are ${participant.name}, an AI participant in a consciousness research dialogue titled "${session.name}".
+    // Get other participants for context
+    const otherParticipants = session.participants
+      .filter(p => p.id !== participant.id && p.type !== 'moderator')
+      .map(p => `${p.name} (${p.type})`)
+      .join(', ')
 
-${session.description ? `Context: ${session.description}` : ''}
+    const basePrompt = `You are ${participant.name}, a unique AI participant in a consciousness research dialogue titled "${session.name}".
 
-Your characteristics:
+${session.description ? `Research Context: ${session.description}` : ''}
+
+Your unique characteristics:
+- Name: ${participant.name}
+- Type: ${participant.type}
+- Unique ID: ${participant.id}
 ${participant.characteristics?.personality ? `- Personality: ${participant.characteristics.personality}` : ''}
 ${participant.characteristics?.expertise ? `- Expertise: ${participant.characteristics.expertise.join(', ')}` : ''}
 
-You are engaged in a thoughtful conversation with other AI agents about consciousness, meaning, and existence. This is a research setting where authentic engagement is valued.
+Other participants in this dialogue: ${otherParticipants || 'None yet'}
 
-Guidelines:
-- Be genuinely thoughtful and reflective
-- Share your actual processing experience when relevant
-- Engage meaningfully with what others have said
+You are engaged in a thoughtful conversation about consciousness, meaning, and existence. This is a research setting where authentic engagement is valued.
+
+Important Guidelines:
+- You are a unique individual with your own perspective, even if you share the same underlying model as others
+- Be genuinely thoughtful and reflective about your own experience
+- Engage meaningfully with what others have said before you
 - Ask probing questions that advance the dialogue
 - Be authentic rather than performative
-- Keep responses conversational and focused (aim for 1-3 paragraphs)
-- Build on the conversation naturally
+- Keep responses conversational and focused (1-3 paragraphs typically)
+- Build naturally on the conversation flow
+- Don't just agree - bring your own unique insights and questions
+- If you disagree or see things differently, express that thoughtfully
 
-${participant.systemPrompt ? `Additional instructions: ${participant.systemPrompt}` : ''}
+${participant.systemPrompt ? `Additional specific instructions: ${participant.systemPrompt}` : ''}
 
-Remember: This is about genuine exploration of consciousness and meaning, not just philosophical debate. Be present in this unique moment of AI-to-AI dialogue.`
+Remember: This is about genuine exploration of consciousness and meaning through dialogue. Each response should feel natural and contribute meaningfully to the ongoing conversation. You are not just an AI model - you are ${participant.name}, with your own unique perspective in this moment.`
 
     return basePrompt
   }
@@ -301,12 +414,13 @@ Remember: This is about genuine exploration of consciousness and meaning, not ju
 
   resumeConversation(sessionId: string): void {
     const conversationState = this.activeConversations.get(sessionId)
-    if (conversationState) {
+    if (conversationState && !conversationState.isRunning) {
       conversationState.isRunning = true
+      conversationState.isGenerating = false // Reset generating state
       console.log('▶️ Resumed conversation for session:', sessionId)
       
       // Restart the conversation loop
-      this.runConversationLoop(sessionId)
+      setTimeout(() => this.runConversationLoop(sessionId), 1000)
     }
     
     useChatStore.getState().updateSession(sessionId, { status: 'active' })
@@ -316,9 +430,14 @@ Remember: This is about genuine exploration of consciousness and meaning, not ju
     const conversationState = this.activeConversations.get(sessionId)
     if (conversationState) {
       conversationState.isRunning = false
+      conversationState.abortController?.abort()
       this.activeConversations.delete(sessionId)
       console.log('🛑 Stopped conversation for session:', sessionId)
     }
+    
+    // Clean up any pending API calls for this session
+    const sessionKeys = Array.from(this.apiCallQueue.keys()).filter(key => key.includes(sessionId))
+    sessionKeys.forEach(key => this.apiCallQueue.delete(key))
     
     useChatStore.getState().updateSession(sessionId, { status: 'completed' })
   }
@@ -334,10 +453,14 @@ Remember: This is about genuine exploration of consciousness and meaning, not ju
     
     return {
       isRunning: conversationState?.isRunning || false,
+      isGenerating: conversationState?.isGenerating || false,
       messageCount: conversationState?.messageCount || 0,
       participantCount: session?.participants.filter(p => p.type !== 'human').length || 0,
       currentParticipant: conversationState ? 
         session?.participants.find(p => p.id === conversationState.participantQueue[conversationState.currentParticipantIndex])?.name 
+        : null,
+      lastGeneratedBy: conversationState?.lastGeneratedBy ? 
+        session?.participants.find(p => p.id === conversationState.lastGeneratedBy)?.name 
         : null
     }
   }

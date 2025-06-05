@@ -1,9 +1,10 @@
-// src/app/api/conversation/pause/route.ts
+// src/app/api/conversation/start/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
   try {
-    const { sessionId } = await request.json()
+    const body = await request.json()
+    const { sessionId, initialPrompt } = body
 
     if (!sessionId) {
       return NextResponse.json(
@@ -12,20 +13,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { ConversationManager } = await import('@/lib/ai/conversation-manager')
-    const conversationManager = ConversationManager.getInstance()
-    
-    conversationManager.pauseConversation(sessionId)
+    console.log('Conversation start requested for session:', sessionId)
 
+    // Simple acknowledgment - the actual conversation will run client-side
     return NextResponse.json({ 
       success: true, 
-      message: 'Conversation paused' 
+      message: 'Conversation start acknowledged',
+      sessionId 
     })
 
   } catch (error) {
-    console.error('Error pausing conversation:', error)
+    console.error('Error in conversation start route:', error)
     return NextResponse.json(
-      { error: 'Failed to pause conversation' },
+      { error: 'Failed to start conversation' },
       { status: 500 }
     )
   }
