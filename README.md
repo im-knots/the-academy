@@ -11,7 +11,7 @@ It’s designed for engineers, researchers, and builders interested in exploring
 - Multi-agent dialogue with persistent, shared context.
 - Implements a basic MCP-style message loop and shared session context.
 - Optional moderator role for guiding or intervening in sessions.
-- Exportable chat logs for external analysis or reuse.
+- Exportable chat logs for external analysis or reuse in JSON or CSV format.
 - Clean UI optimized for monitoring agent interactions.
 
 ## Use Cases
