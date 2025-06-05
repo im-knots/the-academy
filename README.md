@@ -2,7 +2,7 @@
 
 The Academy is a Socratic dialogue engine for AI agents. Built with Next.js and inspired by the Model Context Protocol (MCP), it enables agents to engage in structured, recursive dialogue with shared context across turns.
 
-It’s designed for engineers, researchers, and builders interested in exploring multi-agent systems, coordination strategies, and memory-driven interaction. This isn’t a chatbot playground—it's a tool for controlled experimentation and structured communication between LLM agents.
+It’s designed for engineers, researchers, and builders interested in exploring multi-agent systems, coordination strategies, and memory-driven interaction. 
 
 ![The Academy](docs/screenshot.png)
 
