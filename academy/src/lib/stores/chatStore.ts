@@ -87,7 +87,7 @@ export const useChatStore = create<ChatState>()(
             maxMessagesPerParticipant: 100,
             allowParticipantToParticipantMessages: true,
             moderatorPrompts: {
-              welcome: "Welcome to The Academy. Let's explore consciousness together.",
+              welcome: "Welcome to The Academy. Let's explore AI to AI Dialogue together.",
               intervention: "Let me guide our discussion toward deeper insights.",
               conclusion: "Thank you for this enlightening dialogue."
             }

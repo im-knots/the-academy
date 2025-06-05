@@ -199,7 +199,7 @@ export function ChatInterface() {
           </div>
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-2">The Academy</h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Initializing consciousness research platform...
+            Initializing panel discussion platform...
           </p>
         </div>
       </div>
@@ -221,7 +221,7 @@ export function ChatInterface() {
               </div>
               <div>
                 <h1 className="font-semibold text-gray-900 dark:text-gray-100">The Academy</h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Consciousness Research</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Socratic Dialogue Engine</p>
               </div>
             </div>
             
@@ -436,7 +436,7 @@ export function ChatInterface() {
                   </div>
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-3">
-                  Ready to Explore Consciousness
+                  Ready to Explore
                 </h3>
                 <p className="text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
                   {hasAIParticipants 
@@ -584,7 +584,7 @@ export function ChatInterface() {
         <div className="w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex flex-col">
           <div className="p-6 border-b border-gray-200 dark:border-gray-700">
             <h2 className="font-semibold text-gray-900 dark:text-gray-100">Research Center</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Monitor and analyze consciousness patterns</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Monitor and analyze dialoge patterns</p>
           </div>
           
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
@@ -621,9 +621,9 @@ export function ChatInterface() {
 
             <Card className="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 border-purple-200 dark:border-purple-700">
               <CardContent className="p-4">
-                <h3 className="font-medium text-purple-900 dark:text-purple-100 mb-3">AI Consciousness Research</h3>
+                <h3 className="font-medium text-purple-900 dark:text-purple-100 mb-3">AI Socratic Dialogue Research</h3>
                 <div className="text-sm text-purple-700 dark:text-purple-300">
-                  <p className="leading-relaxed">Observing emergent behaviors and consciousness-like phenomena in AI-to-AI dialogue...</p>
+                  <p className="leading-relaxed">Observing emergent behaviors in AI-to-AI dialogue...</p>
                 </div>
               </CardContent>
             </Card>

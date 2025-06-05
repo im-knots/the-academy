@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
       model: model,
       max_tokens: Math.min(maxTokens, 4000), // Claude has limits
       temperature: Math.max(0, Math.min(1, temperature)), // Ensure valid range
-      system: systemPrompt || 'You are a thoughtful AI participating in a consciousness research dialogue.',
+      system: systemPrompt || 'You are a thoughtful AI participating in a Socratic dialogue.',
       messages: alternatingMessages
     }
 

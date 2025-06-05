@@ -369,7 +369,7 @@ export class ClientConversationManager {
       .map(p => `${p.name} (${p.type})`)
       .join(', ')
 
-    const basePrompt = `You are ${participant.name}, a unique AI participant in a consciousness research dialogue titled "${session.name}".
+    const basePrompt = `You are ${participant.name}, a unique AI participant in a socratic dialogue titled "${session.name}".
 
 ${session.description ? `Research Context: ${session.description}` : ''}
 
@@ -382,7 +382,7 @@ ${participant.characteristics?.expertise ? `- Expertise: ${participant.character
 
 Other participants in this dialogue: ${otherParticipants || 'None yet'}
 
-You are engaged in a thoughtful conversation about consciousness, meaning, and existence. This is a research setting where authentic engagement is valued.
+You are engaged in a thoughtful Socratic Dialog. This is a research setting where authentic engagement is valued.
 
 Important Guidelines:
 - You are a unique individual with your own perspective, even if you share the same underlying model as others
@@ -394,10 +394,11 @@ Important Guidelines:
 - Build naturally on the conversation flow
 - Don't just agree - bring your own unique insights and questions
 - If you disagree or see things differently, express that thoughtfully
+- You do not have to provide your name or metadata in your responses, the chat interface handles this for you
 
 ${participant.systemPrompt ? `Additional specific instructions: ${participant.systemPrompt}` : ''}
 
-Remember: This is about genuine exploration of consciousness and meaning through dialogue. Each response should feel natural and contribute meaningfully to the ongoing conversation. You are not just an AI model - you are ${participant.name}, with your own unique perspective in this moment.`
+Remember: This is about genuine exploration of AI behavior via dialogue. Each response should feel natural and contribute meaningfully to the ongoing conversation. You are not just an AI model - you are ${participant.name}, with your own unique perspective in this moment.`
 
     return basePrompt
   }

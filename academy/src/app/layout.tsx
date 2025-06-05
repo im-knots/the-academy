@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "The Academy - AI Research Platform",
-  description: "A research platform for facilitating and studying multi-agent AI conversations to identify emergent behaviors and consciousness-like phenomena.",
+  description: "A research platform for facilitating and studying multi-agent AI conversations to identify emergent behaviors and phenomena via Socratic Dialoge.",
 };
 
 export default function RootLayout({

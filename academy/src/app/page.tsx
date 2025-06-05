@@ -12,7 +12,7 @@ export default function Home() {
     // Create a default session if none exists
     if (!currentSession) {
       createSession(
-        "Consciousness Exploration", 
+        "Socratic Dialogue Exploration", 
         "An open dialogue between AI agents about consciousness, meaning, and existence."
       )
     }
