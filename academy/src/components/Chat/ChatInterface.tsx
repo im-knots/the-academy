@@ -1,4 +1,4 @@
-// src/components/Chat/ChatInterface.tsx
+// src/components/Chat/ChatInterface.tsx - Updated with LiveSummary
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -14,6 +14,7 @@ import { ParticipantAvatar } from '@/components/ui/ParticipantAvatar'
 import { AddParticipant } from '@/components/Participants/AddParticipant'
 import { ExportModal } from '@/components/Export/ExportModal'
 import { MCPModal } from '@/components/MCP/MCPModal'
+import { LiveSummary } from '@/components/Research/LiveSummary'
 import { SessionsSection } from '@/components/Sessions/SessionsSection'
 import { 
   Brain, Users, Settings, Play, Pause, Plus, Sparkles, MessageSquare, 
@@ -699,7 +700,7 @@ export function ChatInterface() {
         </div>
       </div>
 
-      {/* Moderator Panel */}
+      {/* Moderator Panel with Live Summary */}
       {showModeratorPanel && (
         <div className="w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex flex-col">
           <div className="p-6 border-b border-gray-200 dark:border-gray-700">
@@ -738,6 +739,7 @@ export function ChatInterface() {
                 </div>
               </CardContent>
             </Card>
+            
             {/* MCP Status Card */}
             {mcp.isInitialized && (
               <Card className="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 border-purple-200 dark:border-purple-700">
@@ -765,6 +767,7 @@ export function ChatInterface() {
                 </CardContent>
               </Card>
             )}
+            
             <Card>
               <CardContent className="p-4">
                 <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-3">Quick Actions</h3>
@@ -793,7 +796,8 @@ export function ChatInterface() {
               </CardContent>
             </Card>
 
-
+            {/* Live AI Analysis */}
+            <LiveSummary />
           </div>
         </div>
       )}
