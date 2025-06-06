@@ -192,6 +192,11 @@ export function ChatInterface() {
   }
 
   const getConversationStatus = () => {
+    // If we're interjecting, show that status
+    if (isInterjecting) {
+      return { text: 'Interjecting', icon: Hand, variant: 'moderator' as const, animate: false }
+    }
+    
     switch (conversationState) {
       case 'starting':
         return { text: 'Starting...', icon: Loader2, variant: 'thinking' as const, animate: true }

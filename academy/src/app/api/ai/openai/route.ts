@@ -15,52 +15,119 @@ export async function POST(request: NextRequest) {
     }
 
     if (!messages || !Array.isArray(messages)) {
+      console.error('Invalid messages format:', messages)
       return NextResponse.json(
         { error: 'Messages array is required' },
         { status: 400 }
       )
     }
 
-    // Filter out any empty messages and ensure proper format
-    const validMessages = messages.filter(msg => 
-      msg && msg.content && typeof msg.content === 'string' && msg.content.trim()
-    )
+    // Filter and validate messages more thoroughly
+    const validMessages = messages.filter(msg => {
+      if (!msg || typeof msg !== 'object') {
+        console.warn('Skipping non-object message:', msg)
+        return false
+      }
+      if (!msg.content || typeof msg.content !== 'string' || !msg.content.trim()) {
+        console.warn('Skipping message with invalid content:', msg)
+        return false
+      }
+      if (!msg.role || !['user', 'assistant', 'system'].includes(msg.role)) {
+        console.warn('Skipping message with invalid role:', msg)
+        return false
+      }
+      return true
+    })
 
     if (validMessages.length === 0) {
+      console.error('No valid messages after filtering')
       return NextResponse.json(
         { error: 'No valid messages provided' },
         { status: 400 }
       )
     }
 
-    // Transform messages to proper OpenAI format
-    const openaiMessages = validMessages.map((msg: any) => ({
-      role: msg.role,
-      content: msg.content.trim()
-    }))
+    // Build messages array with proper formatting for OpenAI
+    const openaiMessages = []
+    
+    // Add system prompt as a system message if provided
+    if (systemPrompt && typeof systemPrompt === 'string' && systemPrompt.trim()) {
+      openaiMessages.push({
+        role: 'system',
+        content: systemPrompt.trim()
+      })
+    }
 
-    // Add system prompt as first message if provided
-    const finalMessages = [
-      ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
-      ...openaiMessages
-    ]
+    // Process and clean up messages
+    for (const msg of validMessages) {
+      let role = msg.role
+      let content = msg.content.trim()
 
-    // Validate message sequence for OpenAI
-    const validatedMessages = validateMessageSequence(finalMessages)
+      // Skip empty content after trimming
+      if (!content) continue
+
+      // Ensure valid roles for OpenAI
+      if (role === 'system' && systemPrompt) {
+        // If we already have a system prompt, convert system messages to user messages
+        role = 'user'
+        content = `[Context] ${content}`
+      }
+
+      // Ensure role is valid
+      if (!['user', 'assistant', 'system'].includes(role)) {
+        role = 'user' // Default to user for safety
+      }
+
+      openaiMessages.push({
+        role: role,
+        content: content
+      })
+    }
+
+    // Ensure we have at least one message
+    if (openaiMessages.length === 0) {
+      console.error('No messages to send after processing')
+      return NextResponse.json(
+        { error: 'No valid messages to send' },
+        { status: 400 }
+      )
+    }
+
+    // Ensure conversation starts with a non-assistant message for OpenAI
+    if (openaiMessages[0].role === 'assistant') {
+      openaiMessages.unshift({
+        role: 'user',
+        content: 'Please continue the conversation.'
+      })
+    }
+
+    // Validate final message array
+    for (let i = 0; i < openaiMessages.length; i++) {
+      const msg = openaiMessages[i]
+      if (!msg.content || typeof msg.content !== 'string' || msg.content.trim() === '') {
+        console.error(`Invalid message at index ${i}:`, msg)
+        return NextResponse.json(
+          { error: `Invalid message format at index ${i}` },
+          { status: 400 }
+        )
+      }
+    }
 
     const requestBody = {
       model: model,
-      messages: validatedMessages,
+      messages: openaiMessages,
       max_tokens: Math.min(maxTokens, 4000), // OpenAI has limits
-      temperature: Math.max(0, Math.min(1, temperature)), // Ensure valid range
+      temperature: Math.max(0, Math.min(2, temperature)), // OpenAI allows 0-2
+      stream: false
     }
 
     console.log('Sending to OpenAI:', { 
       model, 
-      messageCount: validatedMessages.length,
-      temperature,
+      messageCount: openaiMessages.length,
+      temperature: requestBody.temperature,
       maxTokens: requestBody.max_tokens,
-      hasSystemPrompt: !!systemPrompt
+      firstMessage: openaiMessages[0]?.role,
+      lastMessage: openaiMessages[openaiMessages.length - 1]?.role
     })
 
     const startTime = Date.now()
@@ -82,37 +149,24 @@ export async function POST(request: NextRequest) {
       try {
         errorData = JSON.parse(errorText)
       } catch {
-        errorData = { error: { message: errorText } }
+        errorData = { message: errorText }
       }
 
       console.error('OpenAI API error:', {
         status: response.status,
         statusText: response.statusText,
         error: errorData,
-        requestPreview: {
-          model: requestBody.model,
-          messageCount: requestBody.messages.length,
-          temperature: requestBody.temperature
-        }
+        requestBody: JSON.stringify(requestBody, null, 2)
       })
       
-      // Provide more specific error messages based on OpenAI error types
-      let userFriendlyError = `OpenAI API error: ${response.status}`
-      
-      if (errorData.error?.code === 'rate_limit_exceeded') {
-        userFriendlyError = 'Rate limit exceeded. Please wait a moment and try again.'
-      } else if (errorData.error?.code === 'insufficient_quota') {
-        userFriendlyError = 'OpenAI quota exceeded. Please check your API usage.'
-      } else if (errorData.error?.code === 'invalid_request_error') {
-        userFriendlyError = `Invalid request: ${errorData.error.message}`
-      } else if (response.status === 401) {
-        userFriendlyError = 'Invalid OpenAI API key'
-      } else if (response.status >= 500) {
-        userFriendlyError = 'OpenAI service temporarily unavailable'
+      // Provide more specific error messages
+      let errorMessage = `OpenAI API error: ${response.status}`
+      if (errorData?.error?.message) {
+        errorMessage += ` - ${errorData.error.message}`
       }
       
       return NextResponse.json(
-        { error: userFriendlyError },
+        { error: errorMessage },
         { status: response.status }
       )
     }
@@ -127,11 +181,20 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const content = data.choices[0]?.message?.content
-    if (!content) {
-      console.error('No content in OpenAI response:', data)
+    const choice = data.choices[0]
+    if (!choice?.message?.content) {
+      console.error('No message content in OpenAI response:', data)
       return NextResponse.json(
         { error: 'No content in OpenAI response' },
+        { status: 500 }
+      )
+    }
+
+    const content = choice.message.content
+    if (typeof content !== 'string' || content.trim() === '') {
+      console.error('Invalid content type in OpenAI response:', typeof content, content)
+      return NextResponse.json(
+        { error: 'Invalid content in OpenAI response' },
         { status: 500 }
       )
     }
@@ -141,15 +204,15 @@ export async function POST(request: NextRequest) {
       responseTime: `${responseTime}ms`,
       contentLength: content.length,
       usage: data.usage,
-      finishReason: data.choices[0]?.finish_reason
+      finishReason: choice.finish_reason
     })
     
     return NextResponse.json({ 
-      content: content,
+      content: content.trim(),
       usage: data.usage,
       model: data.model,
       responseTime,
-      finishReason: data.choices[0]?.finish_reason
+      finishReason: choice.finish_reason
     })
 
   } catch (error) {
@@ -169,10 +232,10 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         )
       }
-      if (error.message.includes('timeout')) {
+      if (error.message.includes('abort')) {
         return NextResponse.json(
-          { error: 'OpenAI API request timed out' },
-          { status: 504 }
+          { error: 'Request was cancelled' },
+          { status: 499 }
         )
       }
     }
@@ -182,40 +245,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-}
-
-// Helper function to validate and clean up message sequence
-function validateMessageSequence(messages: any[]) {
-  const validatedMessages = []
-  let lastRole = null
-
-  for (const msg of messages) {
-    // Skip duplicate consecutive messages from same role (except system)
-    if (msg.role === lastRole && msg.role !== 'system') {
-      // Merge with previous message instead of skipping
-      if (validatedMessages.length > 0) {
-        const lastMessage = validatedMessages[validatedMessages.length - 1]
-        lastMessage.content += '\n\n' + msg.content
-      }
-      continue
-    }
-
-    // Ensure we don't have system messages in the middle
-    if (msg.role === 'system' && validatedMessages.length > 0) {
-      // Convert to user message if system message appears after other messages
-      validatedMessages.push({
-        role: 'user',
-        content: `[System Context] ${msg.content}`
-      })
-    } else {
-      validatedMessages.push({
-        role: msg.role,
-        content: msg.content
-      })
-    }
-
-    lastRole = msg.role
-  }
-
-  return validatedMessages
 }

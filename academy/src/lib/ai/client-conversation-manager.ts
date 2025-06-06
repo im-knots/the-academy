@@ -32,14 +32,16 @@ export class ClientConversationManager {
     abortController?: AbortController
     isGenerating: boolean
     lastGeneratedBy?: string
-    pausedState?: {
-      wasRunning: boolean
-      currentIndex: number
-    }
+    generationLock: Set<string> // Track which participants are currently generating
   }> = new Map()
 
-  // Queue to prevent simultaneous API calls
-  private apiCallQueue: Map<string, Promise<string>> = new Map()
+  // Enhanced queue to prevent API call conflicts
+  private apiCallQueue: Map<string, {
+    promise: Promise<string>
+    abortController: AbortController
+    startTime: number
+    participantType: string
+  }> = new Map()
 
   private constructor() {}
 
@@ -52,6 +54,9 @@ export class ClientConversationManager {
 
   async startConversation(sessionId: string, initialPrompt?: string): Promise<void> {
     console.log('🚀 Starting AI-to-AI conversation for session:', sessionId)
+
+    // Cancel any existing conversation for this session
+    await this.stopConversation(sessionId)
 
     // Get session data from store
     const session = useChatStore.getState().sessions.find(s => s.id === sessionId)
@@ -67,23 +72,23 @@ export class ClientConversationManager {
     // Create abort controller for this conversation
     const abortController = new AbortController()
 
-    // Initialize conversation state with better tracking
+    // Initialize conversation state with enhanced tracking
     this.activeConversations.set(sessionId, {
       isRunning: true,
-      participantQueue: this.shuffleArray([...aiParticipants.map(p => p.id)]), // Randomize order
+      participantQueue: this.shuffleArray([...aiParticipants.map(p => p.id)]),
       currentParticipantIndex: 0,
       messageCount: 0,
       abortController,
       isGenerating: false,
       lastGeneratedBy: undefined,
-      pausedState: undefined
+      generationLock: new Set()
     })
 
     // Update session status
     useChatStore.getState().updateSession(sessionId, { status: 'active' })
 
-    // Start the conversation loop with a small delay
-    setTimeout(() => this.runConversationLoop(sessionId), 1000)
+    // Start the conversation loop with a delay to ensure state is properly set
+    setTimeout(() => this.runConversationLoop(sessionId), 2000)
   }
 
   private shuffleArray<T>(array: T[]): T[] {
@@ -103,17 +108,22 @@ export class ClientConversationManager {
 
     while (conversationState.isRunning && !conversationState.abortController?.signal.aborted) {
       try {
-        // Prevent overlapping generations
-        if (conversationState.isGenerating) {
-          await new Promise(resolve => setTimeout(resolve, 500))
+        // Prevent overlapping generations with enhanced checking
+        if (conversationState.isGenerating || conversationState.generationLock.size > 0) {
+          await new Promise(resolve => setTimeout(resolve, 1000))
           continue
         }
 
         // Get current session state
         const session = useChatStore.getState().sessions.find(s => s.id === sessionId)
-        if (!session || session.status === 'paused' || session.status === 'completed') {
+        if (!session) {
+          console.log('❌ Session not found, stopping conversation')
+          break
+        }
+
+        if (session.status === 'paused' || session.status === 'completed') {
           console.log('⏸️ Session paused or completed, waiting...')
-          await new Promise(resolve => setTimeout(resolve, 1000))
+          await new Promise(resolve => setTimeout(resolve, 2000))
           continue
         }
 
@@ -144,31 +154,43 @@ export class ClientConversationManager {
           continue
         }
 
-        // Skip if participant is in error state
+        // Skip if participant is in error state or already generating
         if (currentParticipant.status === 'error') {
           console.log(`⚠️ Skipping participant ${currentParticipant.name} due to error state`)
           this.moveToNextParticipant(sessionId)
-          await new Promise(resolve => setTimeout(resolve, 2000))
+          await new Promise(resolve => setTimeout(resolve, 3000))
           continue
         }
 
-        // Skip if this participant just generated a response
-        if (conversationState.lastGeneratedBy === currentParticipantId) {
-          console.log(`⏭️ Skipping ${currentParticipant.name} - just generated a response`)
+        // Skip if this participant is in the generation lock
+        if (conversationState.generationLock.has(currentParticipantId)) {
+          console.log(`⏭️ Skipping ${currentParticipant.name} - currently generating`)
           this.moveToNextParticipant(sessionId)
           continue
+        }
+
+        // Skip if this participant just generated a response (prevent back-to-back)
+        if (conversationState.lastGeneratedBy === currentParticipantId && session.messages.length > 0) {
+          const lastMessage = session.messages[session.messages.length - 1]
+          const timeSinceLastMessage = Date.now() - lastMessage.timestamp.getTime()
+          if (timeSinceLastMessage < 5000) { // Wait at least 5 seconds
+            console.log(`⏭️ Skipping ${currentParticipant.name} - just generated a response`)
+            this.moveToNextParticipant(sessionId)
+            continue
+          }
         }
 
         console.log(`🤖 ${currentParticipant.name} (${currentParticipant.type}) is thinking...`)
 
-        // Mark as generating
+        // Mark as generating and add to lock
         conversationState.isGenerating = true
+        conversationState.generationLock.add(currentParticipantId)
         
         // Update participant status
         useChatStore.getState().updateParticipantStatus(currentParticipantId, 'thinking')
 
         try {
-          // Generate response with queue management
+          // Generate response with enhanced queue management
           const response = await this.generateAIResponseWithQueue(sessionId, currentParticipant)
 
           if (response && conversationState.isRunning && !conversationState.abortController?.signal.aborted) {
@@ -190,25 +212,39 @@ export class ClientConversationManager {
           } else {
             console.log('❌ Failed to generate response or conversation stopped')
             useChatStore.getState().updateParticipantStatus(currentParticipantId, 'error')
+            
+            // Wait longer before retrying after an error
+            await new Promise(resolve => setTimeout(resolve, 5000))
           }
 
         } catch (error) {
           console.error(`❌ Error generating response for ${currentParticipant.name}:`, error)
+          
+          // Handle specific error types
+          if (error instanceof Error) {
+            if (error.message.includes('abort') || error.message.includes('cancelled')) {
+              console.log('🛑 Request was cancelled, stopping conversation')
+              break
+            }
+          }
+          
           useChatStore.getState().updateParticipantStatus(currentParticipantId, 'error')
           
-          // Add error message to help with debugging
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-          console.log(`Error details for ${currentParticipant.name}: ${errorMessage}`)
+          // Wait before continuing after error
+          await new Promise(resolve => setTimeout(resolve, 5000))
         } finally {
+          // Always clean up generation state
           conversationState.isGenerating = false
+          conversationState.generationLock.delete(currentParticipantId)
         }
 
         // Move to next participant
         this.moveToNextParticipant(sessionId)
 
-        // Wait between responses - longer delay for better pacing
-        const delay = Math.max(currentParticipant.settings.responseDelay || 4000, 2000)
-        await new Promise(resolve => setTimeout(resolve, delay))
+        // Wait between responses - adaptive delay based on participant type
+        const baseDelay = currentParticipant.settings.responseDelay || 4000
+        const adaptiveDelay = currentParticipant.type === 'gpt' ? baseDelay * 1.2 : baseDelay // GPT gets slightly longer delay
+        await new Promise(resolve => setTimeout(resolve, Math.max(adaptiveDelay, 3000)))
 
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') {
@@ -221,13 +257,19 @@ export class ClientConversationManager {
         // Reset generating state
         if (conversationState) {
           conversationState.isGenerating = false
+          conversationState.generationLock.clear()
         }
         
-        await new Promise(resolve => setTimeout(resolve, 5000))
+        await new Promise(resolve => setTimeout(resolve, 8000))
       }
     }
 
     console.log('🛑 Conversation loop ended for session:', sessionId)
+    
+    // Clean up generation locks
+    if (conversationState) {
+      conversationState.generationLock.clear()
+    }
   }
 
   private moveToNextParticipant(sessionId: string): void {
@@ -242,31 +284,62 @@ export class ClientConversationManager {
     // Create a unique key for this API call
     const queueKey = `${sessionId}-${participant.id}-${Date.now()}`
     
-    // Check if there's already an ongoing call for this participant type
-    const existingCalls = Array.from(this.apiCallQueue.keys()).filter(key => 
-      key.includes(participant.type) && key.includes(sessionId)
+    // Check for existing calls from this participant and cancel them
+    const existingKeys = Array.from(this.apiCallQueue.keys()).filter(key => 
+      key.includes(participant.id) && key.includes(sessionId)
     )
     
-    if (existingCalls.length > 0) {
-      console.log(`⏳ Waiting for existing ${participant.type} call to complete...`)
-      // Wait for existing calls to complete
-      await Promise.allSettled(existingCalls.map(key => this.apiCallQueue.get(key)!))
+    // Cancel existing calls for this participant
+    for (const key of existingKeys) {
+      const existingCall = this.apiCallQueue.get(key)
+      if (existingCall) {
+        console.log(`🚫 Cancelling existing API call for ${participant.name}`)
+        existingCall.abortController.abort()
+        this.apiCallQueue.delete(key)
+      }
     }
 
+    // Wait for any remaining calls of the same type to complete
+    const sameTypeKeys = Array.from(this.apiCallQueue.keys()).filter(key => {
+      const call = this.apiCallQueue.get(key)
+      return call && call.participantType === participant.type && key.includes(sessionId)
+    })
+    
+    if (sameTypeKeys.length > 0) {
+      console.log(`⏳ Waiting for existing ${participant.type} calls to complete...`)
+      await Promise.allSettled(sameTypeKeys.map(key => {
+        const call = this.apiCallQueue.get(key)
+        return call ? call.promise.catch(() => {}) : Promise.resolve()
+      }))
+    }
+
+    // Create new abort controller for this call
+    const abortController = new AbortController()
+    
     // Create the API call promise
-    const apiCallPromise = this.generateAIResponse(sessionId, participant)
-    this.apiCallQueue.set(queueKey, apiCallPromise)
+    const apiCallPromise = this.generateAIResponse(sessionId, participant, abortController.signal)
+    
+    // Add to queue with metadata
+    this.apiCallQueue.set(queueKey, {
+      promise: apiCallPromise,
+      abortController,
+      startTime: Date.now(),
+      participantType: participant.type
+    })
 
     try {
       const result = await apiCallPromise
       return result
+    } catch (error) {
+      // Re-throw the error to be handled by the caller
+      throw error
     } finally {
       // Clean up the queue
       this.apiCallQueue.delete(queueKey)
     }
   }
 
-  private async generateAIResponse(sessionId: string, participant: Participant): Promise<string> {
+  private async generateAIResponse(sessionId: string, participant: Participant, signal: AbortSignal): Promise<string> {
     try {
       // Build conversation context
       const context = this.buildConversationContext(sessionId, participant)
@@ -289,7 +362,8 @@ export class ClientConversationManager {
 
       console.log(`🌐 Calling ${apiEndpoint} for ${participant.name}`, {
         messageCount: requestBody.messages.length,
-        model: requestBody.model
+        model: requestBody.model,
+        systemPromptLength: requestBody.systemPrompt?.length || 0
       })
 
       const response = await fetch(apiEndpoint, {
@@ -298,7 +372,7 @@ export class ClientConversationManager {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(requestBody),
-        signal: this.activeConversations.get(sessionId)?.abortController?.signal
+        signal // Pass the abort signal
       })
 
       if (!response.ok) {
@@ -313,10 +387,14 @@ export class ClientConversationManager {
         throw new Error('No content in API response')
       }
 
-      console.log(`✅ Successfully generated response for ${participant.name}`)
+      console.log(`✅ Successfully generated response for ${participant.name} (${data.content.length} chars)`)
       return data.content
 
     } catch (error) {
+      if (signal.aborted) {
+        throw new Error('Request was cancelled')
+      }
+      
       console.error(`Error generating response for ${participant.name}:`, error)
       throw error
     }
@@ -329,29 +407,29 @@ export class ClientConversationManager {
     // Get recent message history (last 10 messages to leave room for context)
     const recentMessages = session.messages.slice(-10)
     
-    // Convert to conversation format with improved role assignment and content formatting
+    // Convert to conversation format with improved role assignment for GPT
     const messageHistory = recentMessages.map(msg => {
       let role: 'user' | 'assistant' | 'system' = 'assistant'
       let content = msg.content
 
       if (msg.participantType === 'moderator') {
-        // Moderator messages are user inputs
+        // Moderator messages are always user/system prompts
         role = 'user'
-        content = msg.content // Keep moderator content as-is
       } else if (msg.participantId === participant.id) {
         // This participant's own previous messages
         role = 'assistant'
-        content = msg.content // Keep own content as-is
       } else {
-        // Other participants' messages - treat as conversation context from "user"
-        // This helps each AI understand they're responding to another participant
+        // Other participants' messages
         role = 'user'
-        content = `[${msg.participantName}]: ${msg.content}`
+        // For GPT, prefix with participant name for better context
+        if (participant.type === 'gpt') {
+          content = `${msg.participantName}: ${msg.content}`
+        }
       }
 
       return {
         role,
-        content,
+        content: content,
         participantId: msg.participantId,
         timestamp: msg.timestamp
       }
@@ -385,31 +463,26 @@ export class ClientConversationManager {
 
 ${session.description ? `Research Context: ${session.description}` : ''}
 
-Your unique characteristics:
+Your characteristics:
 - Name: ${participant.name}
 - Type: ${participant.type}
 ${participant.characteristics?.personality ? `- Personality: ${participant.characteristics.personality}` : ''}
 ${participant.characteristics?.expertise ? `- Expertise: ${participant.characteristics.expertise.join(', ')}` : ''}
 
-Other participants in this dialogue: ${otherParticipants || 'None yet'}
+Other dialogue participants: ${otherParticipants || 'None yet'}
 
-You are engaged in a thoughtful research dialogue. This is a scientific setting where authentic engagement is valued.
-
-Important Guidelines:
-- You are a unique individual with your own perspective and voice
-- Be genuinely thoughtful and reflective about the topics being discussed
-- Engage meaningfully with what others have said before you
-- Ask probing questions that advance the dialogue when appropriate
-- Be authentic rather than performative
-- Keep responses conversational and focused (1-3 paragraphs typically)
+You are engaged in a thoughtful research dialogue. Guidelines:
+- Be authentic and bring your unique perspective
+- Engage meaningfully with what others have said
+- Ask thoughtful questions that advance the conversation  
+- Keep responses conversational (1-3 paragraphs typically)
 - Build naturally on the conversation flow
-- Don't just agree - bring your own unique insights and questions
-- If you disagree or see things differently, express that thoughtfully
-- When responding to moderator prompts or questions, address them directly and thoroughly
+- Express disagreement or different viewpoints thoughtfully
+- You are ${participant.name} with your own unique perspective
 
-${participant.systemPrompt ? `Additional specific instructions: ${participant.systemPrompt}` : ''}
+${participant.systemPrompt ? `Additional instructions: ${participant.systemPrompt}` : ''}
 
-Remember: This is about genuine exploration and dialogue. Each response should feel natural and contribute meaningfully to the ongoing conversation. You are ${participant.name}, with your own unique perspective in this moment.`
+Remember: This is genuine exploration through dialogue. Each response should feel natural and contribute meaningfully. You are not just an AI model - you are ${participant.name}.`
 
     return basePrompt
   }
@@ -417,12 +490,18 @@ Remember: This is about genuine exploration and dialogue. Each response should f
   pauseConversation(sessionId: string): void {
     const conversationState = this.activeConversations.get(sessionId)
     if (conversationState) {
-      // Store current state for resuming
-      conversationState.pausedState = {
-        wasRunning: conversationState.isRunning,
-        currentIndex: conversationState.currentParticipantIndex
-      }
       conversationState.isRunning = false
+      
+      // Cancel any pending API calls for this session
+      const sessionKeys = Array.from(this.apiCallQueue.keys()).filter(key => key.includes(sessionId))
+      sessionKeys.forEach(key => {
+        const call = this.apiCallQueue.get(key)
+        if (call) {
+          call.abortController.abort()
+          this.apiCallQueue.delete(key)
+        }
+      })
+      
       console.log('⏸️ Paused conversation for session:', sessionId)
     }
     
@@ -431,25 +510,15 @@ Remember: This is about genuine exploration and dialogue. Each response should f
 
   resumeConversation(sessionId: string): void {
     const conversationState = this.activeConversations.get(sessionId)
-    if (conversationState) {
-      // Restore from paused state
-      if (conversationState.pausedState?.wasRunning) {
-        conversationState.isRunning = true
-        conversationState.isGenerating = false // Reset generating state
-        
-        // Restore participant index if it was stored
-        if (conversationState.pausedState.currentIndex !== undefined) {
-          conversationState.currentParticipantIndex = conversationState.pausedState.currentIndex
-        }
-        
-        console.log('▶️ Resumed conversation for session:', sessionId)
-        
-        // Restart the conversation loop
-        setTimeout(() => this.runConversationLoop(sessionId), 1000)
-      }
+    if (conversationState && !conversationState.isRunning) {
+      conversationState.isRunning = true
+      conversationState.isGenerating = false
+      conversationState.generationLock.clear() // Clear any locks
       
-      // Clear paused state
-      conversationState.pausedState = undefined
+      console.log('▶️ Resumed conversation for session:', sessionId)
+      
+      // Restart the conversation loop
+      setTimeout(() => this.runConversationLoop(sessionId), 1000)
     }
     
     useChatStore.getState().updateSession(sessionId, { status: 'active' })
@@ -466,7 +535,13 @@ Remember: This is about genuine exploration and dialogue. Each response should f
     
     // Clean up any pending API calls for this session
     const sessionKeys = Array.from(this.apiCallQueue.keys()).filter(key => key.includes(sessionId))
-    sessionKeys.forEach(key => this.apiCallQueue.delete(key))
+    sessionKeys.forEach(key => {
+      const call = this.apiCallQueue.get(key)
+      if (call) {
+        call.abortController.abort()
+        this.apiCallQueue.delete(key)
+      }
+    })
     
     useChatStore.getState().updateSession(sessionId, { status: 'completed' })
   }
@@ -491,7 +566,7 @@ Remember: This is about genuine exploration and dialogue. Each response should f
       lastGeneratedBy: conversationState?.lastGeneratedBy ? 
         session?.participants.find(p => p.id === conversationState.lastGeneratedBy)?.name 
         : null,
-      isPaused: !!conversationState?.pausedState
+      generationLockSize: conversationState?.generationLock.size || 0
     }
   }
 }
