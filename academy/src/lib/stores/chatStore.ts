@@ -1,4 +1,4 @@
-// src/lib/stores/chatStore.ts
+// src/lib/stores/chatStore.ts - Analysis Snapshot Fix
 import { create } from 'zustand'
 import { devtools, persist } from 'zustand/middleware'
 import { Message, ChatSession, Participant, ModeratorAction, AnalysisSnapshot } from '@/types/chat'
@@ -418,7 +418,7 @@ export const useChatStore = create<ChatState>()(
           get().updateParticipant(participantId, { status, lastActive: new Date() })
         },
 
-        // Analysis actions
+        // Analysis actions - IMPROVED
         addAnalysisSnapshot: (analysisData) => {
           const snapshot: AnalysisSnapshot = {
             ...analysisData,
@@ -427,7 +427,10 @@ export const useChatStore = create<ChatState>()(
           }
 
           set((state) => {
-            if (!state.currentSession) return state
+            if (!state.currentSession) {
+              console.warn('No current session to add analysis snapshot to')
+              return state
+            }
 
             const currentAnalysisHistory = state.currentSession.analysisHistory || []
             const updatedSession = {
@@ -436,22 +439,38 @@ export const useChatStore = create<ChatState>()(
               updatedAt: new Date()
             }
 
+            console.log(`📊 Added analysis snapshot to session ${state.currentSession.id}. Total snapshots: ${updatedSession.analysisHistory.length}`)
+
+            // Update both currentSession and the corresponding session in sessions array
+            const updatedSessions = state.sessions.map(session =>
+              session.id === state.currentSession!.id ? updatedSession : session
+            )
+
             return {
               currentSession: updatedSession,
-              sessions: state.sessions.map(session =>
-                session.id === state.currentSession!.id ? updatedSession : session
-              )
+              sessions: updatedSessions
             }
           })
         },
 
         getAnalysisHistory: (sessionId?: string) => {
           const state = get()
-          const targetSession = sessionId 
-            ? state.sessions.find(s => s.id === sessionId)
-            : state.currentSession
           
-          return targetSession?.analysisHistory || []
+          if (sessionId) {
+            // Get analysis history for a specific session
+            const targetSession = state.sessions.find(s => s.id === sessionId)
+            const history = targetSession?.analysisHistory || []
+            console.log(`📊 Retrieved ${history.length} analysis snapshots for session ${sessionId}`)
+            return history
+          } else if (state.currentSession) {
+            // Get analysis history for current session
+            const history = state.currentSession.analysisHistory || []
+            console.log(`📊 Retrieved ${history.length} analysis snapshots for current session ${state.currentSession.id}`)
+            return history
+          }
+          
+          console.log('📊 No session found for analysis history retrieval')
+          return []
         },
 
         clearAnalysisHistory: (sessionId?: string) => {
@@ -627,6 +646,8 @@ export const useChatStore = create<ChatState>()(
         // Rehydrate dates correctly and ensure current session
         onRehydrateStorage: () => (state) => {
           if (state) {
+            console.log(`🔄 Rehydrating store with ${state.sessions.length} sessions`)
+            
             // Convert date strings back to Date objects
             state.sessions = state.sessions.map(session => ({
               ...session,
@@ -666,6 +687,8 @@ export const useChatStore = create<ChatState>()(
                   timestamp: new Date(analysis.timestamp)
                 }))
               }
+              
+              console.log(`📊 Rehydrated current session with ${state.currentSession.analysisHistory?.length || 0} analysis snapshots`)
             }
 
             // Ensure we have a current session if we have any sessions
@@ -674,6 +697,7 @@ export const useChatStore = create<ChatState>()(
                 b.updatedAt.getTime() - a.updatedAt.getTime()
               )[0]
               state.currentSession = mostRecentSession
+              console.log(`🔄 Set current session to most recent: ${mostRecentSession.name}`)
             }
 
             // Mark as hydrated
@@ -683,6 +707,7 @@ export const useChatStore = create<ChatState>()(
           return (state) => {
             if (state) {
               state.hasHydrated = true
+              console.log('🔄 Store hydration complete')
             }
           }
         }

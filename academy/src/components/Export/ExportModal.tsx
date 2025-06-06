@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/Badge'
 import { 
   X, Download, FileText, Database, Eye, EyeOff, Settings, 
   MessageSquare, Users, Clock, CheckCircle2, FileDown,
-  Copy, Check, Brain, Timeline, TrendingUp, History
+  Copy, Check, Brain, History, TrendingUp
 } from 'lucide-react'
 
 interface ExportModalProps {
@@ -19,7 +19,7 @@ interface ExportModalProps {
 }
 
 export function ExportModal({ isOpen, onClose }: ExportModalProps) {
-  const { currentSession } = useChatStore()
+  const { currentSession, getAnalysisHistory } = useChatStore()
   const [exportOptions, setExportOptions] = useState<ExportOptions>({
     format: 'json',
     includeMetadata: true,
@@ -31,19 +31,52 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
   const [previewContent, setPreviewContent] = useState('')
   const [isExporting, setIsExporting] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [analysisHistory, setAnalysisHistory] = useState<any[]>([])
+
+  // Update analysis history when modal opens or session changes
+  useEffect(() => {
+    if (currentSession && isOpen) {
+      const history = getAnalysisHistory(currentSession.id)
+      setAnalysisHistory(history)
+      console.log(`📊 Export modal loaded ${history.length} analysis snapshots for session ${currentSession.id}`)
+    }
+  }, [currentSession, isOpen, getAnalysisHistory])
+
+  // Also update analysis history periodically while modal is open
+  useEffect(() => {
+    if (!currentSession || !isOpen) return
+    
+    const interval = setInterval(() => {
+      const history = getAnalysisHistory(currentSession.id)
+      setAnalysisHistory(prevHistory => {
+        if (prevHistory.length !== history.length) {
+          console.log(`📊 Export modal detected analysis history change: ${prevHistory.length} -> ${history.length}`)
+          return history
+        }
+        return prevHistory
+      })
+    }, 1000) // Check every second
+
+    return () => clearInterval(interval)
+  }, [currentSession, isOpen, getAnalysisHistory])
 
   // Update preview when options change
   useEffect(() => {
     if (currentSession && showPreview) {
       try {
-        const preview = ExportManager.getExportPreview(currentSession, exportOptions)
+        // Create a session object with the current analysis history for preview
+        const sessionWithCurrentAnalysis = {
+          ...currentSession,
+          analysisHistory // Use the reactive analysis history
+        }
+        const preview = ExportManager.getExportPreview(sessionWithCurrentAnalysis, exportOptions)
         setPreviewContent(preview)
       } catch (error) {
         setPreviewContent('Error generating preview')
         console.error('Export preview error:', error)
       }
     }
-  }, [currentSession, exportOptions, showPreview])
+  }, [currentSession, exportOptions, showPreview, analysisHistory]) // Add analysisHistory as dependency
 
   const handleExport = async () => {
     if (!currentSession) return
@@ -54,7 +87,13 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
       // Small delay to show loading state
       await new Promise(resolve => setTimeout(resolve, 500))
       
-      ExportManager.exportSession(currentSession, exportOptions)
+      // Create a session object with the current analysis history
+      const sessionWithCurrentAnalysis = {
+        ...currentSession,
+        analysisHistory: getAnalysisHistory(currentSession.id)
+      }
+      
+      ExportManager.exportSession(sessionWithCurrentAnalysis, exportOptions)
       
       // Show success feedback
       setTimeout(() => {
@@ -76,7 +115,13 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
       setIsExporting(true)
       await new Promise(resolve => setTimeout(resolve, 300))
       
-      ExportManager.exportAnalysisTimeline(currentSession)
+      // Create a session object with the current analysis history
+      const sessionWithCurrentAnalysis = {
+        ...currentSession,
+        analysisHistory: getAnalysisHistory(currentSession.id)
+      }
+      
+      ExportManager.exportAnalysisTimeline(sessionWithCurrentAnalysis)
       
       setTimeout(() => {
         onClose()
@@ -112,8 +157,10 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
     size + msg.content.length + msg.participantName.length + 100, 0
   )
   const fileSizeKB = Math.round(estimatedFileSize / 1024)
-  const analysisHistory = currentSession.analysisHistory || []
-  const analysisTimeline = ExportManager.getAnalysisTimeline(currentSession)
+  const analysisTimeline = ExportManager.getAnalysisTimeline({
+    ...currentSession,
+    analysisHistory // Use the reactive analysis history
+  })
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
@@ -202,14 +249,30 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
                 </CardContent>
               </Card>
 
-              {/* Analysis Timeline Preview */}
-              {analysisHistory.length > 0 && (
-                <Card className="bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-700">
-                  <CardContent className="p-4">
-                    <h3 className="font-medium text-indigo-900 dark:text-indigo-100 mb-3 flex items-center gap-2">
-                      <Timeline className="h-4 w-4" />
-                      Analysis Timeline
-                    </h3>
+              {/* Analysis Timeline Preview - Always show for debugging */}
+              <Card className={`${analysisHistory.length > 0 ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-700' : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-700'}`}>
+                <CardContent className="p-4">
+                  <h3 className={`font-medium mb-3 flex items-center gap-2 ${analysisHistory.length > 0 ? 'text-indigo-900 dark:text-indigo-100' : 'text-yellow-900 dark:text-yellow-100'}`}>
+                    <History className="h-4 w-4" />
+                    Analysis Timeline ({analysisHistory.length})
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const history = getAnalysisHistory(currentSession.id)
+                        console.log('🔍 Debug - Current analysis history:', history)
+                        console.log('🔍 Debug - Analysis history length:', history.length)
+                        console.log('🔍 Debug - Current session ID:', currentSession.id)
+                        console.log('🔍 Debug - Current session analysis history:', currentSession.analysisHistory)
+                        setAnalysisHistory(history)
+                      }}
+                      className="h-5 px-2 text-xs"
+                      title="Debug: Refresh analysis history"
+                    >
+                      🔍
+                    </Button>
+                  </h3>
+                  {analysisHistory.length > 0 ? (
                     <div className="space-y-2">
                       {analysisTimeline.slice(0, 3).map((entry, index) => (
                         <div key={index} className="text-xs bg-white/50 dark:bg-black/20 p-2 rounded">
@@ -346,12 +409,12 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
                       className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                     />
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                      <div className="text-sm font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
                         Include Analysis History
                         <Badge variant="secondary" className="text-xs">
                           {analysisHistory.length} snapshots
                         </Badge>
-                      </p>
+                      </div>
                       <p className="text-xs text-gray-600 dark:text-gray-400">
                         AI analysis timeline with insights and patterns
                       </p>

@@ -73,12 +73,18 @@ export function LiveSummary({ className = '' }: LiveSummaryProps) {
   const [lastAnalyzedMessageCount, setLastAnalyzedMessageCount] = useState(0)
   const [isSaving, setIsSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
+  const [analysisCount, setAnalysisCount] = useState(0)
   
   const analysisIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const ANALYSIS_TRIGGER_INTERVAL = 3 // Analyze every 3 new messages
 
-  // Get analysis history for current session
-  const analysisHistory = currentSession ? getAnalysisHistory(currentSession.id) : []
+  // Get analysis history for current session and update count when it changes
+  useEffect(() => {
+    if (currentSession) {
+      const history = getAnalysisHistory(currentSession.id)
+      setAnalysisCount(history.length)
+    }
+  }, [currentSession, getAnalysisHistory])
 
   // Auto-refresh logic
   useEffect(() => {
@@ -305,6 +311,11 @@ Return only the JSON object, no additional text.`
 
       // Save to store
       addAnalysisSnapshot(snapshot)
+      
+      // Update analysis count immediately
+      const newHistory = getAnalysisHistory(currentSession.id)
+      setAnalysisCount(newHistory.length)
+      
       setLastSaved(new Date())
       
       console.log('💾 Analysis snapshot saved successfully')
@@ -342,22 +353,22 @@ Return only the JSON object, no additional text.`
           <CardTitle className="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2">
             <Brain className="h-4 w-4" />
             AI Analysis
-            {analysisHistory.length > 0 && (
+            {analysisCount > 0 && (
               <Badge variant="secondary" className="text-xs ml-2">
-                {analysisHistory.length} saved
+                {analysisCount} saved
               </Badge>
             )}
           </CardTitle>
         </CardHeader>
         <CardContent className="text-center py-8">
           <MessageSquare className="h-8 w-8 mx-auto mb-3 text-gray-400" />
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <div className="text-sm text-gray-500 dark:text-gray-400">
             Need 4+ messages for AI analysis
-          </p>
-          {analysisHistory.length > 0 && (
-            <p className="text-xs text-gray-400 mt-2">
-              {analysisHistory.length} analysis snapshots available in export
-            </p>
+          </div>
+          {analysisCount > 0 && (
+            <div className="text-xs text-gray-400 mt-2">
+              {analysisCount} analysis snapshots available in export
+            </div>
           )}
         </CardContent>
       </Card>
@@ -371,15 +382,15 @@ Return only the JSON object, no additional text.`
           <CardTitle className="text-sm text-red-700 dark:text-red-300 flex items-center gap-2">
             <Brain className="h-4 w-4" />
             AI Analysis
-            {analysisHistory.length > 0 && (
+            {analysisCount > 0 && (
               <Badge variant="secondary" className="text-xs ml-2">
-                {analysisHistory.length} saved
+                {analysisCount} saved
               </Badge>
             )}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-red-600 dark:text-red-400 mb-3">{error}</p>
+          <div className="text-sm text-red-600 dark:text-red-400 mb-3">{error}</div>
           <Button
             variant="outline"
             size="sm"
@@ -403,9 +414,9 @@ Return only the JSON object, no additional text.`
             <Brain className="h-4 w-4" />
             AI Analysis
             {isAnalyzing && <Loader2 className="h-3 w-3 animate-spin" />}
-            {analysisHistory.length > 0 && (
+            {analysisCount > 0 && (
               <Badge variant="secondary" className="text-xs">
-                {analysisHistory.length} saved
+                {analysisCount} saved
               </Badge>
             )}
           </CardTitle>
@@ -506,11 +517,11 @@ Return only the JSON object, no additional text.`
           {summary && (
             <>
               {/* Analysis History Info */}
-              {analysisHistory.length > 0 && (
+              {analysisCount > 0 && (
                 <div className="p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
                   <div className="flex items-center gap-2 text-xs text-blue-800 dark:text-blue-200">
                     <History className="h-3 w-3" />
-                    <span>{analysisHistory.length} analysis snapshots saved for export</span>
+                    <span>{analysisCount} analysis snapshots saved for export</span>
                   </div>
                 </div>
               )}
@@ -538,9 +549,9 @@ Return only the JSON object, no additional text.`
                   <ArrowRight className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
                   <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">Current Direction</span>
                 </div>
-                <p className="text-xs text-indigo-800 dark:text-indigo-200 bg-white/50 dark:bg-black/20 p-2 rounded">
+                <div className="text-xs text-indigo-800 dark:text-indigo-200 bg-white/50 dark:bg-black/20 p-2 rounded">
                   {summary.currentDirection}
-                </p>
+                </div>
               </div>
 
               {/* Key Insights */}
