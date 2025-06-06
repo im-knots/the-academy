@@ -10,6 +10,7 @@ import {
   Users, Clock, Sparkles, Brain, BookOpen, Search,
   ChevronDown, Star, Archive, Coffee, Zap
 } from 'lucide-react'
+import { DeleteConfirmationModal } from './DeleteConfirmationModal'
 
 const SESSION_TEMPLATES = [
   {
@@ -229,6 +230,15 @@ export function SessionsSection() {
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean
+    sessionId: string | null
+    sessionName: string
+  }>({
+    isOpen: false,
+    sessionId: null,
+    sessionName: ''
+  })
   
   const dropdownRef = useRef<HTMLDivElement>(null)
   const createMenuRef = useRef<HTMLDivElement>(null)
@@ -301,16 +311,25 @@ export function SessionsSection() {
     }
   }
 
-  const handleDeleteSession = (sessionId: string, e: React.MouseEvent) => {
+  const handleDeleteSession = (sessionId: string, sessionName: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    if (sessions.length <= 1) {
-      alert("You must have at least one session")
-      return
-    }
-    if (confirm('Are you sure you want to delete this session?')) {
-      deleteSession(sessionId)
-    }
+    setDeleteModal({
+      isOpen: true,
+      sessionId,
+      sessionName
+    })
     setSelectedSessionId(null)
+  }
+
+  const confirmDeleteSession = () => {
+    if (deleteModal.sessionId) {
+      deleteSession(deleteModal.sessionId)
+    }
+    setDeleteModal({
+      isOpen: false,
+      sessionId: null,
+      sessionName: ''
+    })
   }
 
   const handleDuplicateSession = (session: any, e: React.MouseEvent) => {
@@ -538,17 +557,15 @@ export function SessionsSection() {
                       
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         {/* Direct Delete Button */}
-                        {sessions.length > 1 && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => handleDeleteSession(session.id, e)}
-                            className="h-7 w-7 p-0 hover:bg-red-100 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-600 dark:hover:text-red-400"
-                            title="Delete session"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => handleDeleteSession(session.id, session.name, e)}
+                          className="h-8 w-8 p-0 hover:bg-red-100 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-600 dark:hover:text-red-400"
+                          title="Delete session"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                         
                         {/* More Options Dropdown */}
                         <div className="relative" ref={dropdownRef}>
@@ -559,9 +576,9 @@ export function SessionsSection() {
                               e.stopPropagation()
                               setSelectedSessionId(selectedSessionId === session.id ? null : session.id)
                             }}
-                            className="h-7 w-7 p-0 hover:bg-gray-200 dark:hover:bg-gray-600"
+                            className="h-8 w-8 p-0 hover:bg-gray-200 dark:hover:bg-gray-600"
                           >
-                            <MoreVertical className="h-3 w-3" />
+                            <MoreVertical className="h-4 w-4" />
                           </Button>
                           
                           {selectedSessionId === session.id && (
@@ -592,6 +609,15 @@ export function SessionsSection() {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        isOpen={deleteModal.isOpen}
+        onClose={() => setDeleteModal({ isOpen: false, sessionId: null, sessionName: '' })}
+        onConfirm={confirmDeleteSession}
+        sessionName={deleteModal.sessionName}
+        isLastSession={sessions.length <= 1}
+      />
     </div>
   )
 }
