@@ -17,6 +17,37 @@ export interface Message {
   }
 }
 
+export interface AnalysisSnapshot {
+  id: string
+  timestamp: Date
+  messageCountAtAnalysis: number
+  participantCountAtAnalysis: number
+  provider: 'claude' | 'gpt'
+  conversationPhase: string
+  analysis: {
+    mainTopics: string[]
+    keyInsights: string[]
+    currentDirection: string
+    participantDynamics: Record<string, {
+      perspective: string
+      contribution: string
+      style: string
+    }>
+    emergentThemes: string[]
+    conversationPhase: string
+    tensions: string[]
+    convergences: string[]
+    nextLikelyDirections: string[]
+    philosophicalDepth: 'surface' | 'moderate' | 'deep' | 'profound'
+  }
+  conversationContext: {
+    recentMessages: number
+    activeParticipants: string[]
+    sessionStatus: string
+    moderatorInterventions: number
+  }
+}
+
 export interface ChatSession {
   id: string
   name: string
@@ -28,6 +59,7 @@ export interface ChatSession {
   participants: Participant[]
   moderatorSettings: ModeratorSettings
   researchNotes?: string
+  analysisHistory?: AnalysisSnapshot[]
   metadata?: {
     template?: string
     tags?: string[]

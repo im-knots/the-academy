@@ -1,4 +1,4 @@
-// src/components/Research/LiveSummary.tsx - AI-Powered Analysis
+// src/components/Research/LiveSummary.tsx - AI-Powered Analysis with Save Feature
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
@@ -10,7 +10,8 @@ import { Button } from '@/components/ui/Button'
 import { 
   Brain, Loader2, RefreshCw, MessageSquare, TrendingUp, 
   Users, Lightbulb, Target, Clock, Eye, EyeOff, Sparkles,
-  ArrowRight, Hash, Zap, Settings, ChevronDown, Bot
+  ArrowRight, Hash, Zap, Settings, ChevronDown, Bot,
+  Save, CheckCircle2, BookmarkPlus, History
 } from 'lucide-react'
 
 interface AnalysisProvider {
@@ -60,7 +61,7 @@ const ANALYSIS_PROVIDERS: AnalysisProvider[] = [
 ]
 
 export function LiveSummary({ className = '' }: LiveSummaryProps) {
-  const { currentSession } = useChatStore()
+  const { currentSession, addAnalysisSnapshot, getAnalysisHistory } = useChatStore()
   const mcp = useMCP()
   
   const [summary, setSummary] = useState<SummaryData | null>(null)
@@ -70,9 +71,14 @@ export function LiveSummary({ className = '' }: LiveSummaryProps) {
   const [selectedProvider, setSelectedProvider] = useState<'claude' | 'gpt'>('claude')
   const [error, setError] = useState<string | null>(null)
   const [lastAnalyzedMessageCount, setLastAnalyzedMessageCount] = useState(0)
+  const [isSaving, setIsSaving] = useState(false)
+  const [lastSaved, setLastSaved] = useState<Date | null>(null)
   
   const analysisIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const ANALYSIS_TRIGGER_INTERVAL = 3 // Analyze every 3 new messages
+
+  // Get analysis history for current session
+  const analysisHistory = currentSession ? getAnalysisHistory(currentSession.id) : []
 
   // Auto-refresh logic
   useEffect(() => {
@@ -255,6 +261,66 @@ Return only the JSON object, no additional text.`
     }
   }
 
+  const saveAnalysisSnapshot = async () => {
+    if (!currentSession || !summary) return
+
+    try {
+      setIsSaving(true)
+
+      // Count moderator interventions
+      const moderatorInterventions = currentSession.messages.filter(
+        msg => msg.participantType === 'moderator'
+      ).length
+
+      // Get active participants
+      const activeParticipants = currentSession.participants
+        .filter(p => p.status === 'active' || p.status === 'thinking')
+        .map(p => p.name)
+
+      // Create analysis snapshot
+      const snapshot = {
+        messageCountAtAnalysis: summary.messageCount,
+        participantCountAtAnalysis: currentSession.participants.length,
+        provider: selectedProvider,
+        conversationPhase: summary.conversationPhase,
+        analysis: {
+          mainTopics: summary.mainTopics,
+          keyInsights: summary.keyInsights,
+          currentDirection: summary.currentDirection,
+          participantDynamics: summary.participantDynamics,
+          emergentThemes: summary.emergentThemes,
+          conversationPhase: summary.conversationPhase,
+          tensions: summary.tensions,
+          convergences: summary.convergences,
+          nextLikelyDirections: summary.nextLikelyDirections,
+          philosophicalDepth: summary.philosophicalDepth
+        },
+        conversationContext: {
+          recentMessages: Math.min(currentSession.messages.length, 10),
+          activeParticipants,
+          sessionStatus: currentSession.status,
+          moderatorInterventions
+        }
+      }
+
+      // Save to store
+      addAnalysisSnapshot(snapshot)
+      setLastSaved(new Date())
+      
+      console.log('💾 Analysis snapshot saved successfully')
+
+      // Show saved feedback for 2 seconds
+      setTimeout(() => {
+        setLastSaved(null)
+      }, 2000)
+
+    } catch (error) {
+      console.error('Failed to save analysis snapshot:', error)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   const getDepthColor = (depth: string) => {
     switch (depth) {
       case 'surface': return 'text-gray-600 bg-gray-50 border-gray-200'
@@ -276,6 +342,11 @@ Return only the JSON object, no additional text.`
           <CardTitle className="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2">
             <Brain className="h-4 w-4" />
             AI Analysis
+            {analysisHistory.length > 0 && (
+              <Badge variant="secondary" className="text-xs ml-2">
+                {analysisHistory.length} saved
+              </Badge>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="text-center py-8">
@@ -283,6 +354,11 @@ Return only the JSON object, no additional text.`
           <p className="text-sm text-gray-500 dark:text-gray-400">
             Need 4+ messages for AI analysis
           </p>
+          {analysisHistory.length > 0 && (
+            <p className="text-xs text-gray-400 mt-2">
+              {analysisHistory.length} analysis snapshots available in export
+            </p>
+          )}
         </CardContent>
       </Card>
     )
@@ -295,6 +371,11 @@ Return only the JSON object, no additional text.`
           <CardTitle className="text-sm text-red-700 dark:text-red-300 flex items-center gap-2">
             <Brain className="h-4 w-4" />
             AI Analysis
+            {analysisHistory.length > 0 && (
+              <Badge variant="secondary" className="text-xs ml-2">
+                {analysisHistory.length} saved
+              </Badge>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -322,8 +403,33 @@ Return only the JSON object, no additional text.`
             <Brain className="h-4 w-4" />
             AI Analysis
             {isAnalyzing && <Loader2 className="h-3 w-3 animate-spin" />}
+            {analysisHistory.length > 0 && (
+              <Badge variant="secondary" className="text-xs">
+                {analysisHistory.length} saved
+              </Badge>
+            )}
           </CardTitle>
           <div className="flex items-center gap-2">
+            {/* Save Analysis Button */}
+            {summary && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={saveAnalysisSnapshot}
+                disabled={isSaving || isAnalyzing}
+                className="h-6 px-2 text-xs"
+                title="Save analysis snapshot to export history"
+              >
+                {isSaving ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : lastSaved ? (
+                  <CheckCircle2 className="h-3 w-3 text-green-600" />
+                ) : (
+                  <BookmarkPlus className="h-3 w-3" />
+                )}
+              </Button>
+            )}
+
             {/* Provider Selection */}
             <div className="relative">
               <Button
@@ -338,7 +444,7 @@ Return only the JSON object, no additional text.`
               </Button>
               
               {showProviderSelect && (
-                <div className="absolute right-0 top-7 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 p-2">
+                <div className="absolute right-0 top-10 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-50 p-3 transform -translate-x-full translate-x-8">
                   <div className="mb-2">
                     <h4 className="text-xs font-medium text-gray-900 dark:text-gray-100 mb-1">Analysis Provider</h4>
                     <p className="text-xs text-gray-500 dark:text-gray-400">Choose which AI analyzes the conversation</p>
@@ -399,7 +505,15 @@ Return only the JSON object, no additional text.`
         <CardContent className="space-y-4 max-h-150 overflow-y-auto">
           {summary && (
             <>
-
+              {/* Analysis History Info */}
+              {analysisHistory.length > 0 && (
+                <div className="p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+                  <div className="flex items-center gap-2 text-xs text-blue-800 dark:text-blue-200">
+                    <History className="h-3 w-3" />
+                    <span>{analysisHistory.length} analysis snapshots saved for export</span>
+                  </div>
+                </div>
+              )}
 
               {/* Main Topics */}
               {summary.mainTopics.length > 0 && (
@@ -528,7 +642,12 @@ Return only the JSON object, no additional text.`
                     <Clock className="h-3 w-3" />
                     <span>Updated {summary.lastUpdated.toLocaleTimeString()}</span>
                   </div>
-                  <span>{summary.messageCount} messages</span>
+                  <div className="flex items-center gap-2">
+                    <span>{summary.messageCount} messages</span>
+                    {lastSaved && (
+                      <span className="text-green-600 dark:text-green-400">Saved!</span>
+                    )}
+                  </div>
                 </div>
               </div>
             </>

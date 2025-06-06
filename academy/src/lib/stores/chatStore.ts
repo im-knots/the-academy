@@ -1,7 +1,7 @@
 // src/lib/stores/chatStore.ts
 import { create } from 'zustand'
 import { devtools, persist } from 'zustand/middleware'
-import { Message, ChatSession, Participant, ModeratorAction } from '@/types/chat'
+import { Message, ChatSession, Participant, ModeratorAction, AnalysisSnapshot } from '@/types/chat'
 
 interface SessionTemplate {
   id: string
@@ -46,6 +46,11 @@ interface ChatState {
   removeParticipant: (participantId: string) => void
   updateParticipant: (participantId: string, updates: Partial<Participant>) => void
   updateParticipantStatus: (participantId: string, status: Participant['status']) => void
+  
+  // Analysis actions
+  addAnalysisSnapshot: (analysis: Omit<AnalysisSnapshot, 'id' | 'timestamp'>) => void
+  getAnalysisHistory: (sessionId?: string) => AnalysisSnapshot[]
+  clearAnalysisHistory: (sessionId?: string) => void
   
   // Session control
   pauseSession: () => void
@@ -183,6 +188,7 @@ export const useChatStore = create<ChatState>()(
                 conclusion: "Thank you for this enlightening dialogue."
               }
             },
+            analysisHistory: [],
             metadata: {
               template: template?.template || 'custom',
               tags: [],
@@ -326,6 +332,7 @@ export const useChatStore = create<ChatState>()(
             const updatedSession = {
               ...state.currentSession,
               messages: [],
+              analysisHistory: [], // Clear analysis history when clearing messages
               updatedAt: new Date()
             }
 
@@ -409,6 +416,49 @@ export const useChatStore = create<ChatState>()(
 
         updateParticipantStatus: (participantId: string, status: Participant['status']) => {
           get().updateParticipant(participantId, { status, lastActive: new Date() })
+        },
+
+        // Analysis actions
+        addAnalysisSnapshot: (analysisData) => {
+          const snapshot: AnalysisSnapshot = {
+            ...analysisData,
+            id: crypto.randomUUID(),
+            timestamp: new Date()
+          }
+
+          set((state) => {
+            if (!state.currentSession) return state
+
+            const currentAnalysisHistory = state.currentSession.analysisHistory || []
+            const updatedSession = {
+              ...state.currentSession,
+              analysisHistory: [...currentAnalysisHistory, snapshot],
+              updatedAt: new Date()
+            }
+
+            return {
+              currentSession: updatedSession,
+              sessions: state.sessions.map(session =>
+                session.id === state.currentSession!.id ? updatedSession : session
+              )
+            }
+          })
+        },
+
+        getAnalysisHistory: (sessionId?: string) => {
+          const state = get()
+          const targetSession = sessionId 
+            ? state.sessions.find(s => s.id === sessionId)
+            : state.currentSession
+          
+          return targetSession?.analysisHistory || []
+        },
+
+        clearAnalysisHistory: (sessionId?: string) => {
+          const targetSessionId = sessionId || get().currentSession?.id
+          if (!targetSessionId) return
+
+          get().updateSession(targetSessionId, { analysisHistory: [] })
         },
 
         // Session control
@@ -549,6 +599,20 @@ export const useChatStore = create<ChatState>()(
               metadata: message.metadata
             })
           })
+
+          // Add analysis history if it exists
+          if (sessionData.analysisHistory) {
+            sessionData.analysisHistory.forEach((analysis: any) => {
+              get().addAnalysisSnapshot({
+                messageCountAtAnalysis: analysis.messageCountAtAnalysis,
+                participantCountAtAnalysis: analysis.participantCountAtAnalysis,
+                provider: analysis.provider,
+                conversationPhase: analysis.conversationPhase,
+                analysis: analysis.analysis,
+                conversationContext: analysis.conversationContext
+              })
+            })
+          }
           
           return sessionId
         }
@@ -576,6 +640,10 @@ export const useChatStore = create<ChatState>()(
                 ...participant,
                 joinedAt: new Date(participant.joinedAt),
                 lastActive: participant.lastActive ? new Date(participant.lastActive) : undefined
+              })),
+              analysisHistory: (session.analysisHistory || []).map(analysis => ({
+                ...analysis,
+                timestamp: new Date(analysis.timestamp)
               }))
             }))
             
@@ -592,12 +660,15 @@ export const useChatStore = create<ChatState>()(
                   ...participant,
                   joinedAt: new Date(participant.joinedAt),
                   lastActive: participant.lastActive ? new Date(participant.lastActive) : undefined
+                })),
+                analysisHistory: (state.currentSession.analysisHistory || []).map(analysis => ({
+                  ...analysis,
+                  timestamp: new Date(analysis.timestamp)
                 }))
               }
             }
 
             // Ensure we have a current session if we have any sessions
-            // This handles the case where currentSession was null but we have sessions
             if (!state.currentSession && state.sessions.length > 0) {
               const mostRecentSession = [...state.sessions].sort((a, b) => 
                 b.updatedAt.getTime() - a.updatedAt.getTime()
