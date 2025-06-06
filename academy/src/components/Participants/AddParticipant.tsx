@@ -58,12 +58,6 @@ export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
       name: 'GPT',
       description: 'OpenAI\'s conversational AI model',
       badge: 'gpt'
-    },
-    {
-      type: 'human' as const,
-      name: 'Human',
-      description: 'Human participant observer',
-      badge: 'human'
     }
   ]
 
@@ -112,7 +106,7 @@ export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <div>
             <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Add Participant</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Choose an AI agent or human observer</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Choose an AI agent</p>
           </div>
           <Button variant="ghost" size="sm" onClick={onClose}>
             <X className="h-5 w-5" />
