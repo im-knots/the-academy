@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react'
 import { useChatStore } from '@/lib/stores/chatStore'
 import { useTemplatePrompt } from '@/hooks/useTemplatePrompt'
+import { useMCP } from '@/hooks/useMCP'
 import { ConversationAPI } from '@/lib/api/conversation'
 import { ClientConversationManager } from '@/lib/ai/client-conversation-manager'
 import { Card, CardContent } from '@/components/ui/Card'
@@ -12,16 +13,19 @@ import { Button } from '@/components/ui/Button'
 import { ParticipantAvatar } from '@/components/ui/ParticipantAvatar'
 import { AddParticipant } from '@/components/Participants/AddParticipant'
 import { ExportModal } from '@/components/Export/ExportModal'
+import { MCPModal } from '@/components/MCP/MCPModal'
 import { SessionsSection } from '@/components/Sessions/SessionsSection'
 import { 
   Brain, Users, Settings, Play, Pause, Plus, Sparkles, MessageSquare, 
   Zap, Send, Hand, Square, AlertCircle, Clock, CheckCircle2, Loader2,
-  Download, FileDown, MoreVertical, ChevronLeft, ChevronRight, History
+  Download, FileDown, MoreVertical, ChevronLeft, ChevronRight, History,
+  Wifi, WifiOff, Terminal, Monitor
 } from 'lucide-react'
 
 export function ChatInterface() {
   const [showAddParticipant, setShowAddParticipant] = useState(false)
   const [showExportModal, setShowExportModal] = useState(false)
+  const [showMCPModal, setShowMCPModal] = useState(false)
   const [moderatorInput, setModeratorInput] = useState('')
   const [isInterjecting, setIsInterjecting] = useState(false)
   const [conversationState, setConversationState] = useState<'idle' | 'starting' | 'running' | 'pausing' | 'stopping'>('idle')
@@ -33,6 +37,9 @@ export function ChatInterface() {
   
   // Template prompt hook
   const { suggestedPrompt, clearSuggestedPrompt } = useTemplatePrompt()
+  
+  // MCP integration
+  const mcp = useMCP()
   
   const { 
     currentSession, 
@@ -212,6 +219,18 @@ export function ChatInterface() {
           ? { text: 'Paused', icon: Clock, variant: 'paused' as const, animate: false }
           : { text: 'Ready', icon: Play, variant: 'idle' as const, animate: false }
     }
+  }
+
+  const getMCPStatusIcon = () => {
+    if (!mcp.isInitialized) return <Monitor className="h-4 w-4 text-gray-400" />
+    if (mcp.isConnected) return <Wifi className="h-4 w-4 text-green-600" />
+    return <WifiOff className="h-4 w-4 text-red-600" />
+  }
+
+  const getMCPStatusColor = () => {
+    if (!mcp.isInitialized) return 'text-gray-600 bg-gray-50 border-gray-200'
+    if (mcp.isConnected) return 'text-green-600 bg-green-50 border-green-200'
+    return 'text-red-600 bg-red-50 border-red-200'
   }
 
   if (!currentSession) {
@@ -435,7 +454,7 @@ export function ChatInterface() {
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Chat Header - Removed status badge */}
+        {/* Chat Header */}
         <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -469,6 +488,19 @@ export function ChatInterface() {
                   <FileDown className="h-4 w-4" />
                 </Button>
               )}
+
+              {/* MCP Button */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowMCPModal(true)}
+                className={`text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 ${
+                  mcp.isConnected ? 'bg-green-50 dark:bg-green-900/20' : ''
+                }`}
+                title="MCP Integration"
+              >
+                {getMCPStatusIcon()}
+              </Button>
             </div>
           </div>
         </div>
@@ -650,9 +682,18 @@ export function ChatInterface() {
               <span>
                 {hasMessages ? "Press Enter to interject, Shift+Enter for new line" : "Press Enter to begin conversation, Shift+Enter for new line"}
               </span>
-              <span>
-                {moderatorInput.length} characters
-              </span>
+              <div className="flex items-center gap-4">
+                <span>
+                  {moderatorInput.length} characters
+                </span>
+                {mcp.isInitialized && (
+                  <div className="flex items-center gap-1">
+                    <Badge className={`text-xs ${getMCPStatusColor()}`}>
+                      MCP {mcp.connectionStatus}
+                    </Badge>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -712,9 +753,47 @@ export function ChatInterface() {
                     <Download className="h-4 w-4 mr-2" />
                     Export Chat Log
                   </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full justify-start"
+                    onClick={() => setShowMCPModal(true)}
+                  >
+                    {getMCPStatusIcon()}
+                    <span className="ml-2">MCP Integration</span>
+                  </Button>
                 </div>
               </CardContent>
             </Card>
+
+            {/* MCP Status Card */}
+            {mcp.isInitialized && (
+              <Card className="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 border-purple-200 dark:border-purple-700">
+                <CardContent className="p-4">
+                  <h3 className="font-medium text-purple-900 dark:text-purple-100 mb-3 flex items-center gap-2">
+                    <Terminal className="h-4 w-4" />
+                    MCP Status
+                  </h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-purple-700 dark:text-purple-300">Connection:</span>
+                      <Badge className={`text-xs ${getMCPStatusColor()}`}>
+                        {mcp.connectionStatus}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-purple-700 dark:text-purple-300">Resources:</span>
+                      <span className="font-medium text-purple-900 dark:text-purple-100">{mcp.resources.length}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-purple-700 dark:text-purple-300">Tools:</span>
+                      <span className="font-medium text-purple-900 dark:text-purple-100">{mcp.tools.length}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       )}
@@ -728,6 +807,11 @@ export function ChatInterface() {
       <ExportModal
         isOpen={showExportModal}
         onClose={() => setShowExportModal(false)}
+      />
+
+      <MCPModal
+        isOpen={showMCPModal}
+        onClose={() => setShowMCPModal(false)}
       />
     </div>
   )
