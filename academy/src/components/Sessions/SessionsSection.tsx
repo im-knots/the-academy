@@ -561,10 +561,10 @@ export function SessionsSection() {
                           variant="ghost"
                           size="sm"
                           onClick={(e) => handleDeleteSession(session.id, session.name, e)}
-                          className="h-8 w-8 p-0 hover:bg-red-100 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-600 dark:hover:text-red-400"
+                          className="h-10 w-10 p-0 hover:bg-red-100 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-600 dark:hover:text-red-400"
                           title="Delete session"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-6 w-6" />
                         </Button>
                         
                         {/* More Options Dropdown */}
@@ -576,9 +576,9 @@ export function SessionsSection() {
                               e.stopPropagation()
                               setSelectedSessionId(selectedSessionId === session.id ? null : session.id)
                             }}
-                            className="h-8 w-8 p-0 hover:bg-gray-200 dark:hover:bg-gray-600"
+                            className="h-10 w-10 p-0 hover:bg-gray-200 dark:hover:bg-gray-600"
                           >
-                            <MoreVertical className="h-4 w-4" />
+                            <MoreVertical className="h-6 w-6" />
                           </Button>
                           
                           {selectedSessionId === session.id && (
