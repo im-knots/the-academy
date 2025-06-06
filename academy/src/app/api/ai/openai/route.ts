@@ -1,7 +1,16 @@
-// src/app/api/ai/openai/route.ts
+// src/app/api/ai/openai/route.ts - With abort signal support
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
+  // Create abort controller for this request
+  const abortController = new AbortController()
+  
+  // Listen for client disconnect
+  request.signal?.addEventListener('abort', () => {
+    console.log('🛑 Client disconnected, aborting OpenAI request')
+    abortController.abort()
+  })
+
   try {
     const { messages, systemPrompt, temperature = 0.7, maxTokens = 1000, model = 'gpt-4o' } = await request.json()
 
@@ -11,6 +20,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'OpenAI API key not configured' },
         { status: 500 }
+      )
+    }
+
+    // Check if already aborted
+    if (abortController.signal.aborted) {
+      return NextResponse.json(
+        { error: 'Request was cancelled' },
+        { status: 499 }
       )
     }
 
@@ -132,16 +149,34 @@ export async function POST(request: NextRequest) {
 
     const startTime = Date.now()
     
+    // Check abort before making request
+    if (abortController.signal.aborted) {
+      return NextResponse.json(
+        { error: 'Request was cancelled' },
+        { status: 499 }
+      )
+    }
+    
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`
       },
-      body: JSON.stringify(requestBody)
+      body: JSON.stringify(requestBody),
+      signal: abortController.signal // Pass abort signal to external API
     })
 
     const responseTime = Date.now() - startTime
+
+    // Check if we were aborted during the request
+    if (abortController.signal.aborted) {
+      console.log('🛑 OpenAI request was aborted during API call')
+      return NextResponse.json(
+        { error: 'Request was cancelled' },
+        { status: 499 }
+      )
+    }
 
     if (!response.ok) {
       const errorText = await response.text()
@@ -172,6 +207,15 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await response.json()
+    
+    // Final abort check before returning
+    if (abortController.signal.aborted) {
+      console.log('🛑 OpenAI request was aborted after receiving response')
+      return NextResponse.json(
+        { error: 'Request was cancelled' },
+        { status: 499 }
+      )
+    }
     
     if (!data.choices || !Array.isArray(data.choices) || data.choices.length === 0) {
       console.error('Invalid OpenAI response format:', data)
@@ -218,8 +262,15 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('OpenAI API route error:', error)
     
-    // Provide more specific error messages
+    // Handle specific error types
     if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        console.log('🛑 OpenAI request was properly aborted')
+        return NextResponse.json(
+          { error: 'Request was cancelled' },
+          { status: 499 }
+        )
+      }
       if (error.message.includes('fetch')) {
         return NextResponse.json(
           { error: 'Network error connecting to OpenAI API' },

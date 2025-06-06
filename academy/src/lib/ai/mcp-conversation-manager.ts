@@ -23,19 +23,26 @@ interface ConversationContext {
   }
 }
 
+interface ConversationState {
+  isRunning: boolean
+  participantQueue: string[]
+  currentParticipantIndex: number
+  messageCount: number
+  abortController?: AbortController
+  isGenerating: boolean
+  lastGeneratedBy?: string
+  generationLock: Set<string>
+  // New: State preservation for interruptions
+  wasInterrupted: boolean
+  interruptedParticipantId?: string
+  interruptedAt: Date | null
+  resumeFromParticipant?: string
+}
+
 export class MCPConversationManager {
   private static instance: MCPConversationManager
   private mcpClient: MCPClient
-  private activeConversations: Map<string, {
-    isRunning: boolean
-    participantQueue: string[]
-    currentParticipantIndex: number
-    messageCount: number
-    abortController?: AbortController
-    isGenerating: boolean
-    lastGeneratedBy?: string
-    generationLock: Set<string>
-  }> = new Map()
+  private activeConversations: Map<string, ConversationState> = new Map()
 
   private constructor() {
     this.mcpClient = MCPClient.getInstance()
@@ -82,7 +89,11 @@ export class MCPConversationManager {
       abortController,
       isGenerating: false,
       lastGeneratedBy: undefined,
-      generationLock: new Set()
+      generationLock: new Set(),
+      wasInterrupted: false,
+      interruptedParticipantId: undefined,
+      interruptedAt: null,
+      resumeFromParticipant: undefined
     })
 
     // Update session status
@@ -152,7 +163,17 @@ export class MCPConversationManager {
         const currentQueue = activeAIParticipants.map(p => p.id)
         if (JSON.stringify(conversationState.participantQueue) !== JSON.stringify(currentQueue)) {
           conversationState.participantQueue = currentQueue
-          conversationState.currentParticipantIndex = 0
+          
+          // Preserve position if we have a specific participant to resume from
+          if (conversationState.resumeFromParticipant) {
+            const resumeIndex = conversationState.participantQueue.indexOf(conversationState.resumeFromParticipant)
+            if (resumeIndex !== -1) {
+              conversationState.currentParticipantIndex = resumeIndex
+            }
+            conversationState.resumeFromParticipant = undefined
+          } else {
+            conversationState.currentParticipantIndex = 0
+          }
         }
 
         // Get current participant
@@ -165,7 +186,7 @@ export class MCPConversationManager {
           continue
         }
 
-        // Skip if participant is in error state or already generating
+        // Skip if participant is in error state
         if (currentParticipant.status === 'error') {
           console.log(`⚠️ Skipping participant ${currentParticipant.name} due to error state`)
           this.moveToNextParticipant(sessionId)
@@ -201,8 +222,12 @@ export class MCPConversationManager {
         useChatStore.getState().updateParticipantStatus(currentParticipantId, 'thinking')
 
         try {
-          // Generate response via MCP tools
-          const response = await this.generateAIResponseViaMCP(sessionId, currentParticipant)
+          // Generate response via MCP tools with abort signal
+          const response = await this.generateAIResponseViaMCP(
+            sessionId, 
+            currentParticipant, 
+            conversationState.abortController?.signal
+          )
 
           if (response && conversationState.isRunning && !conversationState.abortController?.signal.aborted) {
             // Add message to session
@@ -220,23 +245,41 @@ export class MCPConversationManager {
             // Update participant status back to active
             useChatStore.getState().updateParticipantStatus(currentParticipantId, 'active')
 
+            // Move to next participant only if we completed successfully
+            this.moveToNextParticipant(sessionId)
+
           } else {
             console.log('❌ Failed to generate response or conversation stopped')
-            useChatStore.getState().updateParticipantStatus(currentParticipantId, 'error')
-            await new Promise(resolve => setTimeout(resolve, 5000))
+            
+            // If aborted, don't mark as error - preserve the participant's turn
+            if (conversationState.abortController?.signal.aborted) {
+              console.log(`🛑 Generation aborted for ${currentParticipant.name}, preserving turn`)
+              conversationState.wasInterrupted = true
+              conversationState.interruptedParticipantId = currentParticipantId
+              conversationState.interruptedAt = new Date()
+              useChatStore.getState().updateParticipantStatus(currentParticipantId, 'idle')
+            } else {
+              useChatStore.getState().updateParticipantStatus(currentParticipantId, 'error')
+              this.moveToNextParticipant(sessionId)
+            }
           }
 
         } catch (error) {
           console.error(`❌ Error generating response for ${currentParticipant.name}:`, error)
           
           if (error instanceof Error) {
-            if (error.message.includes('abort') || error.message.includes('cancelled')) {
-              console.log('🛑 Request was cancelled, stopping conversation')
-              break
+            if (error.message.includes('abort') || error.message.includes('cancelled') || error.name === 'AbortError') {
+              console.log(`🛑 Request was cancelled for ${currentParticipant.name}, preserving turn`)
+              conversationState.wasInterrupted = true
+              conversationState.interruptedParticipantId = currentParticipantId
+              conversationState.interruptedAt = new Date()
+              useChatStore.getState().updateParticipantStatus(currentParticipantId, 'idle')
+              break // Exit the loop gracefully
             }
           }
           
           useChatStore.getState().updateParticipantStatus(currentParticipantId, 'error')
+          this.moveToNextParticipant(sessionId)
           await new Promise(resolve => setTimeout(resolve, 5000))
         } finally {
           // Always clean up generation state
@@ -244,17 +287,16 @@ export class MCPConversationManager {
           conversationState.generationLock.delete(currentParticipantId)
         }
 
-        // Move to next participant
-        this.moveToNextParticipant(sessionId)
-
-        // Wait between responses
-        const baseDelay = currentParticipant.settings.responseDelay || 4000
-        const adaptiveDelay = currentParticipant.type === 'gpt' ? baseDelay * 1.2 : baseDelay
-        await new Promise(resolve => setTimeout(resolve, Math.max(adaptiveDelay, 3000)))
+        // Wait between responses (only if we weren't interrupted)
+        if (!conversationState.abortController?.signal.aborted) {
+          const baseDelay = currentParticipant.settings.responseDelay || 4000
+          const adaptiveDelay = currentParticipant.type === 'gpt' ? baseDelay * 1.2 : baseDelay
+          await new Promise(resolve => setTimeout(resolve, Math.max(adaptiveDelay, 3000)))
+        }
 
       } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') {
-          console.log('🛑 Conversation aborted')
+        if (error instanceof Error && (error.name === 'AbortError' || error.message.includes('abort'))) {
+          console.log('🛑 Conversation aborted gracefully')
           break
         }
         
@@ -284,8 +326,17 @@ export class MCPConversationManager {
       (conversationState.currentParticipantIndex + 1) % conversationState.participantQueue.length
   }
 
-  private async generateAIResponseViaMCP(sessionId: string, participant: Participant): Promise<string> {
+  private async generateAIResponseViaMCP(
+    sessionId: string, 
+    participant: Participant, 
+    abortSignal?: AbortSignal
+  ): Promise<string> {
     try {
+      // Check if already aborted
+      if (abortSignal?.aborted) {
+        throw new Error('Request was aborted before starting')
+      }
+
       // Build conversation context
       const context = this.buildConversationContext(sessionId, participant)
       
@@ -322,8 +373,8 @@ export class MCPConversationManager {
 
       console.log(`🌐 Calling MCP tool ${toolName} for ${participant.name}`)
 
-      // Call the MCP tool
-      const result = await this.mcpClient.callTool(toolName, toolArgs)
+      // Call the MCP tool with abort signal support
+      const result = await this.mcpClient.callToolWithAbort(toolName, toolArgs, abortSignal)
       
       if (!result.success || !result.content) {
         throw new Error('No content in MCP tool response')
@@ -423,8 +474,16 @@ Remember: This is genuine exploration through dialogue facilitated by MCP. Each 
   pauseConversation(sessionId: string): void {
     const conversationState = this.activeConversations.get(sessionId)
     if (conversationState) {
+      // Gracefully stop the conversation
       conversationState.isRunning = false
+      
+      // Abort any ongoing requests
       conversationState.abortController?.abort()
+      
+      // Clear generation flags to prevent hanging
+      conversationState.isGenerating = false
+      conversationState.generationLock.clear()
+      
       console.log('⏸️ Paused MCP conversation for session:', sessionId)
     }
     
@@ -434,9 +493,22 @@ Remember: This is genuine exploration through dialogue facilitated by MCP. Each 
   resumeConversation(sessionId: string): void {
     const conversationState = this.activeConversations.get(sessionId)
     if (conversationState && !conversationState.isRunning) {
+      // Create new abort controller for the resumed conversation
+      conversationState.abortController = new AbortController()
       conversationState.isRunning = true
       conversationState.isGenerating = false
       conversationState.generationLock.clear()
+      
+      // If we were interrupted during someone's turn, resume from that participant
+      if (conversationState.wasInterrupted && conversationState.interruptedParticipantId) {
+        console.log(`▶️ Resuming from interrupted participant: ${conversationState.interruptedParticipantId}`)
+        conversationState.resumeFromParticipant = conversationState.interruptedParticipantId
+        
+        // Clear interruption state
+        conversationState.wasInterrupted = false
+        conversationState.interruptedParticipantId = undefined
+        conversationState.interruptedAt = null
+      }
       
       console.log('▶️ Resumed MCP conversation for session:', sessionId)
       
@@ -452,6 +524,7 @@ Remember: This is genuine exploration through dialogue facilitated by MCP. Each 
     if (conversationState) {
       conversationState.isRunning = false
       conversationState.abortController?.abort()
+      conversationState.generationLock.clear()
       this.activeConversations.delete(sessionId)
       console.log('🛑 Stopped MCP conversation for session:', sessionId)
     }
@@ -480,7 +553,11 @@ Remember: This is genuine exploration through dialogue facilitated by MCP. Each 
         session?.participants.find(p => p.id === conversationState.lastGeneratedBy)?.name 
         : null,
       generationLockSize: conversationState?.generationLock.size || 0,
-      mcpConnected: this.mcpClient.isConnected()
+      mcpConnected: this.mcpClient.isConnected(),
+      wasInterrupted: conversationState?.wasInterrupted || false,
+      interruptedParticipant: conversationState?.interruptedParticipantId ? 
+        session?.participants.find(p => p.id === conversationState.interruptedParticipantId)?.name 
+        : null
     }
   }
 }
