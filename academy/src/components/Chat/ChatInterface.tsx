@@ -6,7 +6,7 @@ import { useChatStore } from '@/lib/stores/chatStore'
 import { useTemplatePrompt } from '@/hooks/useTemplatePrompt'
 import { useMCP } from '@/hooks/useMCP'
 import { ConversationAPI } from '@/lib/api/conversation'
-import { ClientConversationManager } from '@/lib/ai/client-conversation-manager'
+import { MCPConversationManager } from '@/lib/ai/mcp-conversation-manager'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -58,7 +58,7 @@ export function ChatInterface() {
   const hasAIParticipants = currentSession?.participants.filter(p => p.type !== 'human' && p.type !== 'moderator').length >= 2
 
   // Get the conversation manager instance
-  const conversationManager = ClientConversationManager.getInstance()
+  const conversationManager = MCPConversationManager.getInstance()
 
   // Auto-populate moderator input from template prompt
   const messageCount = currentSession?.messages?.length || 0
@@ -738,7 +738,33 @@ export function ChatInterface() {
                 </div>
               </CardContent>
             </Card>
-
+            {/* MCP Status Card */}
+            {mcp.isInitialized && (
+              <Card className="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 border-purple-200 dark:border-purple-700">
+                <CardContent className="p-4">
+                  <h3 className="font-medium text-purple-900 dark:text-purple-100 mb-3 flex items-center gap-2">
+                    <Terminal className="h-4 w-4" />
+                    MCP Status
+                  </h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-purple-700 dark:text-purple-300">Connection:</span>
+                      <Badge className={`text-xs ${getMCPStatusColor()}`}>
+                        {mcp.connectionStatus}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-purple-700 dark:text-purple-300">Resources:</span>
+                      <span className="font-medium text-purple-900 dark:text-purple-100">{mcp.resources.length}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-purple-700 dark:text-purple-300">Tools:</span>
+                      <span className="font-medium text-purple-900 dark:text-purple-100">{mcp.tools.length}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
             <Card>
               <CardContent className="p-4">
                 <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-3">Quick Actions</h3>
@@ -767,33 +793,7 @@ export function ChatInterface() {
               </CardContent>
             </Card>
 
-            {/* MCP Status Card */}
-            {mcp.isInitialized && (
-              <Card className="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 border-purple-200 dark:border-purple-700">
-                <CardContent className="p-4">
-                  <h3 className="font-medium text-purple-900 dark:text-purple-100 mb-3 flex items-center gap-2">
-                    <Terminal className="h-4 w-4" />
-                    MCP Status
-                  </h3>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-purple-700 dark:text-purple-300">Connection:</span>
-                      <Badge className={`text-xs ${getMCPStatusColor()}`}>
-                        {mcp.connectionStatus}
-                      </Badge>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-purple-700 dark:text-purple-300">Resources:</span>
-                      <span className="font-medium text-purple-900 dark:text-purple-100">{mcp.resources.length}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-purple-700 dark:text-purple-300">Tools:</span>
-                      <span className="font-medium text-purple-900 dark:text-purple-100">{mcp.tools.length}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+
           </div>
         </div>
       )}
