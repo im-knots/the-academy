@@ -224,14 +224,14 @@ export function SessionsSection() {
     updateSession
   } = useChatStore()
   
-  const [showTemplates, setShowTemplates] = useState(false)
+  const [showCreateMenu, setShowCreateMenu] = useState(false)
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   
   const dropdownRef = useRef<HTMLDivElement>(null)
-  const templatesRef = useRef<HTMLDivElement>(null)
+  const createMenuRef = useRef<HTMLDivElement>(null)
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -239,8 +239,8 @@ export function SessionsSection() {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setSelectedSessionId(null)
       }
-      if (templatesRef.current && !templatesRef.current.contains(event.target as Node)) {
-        setShowTemplates(false)
+      if (createMenuRef.current && !createMenuRef.current.contains(event.target as Node)) {
+        setShowCreateMenu(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -253,7 +253,7 @@ export function SessionsSection() {
       template: template.id
     }, template.participants) // Pass participants from template
     
-    setShowTemplates(false)
+    setShowCreateMenu(false)
     
     // Auto-fill the moderator input with the template prompt
     if (template.prompt) {
@@ -262,13 +262,14 @@ export function SessionsSection() {
     }
   }
 
-  const handleQuickCreate = () => {
+  const handleCreateBlankSession = () => {
     const sessionNumber = sessions.length + 1
     createSession(
       `Session ${sessionNumber}`,
       "New research dialogue",
       { template: 'blank' }
     )
+    setShowCreateMenu(false)
   }
 
   const handleSessionClick = (session: any) => {
@@ -365,25 +366,53 @@ export function SessionsSection() {
       <div className="p-4">
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-medium text-gray-900 dark:text-gray-100">Sessions</h2>
-          <div className="flex items-center gap-1">
-            <div className="relative" ref={templatesRef}>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowTemplates(!showTemplates)}
-                className="h-8 w-8 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600"
-              >
-                <ChevronDown className={`h-4 w-4 transition-transform ${showTemplates ? 'rotate-180' : ''}`} />
-              </Button>
-              
-              {/* Templates Dropdown */}
-              {showTemplates && (
-                <div className="absolute right-0 top-10 w-80 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-50 p-3">
-                  <div className="mb-3">
-                    <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-1">Session Templates</h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Pre-configured with Claude & GPT participants</p>
-                  </div>
-                  
+          
+          {/* Single Create Button with Dropdown */}
+          <div className="relative" ref={createMenuRef}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowCreateMenu(!showCreateMenu)}
+              className="h-8 px-3 rounded-full bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/20 dark:hover:bg-blue-800/30 text-blue-700 dark:text-blue-300"
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              New
+              <ChevronDown className={`h-3 w-3 ml-1 transition-transform ${showCreateMenu ? 'rotate-180' : ''}`} />
+            </Button>
+            
+            {/* Create Session Menu */}
+            {showCreateMenu && (
+              <div className="absolute right-0 top-10 w-80 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-50 p-3">
+                <div className="mb-3">
+                  <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-1">Create New Session</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Choose a template or start from scratch</p>
+                </div>
+                
+                {/* Blank Session Option */}
+                <div className="mb-3">
+                  <button
+                    onClick={handleCreateBlankSession}
+                    className="w-full text-left p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group border-2 border-dashed border-gray-200 dark:border-gray-600"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                        <Plus className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900 dark:text-gray-100 text-sm group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                          Blank Session
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Start from scratch with no pre-configured participants
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                </div>
+                
+                {/* Templates Section */}
+                <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
+                  <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2 px-1">Templates</p>
                   <div className="space-y-2 max-h-60 overflow-y-auto">
                     {SESSION_TEMPLATES.map((template) => {
                       const IconComponent = template.icon
@@ -410,35 +439,9 @@ export function SessionsSection() {
                       )
                     })}
                   </div>
-                  
-                  <div className="border-t border-gray-200 dark:border-gray-700 mt-3 pt-3">
-                    <button
-                      onClick={handleQuickCreate}
-                      className="w-full text-left p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-                          <Plus className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900 dark:text-gray-100 text-sm">Blank Session</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">Start from scratch</p>
-                        </div>
-                      </div>
-                    </button>
-                  </div>
                 </div>
-              )}
-            </div>
-            
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleQuickCreate}
-              className="h-8 w-8 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600"
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
+              </div>
+            )}
           </div>
         </div>
 

@@ -16,6 +16,9 @@ interface ChatState {
   currentSession: ChatSession | null
   sessions: ChatSession[]
   
+  // Hydration state
+  hasHydrated: boolean
+  
   // Real-time state
   isConnected: boolean
   connectionStatus: 'connecting' | 'connected' | 'disconnected' | 'error'
@@ -63,12 +66,18 @@ interface ChatState {
   connect: () => void
   disconnect: () => void
 
+  // Hydration action
+  setHasHydrated: (state: boolean) => void
+
   // Session management
   getSessionById: (sessionId: string) => ChatSession | undefined
   getRecentSessions: (limit?: number) => ChatSession[]
   searchSessions: (query: string) => ChatSession[]
   exportSession: (sessionId: string) => any
   importSession: (sessionData: any) => string
+
+  // Internal helper
+  ensureCurrentSession: () => void
 }
 
 // Default participants for templates
@@ -112,12 +121,25 @@ export const useChatStore = create<ChatState>()(
         // Initial state
         currentSession: null,
         sessions: [],
+        hasHydrated: false,
         isConnected: false,
         connectionStatus: 'disconnected',
         isSessionPaused: false,
         showParticipantPanel: true,
         showModeratorPanel: true,
         selectedMessageId: null,
+
+        // Helper function to ensure we always have a current session
+        ensureCurrentSession: () => {
+          const state = get()
+          if (!state.currentSession && state.sessions.length > 0) {
+            // Set the most recently updated session as current
+            const mostRecentSession = [...state.sessions].sort((a, b) => 
+              b.updatedAt.getTime() - a.updatedAt.getTime()
+            )[0]
+            set({ currentSession: mostRecentSession })
+          }
+        },
 
         // Session actions
         createSession: (name: string, description?: string, template?: any, participants?: any[]) => {
@@ -130,7 +152,7 @@ export const useChatStore = create<ChatState>()(
             initialParticipants = participants
           } else if (template?.participants) {
             initialParticipants = template.participants
-          } else if (template?.template !== 'blank') {
+          } else if (template?.template && template.template !== 'blank') {
             // Add default participants for non-blank templates
             initialParticipants = getDefaultParticipants()
           }
@@ -156,7 +178,7 @@ export const useChatStore = create<ChatState>()(
               maxMessagesPerParticipant: 100,
               allowParticipantToParticipantMessages: true,
               moderatorPrompts: {
-                welcome: template?.initialPrompt || "Welcome to The Academy. Let's explore AI to AI Dialogue together.",
+                welcome: template?.initialPrompt || "Welcome to The Academy. Let's explore together.",
                 intervention: "Let me guide our discussion toward deeper insights.",
                 conclusion: "Thank you for this enlightening dialogue."
               }
@@ -207,7 +229,9 @@ export const useChatStore = create<ChatState>()(
             // If we're deleting the current session, switch to the next most recent
             let newCurrentSession = state.currentSession
             if (state.currentSession?.id === sessionId) {
-              newCurrentSession = remainingSessions.length > 0 ? remainingSessions[0] : null
+              newCurrentSession = remainingSessions.length > 0 ? 
+                [...remainingSessions].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())[0] : 
+                null
             }
 
             return {
@@ -464,6 +488,11 @@ export const useChatStore = create<ChatState>()(
           })
         },
 
+        // Hydration action
+        setHasHydrated: (state: boolean) => {
+          set({ hasHydrated: state })
+        },
+
         // Session management utilities
         getSessionById: (sessionId: string) => {
           return get().sessions.find(session => session.id === sessionId)
@@ -531,7 +560,7 @@ export const useChatStore = create<ChatState>()(
           sessions: state.sessions,
           currentSession: state.currentSession
         }),
-        // Rehydrate dates correctly
+        // Rehydrate dates correctly and ensure current session
         onRehydrateStorage: () => (state) => {
           if (state) {
             // Convert date strings back to Date objects
@@ -565,6 +594,24 @@ export const useChatStore = create<ChatState>()(
                   lastActive: participant.lastActive ? new Date(participant.lastActive) : undefined
                 }))
               }
+            }
+
+            // Ensure we have a current session if we have any sessions
+            // This handles the case where currentSession was null but we have sessions
+            if (!state.currentSession && state.sessions.length > 0) {
+              const mostRecentSession = [...state.sessions].sort((a, b) => 
+                b.updatedAt.getTime() - a.updatedAt.getTime()
+              )[0]
+              state.currentSession = mostRecentSession
+            }
+
+            // Mark as hydrated
+            state.hasHydrated = true
+          }
+          // Even if there's no stored state (first time user), mark as hydrated
+          return (state) => {
+            if (state) {
+              state.hasHydrated = true
             }
           }
         }
