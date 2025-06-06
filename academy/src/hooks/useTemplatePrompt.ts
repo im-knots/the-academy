@@ -15,7 +15,9 @@ export function useTemplatePrompt() {
   const [suggestedPrompt, setSuggestedPrompt] = useState<string>('')
 
   useEffect(() => {
-    if (currentSession?.metadata?.template && currentSession.messages.length === 0) {
+    if (currentSession?.metadata?.template && 
+        currentSession.metadata.template !== 'blank' && 
+        currentSession.messages.length === 0) {
       const templateId = currentSession.metadata.template
       const prompt = TEMPLATE_PROMPTS[templateId]
       if (prompt) {

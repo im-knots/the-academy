@@ -382,8 +382,7 @@ export function SessionsSection() {
             
             {/* Create Session Menu */}
             {showCreateMenu && (
-              <div className="absolute right-0 top-10 w-80 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-50 p-3">
-                <div className="mb-3">
+                <div className="absolute right-0 top-10 w-72 max-w-[calc(100vw-2rem)] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-50 p-3 transform -translate-x-2">                <div className="mb-3">
                   <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-1">Create New Session</h3>
                   <p className="text-xs text-gray-500 dark:text-gray-400">Choose a template or start from scratch</p>
                 </div>

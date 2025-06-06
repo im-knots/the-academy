@@ -54,11 +54,12 @@ export function ChatInterface() {
   const conversationManager = ClientConversationManager.getInstance()
 
   // Auto-populate moderator input from template prompt
+  const messageCount = currentSession?.messages?.length || 0
   useEffect(() => {
-    if (suggestedPrompt && !moderatorInput && !hasMessages) {
+    if (suggestedPrompt && messageCount === 0) {
       setModeratorInput(suggestedPrompt)
     }
-  }, [suggestedPrompt, moderatorInput, hasMessages])
+  }, [suggestedPrompt, messageCount])
 
   // Clear error after 5 seconds
   useEffect(() => {
