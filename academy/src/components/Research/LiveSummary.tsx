@@ -1,7 +1,7 @@
 // src/components/Research/LiveSummary.tsx - AI-Powered Analysis with Save Feature
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useChatStore } from '@/lib/stores/chatStore'
 import { useMCP } from '@/hooks/useMCP'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
@@ -61,7 +61,7 @@ const ANALYSIS_PROVIDERS: AnalysisProvider[] = [
 ]
 
 export function LiveSummary({ className = '' }: LiveSummaryProps) {
-  const { currentSession, addAnalysisSnapshot, getAnalysisHistory } = useChatStore()
+  const { currentSession, addAnalysisSnapshot } = useChatStore()
   const mcp = useMCP()
   
   const [summary, setSummary] = useState<SummaryData | null>(null)
@@ -73,18 +73,17 @@ export function LiveSummary({ className = '' }: LiveSummaryProps) {
   const [lastAnalyzedMessageCount, setLastAnalyzedMessageCount] = useState(0)
   const [isSaving, setIsSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
-  const [analysisCount, setAnalysisCount] = useState(0)
   
   const analysisIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const ANALYSIS_TRIGGER_INTERVAL = 3 // Analyze every 3 new messages
 
-  // Get analysis history for current session and update count when it changes
-  useEffect(() => {
-    if (currentSession) {
-      const history = getAnalysisHistory(currentSession.id)
-      setAnalysisCount(history.length)
-    }
-  }, [currentSession, getAnalysisHistory])
+  // Get analysis history count directly from current session - automatically reactive
+  const analysisCount = useMemo(() => {
+    if (!currentSession) return 0
+    const count = currentSession.analysisHistory?.length || 0
+    console.log(`📊 LiveSummary: Analysis count = ${count} for session ${currentSession.id}`)
+    return count
+  }, [currentSession?.analysisHistory?.length, currentSession?.id])
 
   // Auto-refresh logic
   useEffect(() => {
@@ -268,10 +267,14 @@ Return only the JSON object, no additional text.`
   }
 
   const saveAnalysisSnapshot = async () => {
-    if (!currentSession || !summary) return
+    if (!currentSession || !summary) {
+      console.warn('⚠️ Cannot save analysis snapshot: missing session or summary')
+      return
+    }
 
     try {
       setIsSaving(true)
+      console.log(`💾 Saving analysis snapshot for session ${currentSession.id}`)
 
       // Count moderator interventions
       const moderatorInterventions = currentSession.messages.filter(
@@ -309,16 +312,20 @@ Return only the JSON object, no additional text.`
         }
       }
 
+      console.log('📊 Snapshot data:', snapshot)
+
       // Save to store
       addAnalysisSnapshot(snapshot)
-      
-      // Update analysis count immediately
-      const newHistory = getAnalysisHistory(currentSession.id)
-      setAnalysisCount(newHistory.length)
       
       setLastSaved(new Date())
       
       console.log('💾 Analysis snapshot saved successfully')
+
+      // Wait a moment and verify it was saved
+      setTimeout(() => {
+        const { currentSession: updatedSession } = useChatStore.getState()
+        console.log(`🔍 Verification: Session now has ${updatedSession?.analysisHistory?.length || 0} analysis snapshots`)
+      }, 100)
 
       // Show saved feedback for 2 seconds
       setTimeout(() => {

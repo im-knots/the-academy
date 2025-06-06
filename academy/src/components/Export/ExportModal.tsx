@@ -1,7 +1,7 @@
 // src/components/Export/ExportModal.tsx
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useChatStore } from '@/lib/stores/chatStore'
 import { ExportManager, ExportOptions } from '@/lib/utils/export'
 import { Button } from '@/components/ui/Button'
@@ -19,7 +19,7 @@ interface ExportModalProps {
 }
 
 export function ExportModal({ isOpen, onClose }: ExportModalProps) {
-  const { currentSession, getAnalysisHistory } = useChatStore()
+  const { currentSession } = useChatStore()
   const [exportOptions, setExportOptions] = useState<ExportOptions>({
     format: 'json',
     includeMetadata: true,
@@ -31,52 +31,67 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
   const [previewContent, setPreviewContent] = useState('')
   const [isExporting, setIsExporting] = useState(false)
   const [copied, setCopied] = useState(false)
-  const [analysisHistory, setAnalysisHistory] = useState<any[]>([])
 
-  // Update analysis history when modal opens or session changes
-  useEffect(() => {
-    if (currentSession && isOpen) {
-      const history = getAnalysisHistory(currentSession.id)
-      setAnalysisHistory(history)
-      console.log(`📊 Export modal loaded ${history.length} analysis snapshots for session ${currentSession.id}`)
+  // Direct access to analysis history with detailed dependency tracking
+  const analysisHistory = useMemo(() => {
+    if (!currentSession) {
+      console.log('📊 ExportModal: No current session')
+      return []
     }
-  }, [currentSession, isOpen, getAnalysisHistory])
-
-  // Also update analysis history periodically while modal is open
-  useEffect(() => {
-    if (!currentSession || !isOpen) return
     
-    const interval = setInterval(() => {
-      const history = getAnalysisHistory(currentSession.id)
-      setAnalysisHistory(prevHistory => {
-        if (prevHistory.length !== history.length) {
-          console.log(`📊 Export modal detected analysis history change: ${prevHistory.length} -> ${history.length}`)
-          return history
-        }
-        return prevHistory
-      })
-    }, 1000) // Check every second
+    const history = currentSession.analysisHistory || []
+    console.log(`📊 ExportModal: Found ${history.length} analysis snapshots for session ${currentSession.id}`)
+    return history
+  }, [
+    currentSession?.id, 
+    currentSession?.analysisHistory, 
+    currentSession?.analysisHistory?.length,
+    currentSession?.updatedAt // Add updatedAt to ensure we catch all updates
+  ])
 
-    return () => clearInterval(interval)
-  }, [currentSession, isOpen, getAnalysisHistory])
+  // Generate analysis timeline with better reactivity
+  const analysisTimeline = useMemo(() => {
+    if (!currentSession || analysisHistory.length === 0) {
+      console.log('📊 ExportModal: No timeline data available')
+      return []
+    }
+    
+    const timeline = ExportManager.getAnalysisTimeline(currentSession)
+    console.log(`📊 ExportModal: Generated timeline with ${timeline.length} entries`)
+    return timeline
+  }, [currentSession, analysisHistory.length, analysisHistory])
 
-  // Update preview when options change
+  // Debug effect to track changes
+  useEffect(() => {
+    if (isOpen && currentSession) {
+      console.log(`📊 ExportModal Debug:`)
+      console.log(`   - Session ID: ${currentSession.id}`)
+      console.log(`   - Session Name: ${currentSession.name}`)
+      console.log(`   - Analysis History Length: ${analysisHistory.length}`)
+      console.log(`   - Current Session Updated: ${currentSession.updatedAt}`)
+      console.log(`   - Analysis History:`, analysisHistory)
+    }
+  }, [isOpen, currentSession?.id, analysisHistory.length, currentSession?.updatedAt, analysisHistory])
+
+  // Update preview when options change - with better dependency tracking
   useEffect(() => {
     if (currentSession && showPreview) {
       try {
-        // Create a session object with the current analysis history for preview
-        const sessionWithCurrentAnalysis = {
-          ...currentSession,
-          analysisHistory // Use the reactive analysis history
-        }
-        const preview = ExportManager.getExportPreview(sessionWithCurrentAnalysis, exportOptions)
+        console.log(`📊 ExportModal: Generating preview with ${analysisHistory.length} analysis snapshots`)
+        const preview = ExportManager.getExportPreview(currentSession, exportOptions)
         setPreviewContent(preview)
       } catch (error) {
         setPreviewContent('Error generating preview')
         console.error('Export preview error:', error)
       }
     }
-  }, [currentSession, exportOptions, showPreview, analysisHistory]) // Add analysisHistory as dependency
+  }, [
+    currentSession, 
+    exportOptions, 
+    showPreview, 
+    analysisHistory.length, 
+    currentSession?.updatedAt // Ensure we update when session changes
+  ])
 
   const handleExport = async () => {
     if (!currentSession) return
@@ -87,13 +102,8 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
       // Small delay to show loading state
       await new Promise(resolve => setTimeout(resolve, 500))
       
-      // Create a session object with the current analysis history
-      const sessionWithCurrentAnalysis = {
-        ...currentSession,
-        analysisHistory: getAnalysisHistory(currentSession.id)
-      }
-      
-      ExportManager.exportSession(sessionWithCurrentAnalysis, exportOptions)
+      console.log(`📊 ExportModal: Exporting session with ${analysisHistory.length} analysis snapshots`)
+      ExportManager.exportSession(currentSession, exportOptions)
       
       // Show success feedback
       setTimeout(() => {
@@ -115,13 +125,14 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
       setIsExporting(true)
       await new Promise(resolve => setTimeout(resolve, 300))
       
-      // Create a session object with the current analysis history
-      const sessionWithCurrentAnalysis = {
-        ...currentSession,
-        analysisHistory: getAnalysisHistory(currentSession.id)
+      if (analysisHistory.length === 0) {
+        alert('No analysis snapshots to export. Please generate some analysis first.')
+        setIsExporting(false)
+        return
       }
       
-      ExportManager.exportAnalysisTimeline(sessionWithCurrentAnalysis)
+      console.log(`📊 ExportModal: Exporting ${analysisHistory.length} analysis snapshots only`)
+      ExportManager.exportAnalysisTimeline(currentSession)
       
       setTimeout(() => {
         onClose()
@@ -157,10 +168,6 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
     size + msg.content.length + msg.participantName.length + 100, 0
   )
   const fileSizeKB = Math.round(estimatedFileSize / 1024)
-  const analysisTimeline = ExportManager.getAnalysisTimeline({
-    ...currentSession,
-    analysisHistory // Use the reactive analysis history
-  })
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
@@ -228,6 +235,10 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
                         <span className="font-medium text-gray-900 dark:text-gray-100">
                           {analysisHistory.length}
                         </span>
+                        {/* Debug indicator */}
+                        <span className="text-xs text-gray-400">
+                          (Live: {currentSession.analysisHistory?.length || 0})
+                        </span>
                       </div>
                     </div>
                     <div className="flex items-center justify-between">
@@ -249,28 +260,24 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
                 </CardContent>
               </Card>
 
-              {/* Analysis Timeline Preview - Always show for debugging */}
+              {/* Analysis Timeline Preview */}
               <Card className={`${analysisHistory.length > 0 ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-700' : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-700'}`}>
                 <CardContent className="p-4">
                   <h3 className={`font-medium mb-3 flex items-center gap-2 ${analysisHistory.length > 0 ? 'text-indigo-900 dark:text-indigo-100' : 'text-yellow-900 dark:text-yellow-100'}`}>
                     <History className="h-4 w-4" />
                     Analysis Timeline ({analysisHistory.length})
-                    <Button
-                      variant="ghost"
-                      size="sm"
+                    {/* Debug refresh button */}
+                    <button 
                       onClick={() => {
-                        const history = getAnalysisHistory(currentSession.id)
-                        console.log('🔍 Debug - Current analysis history:', history)
-                        console.log('🔍 Debug - Analysis history length:', history.length)
-                        console.log('🔍 Debug - Current session ID:', currentSession.id)
-                        console.log('🔍 Debug - Current session analysis history:', currentSession.analysisHistory)
-                        setAnalysisHistory(history)
+                        console.log('🔍 Debug: Force refresh analysis timeline')
+                        console.log('Current session analysis history:', currentSession.analysisHistory)
+                        console.log('Computed analysis history:', analysisHistory)
                       }}
-                      className="h-5 px-2 text-xs"
-                      title="Debug: Refresh analysis history"
+                      className="ml-2 text-xs px-1 py-0.5 bg-gray-200 rounded hover:bg-gray-300"
+                      title="Debug: Log current state"
                     >
                       🔍
-                    </Button>
+                    </button>
                   </h3>
                   {analysisHistory.length > 0 ? (
                     <div className="space-y-2">
@@ -287,6 +294,9 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
                           <p className="text-indigo-700 dark:text-indigo-300 truncate">
                             {entry.keyInsight}
                           </p>
+                          <div className="text-xs text-indigo-600 dark:text-indigo-400 mt-1">
+                            {entry.timestamp.toLocaleTimeString()}
+                          </div>
                         </div>
                       ))}
                       {analysisTimeline.length > 3 && (
@@ -295,9 +305,19 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
                         </p>
                       )}
                     </div>
-                  </CardContent>
-                </Card>
-              )}
+                  ) : (
+                    <div className="text-center py-4">
+                      <Brain className="h-8 w-8 mx-auto mb-2 text-yellow-600 dark:text-yellow-400" />
+                      <p className="text-sm text-yellow-800 dark:text-yellow-200 mb-1">
+                        No analysis snapshots yet
+                      </p>
+                      <p className="text-xs text-yellow-700 dark:text-yellow-300">
+                        Use the AI Analysis panel to generate insights
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
 
               {/* Format Selection */}
               <div>

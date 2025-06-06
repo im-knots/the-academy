@@ -418,7 +418,7 @@ export const useChatStore = create<ChatState>()(
           get().updateParticipant(participantId, { status, lastActive: new Date() })
         },
 
-        // Analysis actions - IMPROVED
+        // Analysis actions - COMPLETELY FIXED
         addAnalysisSnapshot: (analysisData) => {
           const snapshot: AnalysisSnapshot = {
             ...analysisData,
@@ -428,11 +428,14 @@ export const useChatStore = create<ChatState>()(
 
           set((state) => {
             if (!state.currentSession) {
-              console.warn('No current session to add analysis snapshot to')
+              console.warn('⚠️ No current session to add analysis snapshot to')
               return state
             }
 
+            // Ensure analysisHistory exists
             const currentAnalysisHistory = state.currentSession.analysisHistory || []
+            
+            // Create updated session with new snapshot
             const updatedSession = {
               ...state.currentSession,
               analysisHistory: [...currentAnalysisHistory, snapshot],
@@ -446,7 +449,9 @@ export const useChatStore = create<ChatState>()(
               session.id === state.currentSession!.id ? updatedSession : session
             )
 
+            // Force a complete state update to ensure reactivity
             return {
+              ...state,
               currentSession: updatedSession,
               sessions: updatedSessions
             }
