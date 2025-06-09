@@ -1,4 +1,4 @@
-// src/lib/mcp/server.ts - Enhanced with Better Store Handling and Debugging
+// src/lib/mcp/server.ts - Enhanced with Lazy Analysis Loading
 import { ChatSession, Message, Participant } from '@/types/chat'
 import { mcpAnalysisHandler } from './analysis-handler'
 
@@ -113,6 +113,14 @@ export class MCPServer {
     }
   }
 
+  private isAnalysisHandlerAvailable(): boolean {
+    try {
+      return typeof mcpAnalysisHandler?.getGlobalAnalysisStats === 'function'
+    } catch (error) {
+      return false
+    }
+  }
+
   private async handleInitialize(params: any, id: any): Promise<JSONRPCResponse> {
     this.clientInfo = params?.clientInfo
     this.initialized = true
@@ -161,7 +169,10 @@ export class MCPServer {
     console.log(`  - Last update: ${globalStoreData.lastUpdate}`)
 
     const sessions = globalStoreData.sessions || []
-    const analysisStats = mcpAnalysisHandler.getGlobalAnalysisStats()
+    
+    // Check if analysis functionality is available
+    const isAnalysisAvailable = this.isAnalysisHandlerAvailable()
+    console.log(`🔧 MCP Server: Analysis handler available: ${isAnalysisAvailable}`)
     
     const resources = [
       // Core platform resources
@@ -190,21 +201,28 @@ export class MCPServer {
         name: 'Store Debug Info',
         description: 'Debug information about the store state and MCP integration',
         mimeType: 'application/json'
-      },
-      // Analysis resources
-      {
-        uri: 'academy://analysis/stats',
-        name: 'Analysis Statistics',
-        description: `Global analysis statistics (${analysisStats.totalSnapshots} total snapshots)`,
-        mimeType: 'application/json'
-      },
-      {
-        uri: 'academy://analysis/timeline',
-        name: 'Analysis Timeline',
-        description: 'Complete timeline of all analysis snapshots across sessions',
-        mimeType: 'application/json'
       }
     ]
+
+    // Only add analysis resources if analysis functionality is available
+    if (isAnalysisAvailable) {
+      const analysisStats = mcpAnalysisHandler.getGlobalAnalysisStats()
+      
+      resources.push(
+        {
+          uri: 'academy://analysis/stats',
+          name: 'Analysis Statistics',
+          description: `Global analysis statistics (${analysisStats.totalSnapshots} total snapshots)`,
+          mimeType: 'application/json'
+        },
+        {
+          uri: 'academy://analysis/timeline',
+          name: 'Analysis Timeline',
+          description: 'Complete timeline of all analysis snapshots across sessions',
+          mimeType: 'application/json'
+        }
+      )
+    }
 
     // Add session-specific resources only if we have sessions
     if (sessions.length > 0) {
@@ -238,16 +256,18 @@ export class MCPServer {
         })
       })
 
-      // Analysis resources per session
-      sessions.forEach(session => {
-        const analysisCount = mcpAnalysisHandler.getAnalysisHistory(session.id).length
-        resources.push({
-          uri: `academy://session/${session.id}/analysis`,
-          name: `Analysis: ${session.name}`,
-          description: `Analysis snapshots for ${session.name} (${analysisCount} snapshots)`,
-          mimeType: 'application/json'
+      // Analysis resources per session - only if analysis is available
+      if (isAnalysisAvailable) {
+        sessions.forEach(session => {
+          const analysisCount = mcpAnalysisHandler.getAnalysisHistory(session.id).length
+          resources.push({
+            uri: `academy://session/${session.id}/analysis`,
+            name: `Analysis: ${session.name}`,
+            description: `Analysis snapshots for ${session.name} (${analysisCount} snapshots)`,
+            mimeType: 'application/json'
+          })
         })
-      })
+      }
     }
 
     console.log(`✅ MCP Server: Generated ${resources.length} resources`)
@@ -287,14 +307,47 @@ export class MCPServer {
       } else if (uri === 'academy://store/debug') {
         content = this.getStoreDebugInfo()
       } else if (uri === 'academy://analysis/stats') {
+        if (!this.isAnalysisHandlerAvailable()) {
+          return {
+            jsonrpc: '2.0',
+            id,
+            error: {
+              code: -32602,
+              message: 'Analysis functionality not available',
+              data: 'Analysis handler not initialized yet'
+            }
+          }
+        }
         content = mcpAnalysisHandler.getGlobalAnalysisStats()
       } else if (uri === 'academy://analysis/timeline') {
+        if (!this.isAnalysisHandlerAvailable()) {
+          return {
+            jsonrpc: '2.0',
+            id,
+            error: {
+              code: -32602,
+              message: 'Analysis functionality not available',
+              data: 'Analysis handler not initialized yet'
+            }
+          }
+        }
         content = this.getGlobalAnalysisTimeline()
       } else if (uri.startsWith('academy://session/')) {
         const pathParts = uri.split('/')
         const sessionId = pathParts[2]
         
         if (uri.endsWith('/analysis')) {
+          if (!this.isAnalysisHandlerAvailable()) {
+            return {
+              jsonrpc: '2.0',
+              id,
+              error: {
+                code: -32602,
+                message: 'Analysis functionality not available',
+                data: 'Analysis handler not initialized yet'
+              }
+            }
+          }
           content = {
             sessionId,
             snapshots: mcpAnalysisHandler.getAnalysisHistory(sessionId),
@@ -471,7 +524,7 @@ export class MCPServer {
           required: ['sessionId', 'content', 'participantId']
         }
       },
-      // Analysis Tools
+      // Analysis Tools (only if analysis handler is available)
       {
         name: 'save_analysis_snapshot',
         description: 'Save an analysis snapshot for a session via MCP',
@@ -831,13 +884,20 @@ export class MCPServer {
 
   // Analysis Tool Implementations
   private async toolSaveAnalysisSnapshot(args: any): Promise<any> {
+    if (!this.isAnalysisHandlerAvailable()) {
+      return {
+        success: false,
+        error: 'Analysis functionality not available',
+        message: 'Analysis handler not initialized yet'
+      }
+    }
+
     const { sessionId, ...analysisData } = args
 
     try {
       console.log(`💾 MCP Tool: Saving analysis snapshot for session ${sessionId}`)
       
       const snapshotId = await mcpAnalysisHandler.saveAnalysisSnapshot(sessionId, analysisData)
-      
       const snapshots = mcpAnalysisHandler.getAnalysisHistory(sessionId)
       
       return {
@@ -852,6 +912,14 @@ export class MCPServer {
   }
 
   private async toolGetAnalysisHistory(args: any): Promise<any> {
+    if (!this.isAnalysisHandlerAvailable()) {
+      return {
+        success: false,
+        error: 'Analysis functionality not available',
+        message: 'Analysis handler not initialized yet'
+      }
+    }
+
     const { sessionId } = args
 
     try {
@@ -870,6 +938,14 @@ export class MCPServer {
   }
 
   private async toolClearAnalysisHistory(args: any): Promise<any> {
+    if (!this.isAnalysisHandlerAvailable()) {
+      return {
+        success: false,
+        error: 'Analysis functionality not available',
+        message: 'Analysis handler not initialized yet'
+      }
+    }
+
     const { sessionId } = args
 
     try {
@@ -886,6 +962,14 @@ export class MCPServer {
   }
 
   private async toolGetAnalysisTimeline(args: any): Promise<any> {
+    if (!this.isAnalysisHandlerAvailable()) {
+      return {
+        success: false,
+        error: 'Analysis functionality not available',
+        message: 'Analysis handler not initialized yet'
+      }
+    }
+
     const { sessionId } = args
 
     try {
@@ -947,7 +1031,11 @@ export class MCPServer {
     const sessions = globalStoreData.sessions || []
     const totalMessages = sessions.reduce((sum, s) => sum + s.messages.length, 0)
     const activeSessions = sessions.filter(s => s.status === 'active').length
-    const analysisStats = mcpAnalysisHandler.getGlobalAnalysisStats()
+    
+    let analysisStats = null
+    if (this.isAnalysisHandlerAvailable()) {
+      analysisStats = mcpAnalysisHandler.getGlobalAnalysisStats()
+    }
 
     return {
       totalSessions: sessions.length,
@@ -965,6 +1053,12 @@ export class MCPServer {
 
   private getStoreDebugInfo(): any {
     const sessions = globalStoreData.sessions || []
+    
+    let analysisStats = null
+    if (this.isAnalysisHandlerAvailable()) {
+      analysisStats = mcpAnalysisHandler.getGlobalAnalysisStats()
+    }
+
     return {
       storeState: {
         hasHydrated: globalStoreData.hasHydrated,
@@ -983,12 +1077,22 @@ export class MCPServer {
         createdAt: s.createdAt,
         updatedAt: s.updatedAt
       })),
-      analysis: mcpAnalysisHandler.getGlobalAnalysisStats(),
+      analysis: analysisStats,
+      analysisHandlerAvailable: this.isAnalysisHandlerAvailable(),
       debugInfo: globalStoreData.debug || null
     }
   }
 
   private getGlobalAnalysisTimeline(): any {
+    if (!this.isAnalysisHandlerAvailable()) {
+      return {
+        totalEntries: 0,
+        sessions: 0,
+        timeline: [],
+        error: 'Analysis handler not available'
+      }
+    }
+
     const allSessions = mcpAnalysisHandler.getAllAnalysisSessions()
     const timeline: any[] = []
 
