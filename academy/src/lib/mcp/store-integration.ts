@@ -12,6 +12,7 @@ export class MCPStoreIntegration {
   private mcpClient: MCPClient | null = null
   private isInitialized = false
   private unsubscribeStore: (() => void) | null = null
+  private updateInterval: NodeJS.Timeout | null = null
 
   private constructor() {}
 
@@ -31,16 +32,16 @@ export class MCPStoreIntegration {
     try {
       console.log('🔧 MCP Store Integration: Starting initialization...')
       
+      // Wait for store to be properly hydrated
+      await this.waitForStoreHydration()
+      
       // Get the current store state
       const store = useChatStore.getState()
       console.log(`🔧 MCP Store Integration: Found ${store.sessions.length} sessions in store`)
 
-      // Set up store reference for server-side access
-      setMCPStoreReference({
-        sessions: store.sessions,
-        currentSession: store.currentSession
-      })
-      console.log('✅ MCP Store Integration: Store reference set')
+      // Set up initial store reference for server-side access
+      this.updateMCPStoreReference()
+      console.log('✅ MCP Store Integration: Initial store reference set')
 
       // Initialize MCP client
       this.mcpClient = MCPClient.getInstance()
@@ -58,13 +59,71 @@ export class MCPStoreIntegration {
       this.setupStoreListeners()
       console.log('✅ MCP Store Integration: Store listeners set up')
 
+      // Set up periodic updates to ensure data stays fresh
+      this.setupPeriodicUpdates()
+      console.log('✅ MCP Store Integration: Periodic updates enabled')
+
       this.isInitialized = true
       console.log('✅ MCP Store Integration: Initialization complete')
+
+      // Force an immediate resource refresh
+      setTimeout(() => {
+        this.triggerResourceUpdate()
+      }, 1000)
 
     } catch (error) {
       console.error('❌ MCP Store Integration: Failed to initialize:', error)
       throw error
     }
+  }
+
+  private async waitForStoreHydration(maxWait = 10000): Promise<void> {
+    const startTime = Date.now()
+    
+    return new Promise((resolve, reject) => {
+      const checkHydration = () => {
+        const store = useChatStore.getState()
+        
+        if (store.hasHydrated) {
+          console.log('✅ MCP Store Integration: Store is hydrated')
+          resolve()
+          return
+        }
+        
+        if (Date.now() - startTime > maxWait) {
+          console.warn('⚠️ MCP Store Integration: Store hydration timeout, proceeding anyway')
+          resolve()
+          return
+        }
+        
+        console.log('⏳ MCP Store Integration: Waiting for store hydration...')
+        setTimeout(checkHydration, 100)
+      }
+      
+      checkHydration()
+    })
+  }
+
+  private updateMCPStoreReference() {
+    const store = useChatStore.getState()
+    
+    // Create a comprehensive store reference
+    const storeReference = {
+      sessions: store.sessions,
+      currentSession: store.currentSession,
+      hasHydrated: store.hasHydrated,
+      lastUpdate: new Date(),
+      // Add debug info
+      debug: {
+        totalSessions: store.sessions.length,
+        currentSessionId: store.currentSession?.id || null,
+        totalMessages: store.sessions.reduce((sum, s) => sum + s.messages.length, 0),
+        totalParticipants: store.sessions.reduce((sum, s) => sum + s.participants.length, 0)
+      }
+    }
+    
+    console.log('🔄 MCP Store Integration: Updating store reference:', storeReference.debug)
+    setMCPStoreReference(storeReference)
   }
 
   private setupStoreListeners() {
@@ -82,15 +141,26 @@ export class MCPStoreIntegration {
         console.log('🔄 MCP Store Integration: Store state changed, updating MCP server reference')
         
         // Update MCP server reference with new data
-        setMCPStoreReference({
-          sessions: newState.sessions,
-          currentSession: newState.currentSession
-        })
+        this.updateMCPStoreReference()
 
         // Handle specific changes
         this.handleStoreChange(newState, prevState)
+
+        // Trigger resource update in MCP client
+        this.triggerResourceUpdate()
       }
     )
+  }
+
+  private setupPeriodicUpdates() {
+    // Update store reference every 30 seconds to ensure freshness
+    this.updateInterval = setInterval(() => {
+      if (this.isInitialized) {
+        console.log('🔄 MCP Store Integration: Periodic store reference update')
+        this.updateMCPStoreReference()
+        this.triggerResourceUpdate()
+      }
+    }, 30000)
   }
 
   private handleStoreChange(newState: any, prevState: any) {
@@ -113,6 +183,11 @@ export class MCPStoreIntegration {
         console.log(`🔄 MCP Store Integration: Participants changed from ${prevState.currentSession.participants.length} to ${newState.currentSession.participants.length}`)
       }
 
+      // Check for session count changes
+      if (newState.sessions.length !== prevState.sessions.length) {
+        console.log(`🔄 MCP Store Integration: Session count changed from ${prevState.sessions.length} to ${newState.sessions.length}`)
+      }
+
     } catch (error) {
       console.error('❌ MCP Store Integration: Error handling store change:', error)
     }
@@ -120,10 +195,23 @@ export class MCPStoreIntegration {
 
   // Manual trigger methods for external use
   async triggerResourceUpdate() {
-    if (this.mcpClient) {
-      console.log('🔄 MCP Store Integration: Triggering resource update')
-      await this.mcpClient.refreshResources()
+    if (this.mcpClient && this.mcpClient.isConnected()) {
+      try {
+        console.log('🔄 MCP Store Integration: Triggering resource update')
+        await this.mcpClient.refreshResources()
+      } catch (error) {
+        console.error('❌ MCP Store Integration: Failed to refresh resources:', error)
+      }
+    } else {
+      console.warn('⚠️ MCP Store Integration: Cannot trigger resource update - MCP client not connected')
     }
+  }
+
+  // Force a complete refresh
+  async forceRefresh() {
+    console.log('🔄 MCP Store Integration: Forcing complete refresh')
+    this.updateMCPStoreReference()
+    await this.triggerResourceUpdate()
   }
 
   // Cleanup
@@ -133,6 +221,11 @@ export class MCPStoreIntegration {
     if (this.unsubscribeStore) {
       this.unsubscribeStore()
       this.unsubscribeStore = null
+    }
+
+    if (this.updateInterval) {
+      clearInterval(this.updateInterval)
+      this.updateInterval = null
     }
 
     if (this.mcpClient) {
@@ -160,6 +253,7 @@ export class MCPStoreIntegration {
     console.log(`  - MCP Client: ${this.mcpClient ? 'present' : 'null'}`)
     console.log(`  - MCP Connected: ${this.mcpClient?.isConnected() || false}`)
     console.log(`  - Store Listener: ${this.unsubscribeStore ? 'active' : 'inactive'}`)
+    console.log(`  - Update Interval: ${this.updateInterval ? 'active' : 'inactive'}`)
     
     const store = useChatStore.getState()
     console.log(`  - Sessions in store: ${store.sessions.length}`)
@@ -167,6 +261,9 @@ export class MCPStoreIntegration {
     console.log(`  - Store hydrated: ${store.hasHydrated}`)
 
     mcpAnalysisHandler.debug()
+
+    // Test the store reference
+    this.updateMCPStoreReference()
   }
 }
 
@@ -189,21 +286,22 @@ export const mcpIntegration = MCPStoreIntegration.getInstance()
 
 // Auto-initialize when in browser environment
 if (typeof window !== 'undefined') {
-  // Wait for store to be hydrated before initializing MCP
-  const checkStoreAndInitialize = () => {
-    const store = useChatStore.getState()
-    if (store.hasHydrated) {
-      console.log('📦 Store is hydrated, initializing MCP integration...')
-      initializeMCPIntegration().catch(error => {
-        console.error('💥 Auto-initialization failed:', error)
-      })
-    } else {
-      console.log('⏳ Waiting for store to hydrate...')
-      // Check again in 100ms
-      setTimeout(checkStoreAndInitialize, 100)
+  // Initialize after a brief delay to ensure everything is loaded
+  setTimeout(async () => {
+    try {
+      console.log('🔄 Auto-initializing MCP integration...')
+      await initializeMCPIntegration()
+    } catch (error) {
+      console.error('💥 Auto-initialization failed:', error)
+      // Retry once after 5 seconds
+      setTimeout(async () => {
+        try {
+          console.log('🔄 Retrying MCP integration initialization...')
+          await initializeMCPIntegration()
+        } catch (retryError) {
+          console.error('💥 Retry failed:', retryError)
+        }
+      }, 5000)
     }
-  }
-
-  // Start the initialization check after a brief delay
-  setTimeout(checkStoreAndInitialize, 500)
+  }, 1000)
 }

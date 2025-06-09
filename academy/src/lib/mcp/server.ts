@@ -1,4 +1,4 @@
-// src/lib/mcp/server.ts - Enhanced with Analysis Tools
+// src/lib/mcp/server.ts - Enhanced with Better Store Handling and Debugging
 import { ChatSession, Message, Participant } from '@/types/chat'
 import { mcpAnalysisHandler } from './analysis-handler'
 
@@ -30,13 +30,31 @@ interface MCPTool {
 let globalStoreData: {
   sessions: ChatSession[]
   currentSession: ChatSession | null
+  hasHydrated: boolean
+  lastUpdate: Date
+  debug?: any
 } = {
   sessions: [],
-  currentSession: null
+  currentSession: null,
+  hasHydrated: false,
+  lastUpdate: new Date()
 }
 
 export function setMCPStoreReference(storeData: any) {
-  globalStoreData = storeData
+  const prevSessionCount = globalStoreData.sessions.length
+  globalStoreData = {
+    ...storeData,
+    lastUpdate: new Date()
+  }
+  console.log(`🔧 MCP Server: Store reference updated. Sessions: ${prevSessionCount} → ${globalStoreData.sessions.length}`)
+  
+  if (globalStoreData.debug) {
+    console.log('🔧 MCP Server: Store debug info:', globalStoreData.debug)
+  }
+}
+
+export function getMCPStoreReference() {
+  return globalStoreData
 }
 
 export class MCPServer {
@@ -46,6 +64,7 @@ export class MCPServer {
   async handleRequest(request: JSONRPCRequest): Promise<JSONRPCResponse> {
     try {
       const { method, params, id } = request
+      console.log(`🔧 MCP Server: Handling request ${method} (ID: ${id})`)
 
       switch (method) {
         case 'initialize':
@@ -70,6 +89,7 @@ export class MCPServer {
           return this.handleGetPrompt(params, id)
 
         default:
+          console.warn(`⚠️ MCP Server: Unknown method: ${method}`)
           return {
             jsonrpc: '2.0',
             id: id ?? null,
@@ -80,7 +100,7 @@ export class MCPServer {
           }
       }
     } catch (error) {
-      console.error('MCP Server error:', error)
+      console.error('❌ MCP Server error:', error)
       return {
         jsonrpc: '2.0',
         id: request.id ?? null,
@@ -96,6 +116,8 @@ export class MCPServer {
   private async handleInitialize(params: any, id: any): Promise<JSONRPCResponse> {
     this.clientInfo = params?.clientInfo
     this.initialized = true
+    
+    console.log('✅ MCP Server: Initialized with client info:', this.clientInfo)
 
     return {
       jsonrpc: '2.0',
@@ -120,7 +142,7 @@ export class MCPServer {
         },
         serverInfo: {
           name: 'The Academy MCP Server',
-          version: '1.1.0',
+          version: '1.2.0',
           description: 'AI Research Platform with conversation management, AI provider tools, and analysis engine'
         }
       }
@@ -132,26 +154,41 @@ export class MCPServer {
       return this.uninitializedError(id)
     }
 
+    console.log(`🔧 MCP Server: Listing resources. Store status:`)
+    console.log(`  - Has hydrated: ${globalStoreData.hasHydrated}`)
+    console.log(`  - Sessions count: ${globalStoreData.sessions.length}`)
+    console.log(`  - Current session: ${globalStoreData.currentSession?.id || 'none'}`)
+    console.log(`  - Last update: ${globalStoreData.lastUpdate}`)
+
     const sessions = globalStoreData.sessions || []
     const analysisStats = mcpAnalysisHandler.getGlobalAnalysisStats()
     
     const resources = [
+      // Core platform resources
       {
         uri: 'academy://sessions',
         name: 'All Sessions',
-        description: 'List of all conversation sessions',
+        description: `List of all conversation sessions (${sessions.length} sessions)`,
         mimeType: 'application/json'
       },
       {
         uri: 'academy://current',
         name: 'Current Session',
-        description: 'Currently active session',
+        description: globalStoreData.currentSession 
+          ? `Currently active session: ${globalStoreData.currentSession.name}`
+          : 'No active session',
         mimeType: 'application/json'
       },
       {
         uri: 'academy://stats',
         name: 'Platform Statistics',
-        description: 'Overall platform usage statistics',
+        description: `Overall platform usage statistics (${sessions.length} sessions, ${sessions.reduce((sum, s) => sum + s.messages.length, 0)} messages)`,
+        mimeType: 'application/json'
+      },
+      {
+        uri: 'academy://store/debug',
+        name: 'Store Debug Info',
+        description: 'Debug information about the store state and MCP integration',
         mimeType: 'application/json'
       },
       // Analysis resources
@@ -166,31 +203,54 @@ export class MCPServer {
         name: 'Analysis Timeline',
         description: 'Complete timeline of all analysis snapshots across sessions',
         mimeType: 'application/json'
-      },
-      // Session-specific resources
-      ...sessions.map(session => ({
-        uri: `academy://session/${session.id}`,
-        name: `Session: ${session.name}`,
-        description: `Conversation session with ${session.participants.length} participants and ${session.messages.length} messages`,
-        mimeType: 'application/json'
-      })),
-      ...sessions.map(session => ({
-        uri: `academy://session/${session.id}/messages`,
-        name: `Messages: ${session.name}`,
-        description: `Complete message history for session ${session.name}`,
-        mimeType: 'application/json'
-      })),
+      }
+    ]
+
+    // Add session-specific resources only if we have sessions
+    if (sessions.length > 0) {
+      // Session details
+      sessions.forEach(session => {
+        resources.push({
+          uri: `academy://session/${session.id}`,
+          name: `Session: ${session.name}`,
+          description: `Conversation session with ${session.participants.length} participants and ${session.messages.length} messages`,
+          mimeType: 'application/json'
+        })
+      })
+
+      // Session messages
+      sessions.forEach(session => {
+        resources.push({
+          uri: `academy://session/${session.id}/messages`,
+          name: `Messages: ${session.name}`,
+          description: `Complete message history for session ${session.name} (${session.messages.length} messages)`,
+          mimeType: 'application/json'
+        })
+      })
+
+      // Session participants
+      sessions.forEach(session => {
+        resources.push({
+          uri: `academy://session/${session.id}/participants`,
+          name: `Participants: ${session.name}`,
+          description: `Participant list for session ${session.name} (${session.participants.length} participants)`,
+          mimeType: 'application/json'
+        })
+      })
+
       // Analysis resources per session
-      ...sessions.map(session => {
+      sessions.forEach(session => {
         const analysisCount = mcpAnalysisHandler.getAnalysisHistory(session.id).length
-        return {
+        resources.push({
           uri: `academy://session/${session.id}/analysis`,
           name: `Analysis: ${session.name}`,
           description: `Analysis snapshots for ${session.name} (${analysisCount} snapshots)`,
           mimeType: 'application/json'
-        }
+        })
       })
-    ]
+    }
+
+    console.log(`✅ MCP Server: Generated ${resources.length} resources`)
 
     return {
       jsonrpc: '2.0',
@@ -205,16 +265,27 @@ export class MCPServer {
     }
 
     const { uri } = params
+    console.log(`🔧 MCP Server: Reading resource: ${uri}`)
     
     try {
       let content: any
 
       if (uri === 'academy://sessions') {
-        content = globalStoreData.sessions || []
+        content = {
+          sessions: globalStoreData.sessions || [],
+          count: globalStoreData.sessions.length,
+          lastUpdate: globalStoreData.lastUpdate
+        }
       } else if (uri === 'academy://current') {
-        content = globalStoreData.currentSession
+        content = {
+          currentSession: globalStoreData.currentSession,
+          hasCurrentSession: !!globalStoreData.currentSession,
+          lastUpdate: globalStoreData.lastUpdate
+        }
       } else if (uri === 'academy://stats') {
         content = this.getPlatformStats()
+      } else if (uri === 'academy://store/debug') {
+        content = this.getStoreDebugInfo()
       } else if (uri === 'academy://analysis/stats') {
         content = mcpAnalysisHandler.getGlobalAnalysisStats()
       } else if (uri === 'academy://analysis/timeline') {
@@ -232,19 +303,25 @@ export class MCPServer {
           }
         } else if (uri.endsWith('/messages')) {
           content = this.getSessionMessages(sessionId)
+        } else if (uri.endsWith('/participants')) {
+          content = this.getSessionParticipants(sessionId)
         } else {
           content = this.getSession(sessionId)
         }
       } else {
+        console.warn(`⚠️ MCP Server: Unknown resource URI: ${uri}`)
         return {
           jsonrpc: '2.0',
           id,
           error: {
             code: -32602,
-            message: 'Resource not found'
+            message: 'Resource not found',
+            data: `Unknown resource URI: ${uri}`
           }
         }
       }
+
+      console.log(`✅ MCP Server: Successfully read resource ${uri}`)
 
       return {
         jsonrpc: '2.0',
@@ -258,6 +335,7 @@ export class MCPServer {
         }
       }
     } catch (error) {
+      console.error(`❌ MCP Server: Failed to read resource ${uri}:`, error)
       return {
         jsonrpc: '2.0',
         id,
@@ -326,6 +404,25 @@ export class MCPServer {
           required: ['messages']
         }
       },
+      // Store Debugging Tools
+      {
+        name: 'debug_store',
+        description: 'Get detailed debug information about the store state',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+          required: []
+        }
+      },
+      {
+        name: 'refresh_store',
+        description: 'Force refresh the store reference in MCP server',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+          required: []
+        }
+      },
       // Session Management Tools
       {
         name: 'create_session',
@@ -374,7 +471,7 @@ export class MCPServer {
           required: ['sessionId', 'content', 'participantId']
         }
       },
-      // NEW: Analysis Tools
+      // Analysis Tools
       {
         name: 'save_analysis_snapshot',
         description: 'Save an analysis snapshot for a session via MCP',
@@ -466,6 +563,8 @@ export class MCPServer {
       }
     ]
 
+    console.log(`✅ MCP Server: Generated ${tools.length} tools`)
+
     return {
       jsonrpc: '2.0',
       id,
@@ -479,6 +578,7 @@ export class MCPServer {
     }
 
     const { name, arguments: args } = params
+    console.log(`🔧 MCP Server: Calling tool ${name} with args:`, args)
 
     try {
       let result: any
@@ -490,6 +590,12 @@ export class MCPServer {
         case 'openai_chat':
           result = await this.callOpenAIAPI(args)
           break
+        case 'debug_store':
+          result = await this.toolDebugStore()
+          break
+        case 'refresh_store':
+          result = await this.toolRefreshStore()
+          break
         case 'create_session':
           result = await this.toolCreateSession(args)
           break
@@ -499,7 +605,7 @@ export class MCPServer {
         case 'send_message':
           result = await this.toolSendMessage(args)
           break
-        // NEW: Analysis tools
+        // Analysis tools
         case 'save_analysis_snapshot':
           result = await this.toolSaveAnalysisSnapshot(args)
           break
@@ -516,6 +622,7 @@ export class MCPServer {
           result = await this.toolAnalyzeConversation(args)
           break
         default:
+          console.warn(`⚠️ MCP Server: Unknown tool: ${name}`)
           return {
             jsonrpc: '2.0',
             id,
@@ -525,6 +632,8 @@ export class MCPServer {
             }
           }
       }
+
+      console.log(`✅ MCP Server: Tool ${name} executed successfully`)
 
       return {
         jsonrpc: '2.0',
@@ -537,6 +646,7 @@ export class MCPServer {
         }
       }
     } catch (error) {
+      console.error(`❌ MCP Server: Tool ${name} execution failed:`, error)
       return {
         jsonrpc: '2.0',
         id,
@@ -612,6 +722,20 @@ export class MCPServer {
           }
         ]
       }
+    }
+  }
+
+  // Debug Tools
+  private async toolDebugStore(): Promise<any> {
+    return this.getStoreDebugInfo()
+  }
+
+  private async toolRefreshStore(): Promise<any> {
+    // This would trigger a refresh from the client side
+    return {
+      success: true,
+      message: 'Store refresh signal sent',
+      currentState: this.getStoreDebugInfo()
     }
   }
 
@@ -705,7 +829,7 @@ export class MCPServer {
     }
   }
 
-  // NEW: Analysis Tool Implementations
+  // Analysis Tool Implementations
   private async toolSaveAnalysisSnapshot(args: any): Promise<any> {
     const { sessionId, ...analysisData } = args
 
@@ -792,12 +916,31 @@ export class MCPServer {
 
   private getSession(sessionId: string): ChatSession | null {
     const sessions = globalStoreData.sessions || []
-    return sessions.find(s => s.id === sessionId) || null
+    const session = sessions.find(s => s.id === sessionId)
+    console.log(`🔧 MCP Server: Getting session ${sessionId}, found: ${!!session}`)
+    return session || null
   }
 
-  private getSessionMessages(sessionId: string): Message[] {
+  private getSessionMessages(sessionId: string): any {
     const session = this.getSession(sessionId)
-    return session?.messages || []
+    const messages = session?.messages || []
+    return {
+      sessionId,
+      messages,
+      count: messages.length,
+      sessionExists: !!session
+    }
+  }
+
+  private getSessionParticipants(sessionId: string): any {
+    const session = this.getSession(sessionId)
+    const participants = session?.participants || []
+    return {
+      sessionId,
+      participants,
+      count: participants.length,
+      sessionExists: !!session
+    }
   }
 
   private getPlatformStats(): any {
@@ -810,8 +953,38 @@ export class MCPServer {
       totalSessions: sessions.length,
       activeSessions,
       totalMessages,
-      averageMessagesPerSession: Math.round(totalMessages / sessions.length) || 0,
-      analysis: analysisStats
+      averageMessagesPerSession: Math.round(totalMessages / (sessions.length || 1)),
+      analysis: analysisStats,
+      storeStatus: {
+        hasHydrated: globalStoreData.hasHydrated,
+        currentSessionId: globalStoreData.currentSession?.id || null,
+        lastUpdate: globalStoreData.lastUpdate
+      }
+    }
+  }
+
+  private getStoreDebugInfo(): any {
+    const sessions = globalStoreData.sessions || []
+    return {
+      storeState: {
+        hasHydrated: globalStoreData.hasHydrated,
+        sessionsCount: sessions.length,
+        currentSessionId: globalStoreData.currentSession?.id || null,
+        lastUpdate: globalStoreData.lastUpdate,
+        totalMessages: sessions.reduce((sum, s) => sum + s.messages.length, 0),
+        totalParticipants: sessions.reduce((sum, s) => sum + s.participants.length, 0)
+      },
+      sessions: sessions.map(s => ({
+        id: s.id,
+        name: s.name,
+        status: s.status,
+        messageCount: s.messages.length,
+        participantCount: s.participants.length,
+        createdAt: s.createdAt,
+        updatedAt: s.updatedAt
+      })),
+      analysis: mcpAnalysisHandler.getGlobalAnalysisStats(),
+      debugInfo: globalStoreData.debug || null
     }
   }
 
@@ -844,7 +1017,8 @@ export class MCPServer {
     return { 
       success: true, 
       sessionId: `session-${Date.now()}`,
-      message: `Session "${args.name}" would be created via store`
+      message: `Session "${args.name}" would be created via store integration`,
+      storeState: this.getStoreDebugInfo().storeState
     }
   }
 
@@ -852,7 +1026,8 @@ export class MCPServer {
     return { 
       success: true, 
       participantId: `participant-${Date.now()}`,
-      message: `Participant "${args.name}" would be added via store`
+      message: `Participant "${args.name}" would be added via store integration`,
+      storeState: this.getStoreDebugInfo().storeState
     }
   }
 
@@ -860,7 +1035,8 @@ export class MCPServer {
     return { 
       success: true, 
       messageId: `message-${Date.now()}`,
-      message: 'Message would be sent via store'
+      message: 'Message would be sent via store integration',
+      storeState: this.getStoreDebugInfo().storeState
     }
   }
 
@@ -876,8 +1052,8 @@ export class MCPServer {
         messageCount: session.messages.length,
         participantCount: session.participants.length,
         averageMessageLength: Math.round(
-          session.messages.reduce((sum, msg) => sum + msg.content.length, 0) / session.messages.length
-        ) || 0
+          session.messages.reduce((sum, msg) => sum + msg.content.length, 0) / (session.messages.length || 1)
+        )
       }
     }
   }

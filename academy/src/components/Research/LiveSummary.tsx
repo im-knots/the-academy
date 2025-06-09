@@ -1,4 +1,4 @@
-// src/components/Research/LiveSummary.tsx - Simplified MCP Integration
+// src/components/Research/LiveSummary.tsx - Fixed MCP Integration
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
@@ -62,7 +62,7 @@ const ANALYSIS_PROVIDERS: AnalysisProvider[] = [
 ]
 
 export function LiveSummary({ className = '' }: LiveSummaryProps) {
-  const { currentSession } = useChatStore()
+  const { currentSession, addAnalysisSnapshot } = useChatStore()
   const mcp = useMCP()
   
   const [summary, setSummary] = useState<SummaryData | null>(null)
@@ -87,31 +87,34 @@ export function LiveSummary({ className = '' }: LiveSummaryProps) {
 
     console.log(`📊 LiveSummary: Setting up MCP subscriptions for session ${currentSession.id}`)
 
-    // Initial load of analysis count
-    const initialSnapshots = mcpAnalysisHandler.getAnalysisHistory(currentSession.id)
-    setAnalysisCount(initialSnapshots.length)
-    console.log(`📊 LiveSummary: Initial analysis count = ${initialSnapshots.length}`)
+    // Initial load of analysis count from both MCP and store
+    const mcpSnapshots = mcpAnalysisHandler.getAnalysisHistory(currentSession.id)
+    const storeSnapshots = currentSession.analysisHistory || []
+    const totalCount = Math.max(mcpSnapshots.length, storeSnapshots.length)
+    
+    setAnalysisCount(totalCount)
+    console.log(`📊 LiveSummary: Initial analysis count = ${totalCount} (MCP: ${mcpSnapshots.length}, Store: ${storeSnapshots.length})`)
 
-    // Subscribe to analysis updates
+    // Subscribe to MCP analysis updates
     const unsubscribeSaved = mcpAnalysisHandler.subscribe('analysis_snapshot_saved', (data) => {
       if (data.sessionId === currentSession.id) {
-        console.log(`📊 LiveSummary: Analysis snapshot saved event received. New count: ${data.totalSnapshots}`)
+        console.log(`📊 LiveSummary: MCP analysis snapshot saved event received. New count: ${data.totalSnapshots}`)
         setAnalysisCount(data.totalSnapshots)
         setLastSaved(new Date())
-        setTimeout(() => setLastSaved(null), 2000)
+        setTimeout(() => setLastSaved(null), 3000)
       }
     })
 
     const unsubscribeUpdated = mcpAnalysisHandler.subscribe('analysis_history_updated', (data) => {
       if (data.sessionId === currentSession.id) {
-        console.log(`📊 LiveSummary: Analysis history updated event received. New count: ${data.count}`)
+        console.log(`📊 LiveSummary: MCP analysis history updated event received. New count: ${data.count}`)
         setAnalysisCount(data.count)
       }
     })
 
     const unsubscribeCleared = mcpAnalysisHandler.subscribe('analysis_history_cleared', (data) => {
       if (data.sessionId === currentSession.id) {
-        console.log(`📊 LiveSummary: Analysis history cleared event received`)
+        console.log(`📊 LiveSummary: MCP analysis history cleared event received`)
         setAnalysisCount(0)
       }
     })
@@ -142,7 +145,7 @@ export function LiveSummary({ className = '' }: LiveSummaryProps) {
       }
       
       analysisIntervalRef.current = setTimeout(() => {
-        performAIAnalysis()
+        performAIAnalysis(true) // Auto-save
       }, 3000) // Wait 3 seconds after last message
     }
 
@@ -156,7 +159,7 @@ export function LiveSummary({ className = '' }: LiveSummaryProps) {
   // Initial analysis when session changes
   useEffect(() => {
     if (currentSession && currentSession.messages.length >= 4 && !summary) {
-      performAIAnalysis()
+      performAIAnalysis(false) // Don't auto-save initial analysis
     }
   }, [currentSession?.id])
 
@@ -218,7 +221,7 @@ Focus on:
 Return only the JSON object, no additional text.`
   }
 
-  const performAIAnalysis = async () => {
+  const performAIAnalysis = async (autoSave: boolean = false) => {
     if (!currentSession || !mcp.isConnected || isAnalyzing) return
 
     try {
@@ -289,8 +292,15 @@ Return only the JSON object, no additional text.`
           setSummary(summaryData)
           setLastAnalyzedMessageCount(currentSession.messages.length)
           console.log(`✅ LiveSummary: AI analysis completed with ${selectedProvider}`)
+
+          // Auto-save if requested
+          if (autoSave) {
+            console.log(`💾 LiveSummary: Auto-saving analysis snapshot...`)
+            await saveAnalysisSnapshot(summaryData)
+          }
         } catch (parseError) {
           console.error('❌ LiveSummary: Failed to parse AI analysis response:', parseError)
+          console.log('Raw response:', result.content)
           setError('AI provided invalid analysis format')
         }
       } else {
@@ -305,8 +315,9 @@ Return only the JSON object, no additional text.`
     }
   }
 
-  const saveAnalysisSnapshot = async () => {
-    if (!currentSession || !summary) {
+  const saveAnalysisSnapshot = async (summaryData?: SummaryData) => {
+    const dataToSave = summaryData || summary
+    if (!currentSession || !dataToSave) {
       console.warn('⚠️ LiveSummary: Cannot save analysis snapshot: missing session or summary')
       return
     }
@@ -325,23 +336,23 @@ Return only the JSON object, no additional text.`
         .filter(p => p.status === 'active' || p.status === 'thinking')
         .map(p => p.name)
 
-      // Prepare analysis data for MCP handler
-      const analysisData = {
-        messageCountAtAnalysis: summary.messageCount,
+      // Prepare analysis data for both MCP handler AND chat store
+      const analysisSnapshotData = {
+        messageCountAtAnalysis: dataToSave.messageCount,
         participantCountAtAnalysis: currentSession.participants.length,
         provider: selectedProvider,
-        conversationPhase: summary.conversationPhase,
+        conversationPhase: dataToSave.conversationPhase,
         analysis: {
-          mainTopics: summary.mainTopics,
-          keyInsights: summary.keyInsights,
-          currentDirection: summary.currentDirection,
-          participantDynamics: summary.participantDynamics,
-          emergentThemes: summary.emergentThemes,
-          conversationPhase: summary.conversationPhase,
-          tensions: summary.tensions,
-          convergences: summary.convergences,
-          nextLikelyDirections: summary.nextLikelyDirections,
-          philosophicalDepth: summary.philosophicalDepth
+          mainTopics: dataToSave.mainTopics,
+          keyInsights: dataToSave.keyInsights,
+          currentDirection: dataToSave.currentDirection,
+          participantDynamics: dataToSave.participantDynamics,
+          emergentThemes: dataToSave.emergentThemes,
+          conversationPhase: dataToSave.conversationPhase,
+          tensions: dataToSave.tensions,
+          convergences: dataToSave.convergences,
+          nextLikelyDirections: dataToSave.nextLikelyDirections,
+          philosophicalDepth: dataToSave.philosophicalDepth
         },
         conversationContext: {
           recentMessages: Math.min(currentSession.messages.length, 10),
@@ -351,15 +362,34 @@ Return only the JSON object, no additional text.`
         }
       }
 
-      console.log('📊 LiveSummary: Analysis data prepared:', analysisData)
+      console.log('📊 LiveSummary: Analysis data prepared:', analysisSnapshotData)
 
-      // Save via MCP analysis handler (not MCP tools to avoid circular calls)
-      const snapshotId = await mcpAnalysisHandler.saveAnalysisSnapshot(currentSession.id, analysisData)
+      // Save to BOTH MCP handler AND chat store for maximum compatibility
       
-      console.log(`💾 LiveSummary: Analysis snapshot saved successfully: ${snapshotId}`)
+      // 1. Save to MCP analysis handler (for real-time updates and export)
+      const snapshotId = await mcpAnalysisHandler.saveAnalysisSnapshot(currentSession.id, analysisSnapshotData)
+      console.log(`💾 LiveSummary: MCP analysis snapshot saved: ${snapshotId}`)
       
+      // 2. Save to chat store (for persistence and compatibility)
+      addAnalysisSnapshot(analysisSnapshotData)
+      console.log(`💾 LiveSummary: Chat store analysis snapshot saved`)
+
+      // 3. Also try saving via MCP tool (for completeness)
+      try {
+        if (mcp.isConnected) {
+          await mcp.callTool('save_analysis_snapshot', {
+            sessionId: currentSession.id,
+            ...analysisSnapshotData
+          })
+          console.log(`💾 LiveSummary: MCP tool save also completed`)
+        }
+      } catch (mcpError) {
+        console.warn('⚠️ LiveSummary: MCP tool save failed, but other saves succeeded:', mcpError)
+      }
+
       // The MCP handler will emit events that will update our UI automatically
-      // No need to manually update state here
+      setLastSaved(new Date())
+      setTimeout(() => setLastSaved(null), 3000)
 
     } catch (error) {
       console.error('❌ LiveSummary: Failed to save analysis snapshot:', error)
@@ -424,7 +454,7 @@ Return only the JSON object, no additional text.`
           <Button
             variant="outline"
             size="sm"
-            onClick={performAIAnalysis}
+            onClick={() => performAIAnalysis(false)}
             disabled={isAnalyzing}
             className="w-full"
           >
@@ -457,7 +487,7 @@ Return only the JSON object, no additional text.`
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={saveAnalysisSnapshot}
+                onClick={() => saveAnalysisSnapshot()}
                 disabled={isSaving || isAnalyzing}
                 className="h-6 px-2 text-xs"
                 title="Save analysis snapshot"
@@ -489,7 +519,7 @@ Return only the JSON object, no additional text.`
               </Button>
               
               {showProviderSelect && (
-                <div className="absolute right-0 top-10 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-50 p-3 transform -translate-x-full translate-x-8">
+                <div className="absolute right-0 top-10 w-64 max-w-[calc(100vw-2rem)] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-50 p-3 transform -translate-x-2">
                   <div className="mb-2">
                     <h4 className="text-xs font-medium text-gray-900 dark:text-gray-100 mb-1">Analysis Provider</h4>
                     <p className="text-xs text-gray-500 dark:text-gray-400">Choose which AI analyzes the conversation</p>
@@ -528,7 +558,7 @@ Return only the JSON object, no additional text.`
             <Button
               variant="ghost"
               size="sm"
-              onClick={performAIAnalysis}
+              onClick={() => performAIAnalysis(false)}
               disabled={isAnalyzing}
               className="h-6 w-6 p-0"
             >
@@ -555,7 +585,7 @@ Return only the JSON object, no additional text.`
                 <div className="p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
                   <div className="flex items-center gap-2 text-xs text-blue-800 dark:text-blue-200">
                     <Database className="h-3 w-3" />
-                    <span>{analysisCount} analysis snapshots stored</span>
+                    <span>{analysisCount} analysis snapshots stored via MCP</span>
                   </div>
                 </div>
               )}
@@ -565,7 +595,7 @@ Return only the JSON object, no additional text.`
                 <div className="p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg">
                   <div className="flex items-center gap-2 text-xs text-green-800 dark:text-green-200">
                     <CheckCircle2 className="h-3 w-3" />
-                    <span>Analysis saved at {lastSaved.toLocaleTimeString()}</span>
+                    <span>Analysis saved to MCP at {lastSaved.toLocaleTimeString()}</span>
                   </div>
                 </div>
               )}
