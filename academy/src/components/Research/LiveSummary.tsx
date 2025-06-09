@@ -468,16 +468,22 @@ Return only the JSON object, no additional text.`
     return (
       <Card className={`bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-700/50 border-gray-200 dark:border-gray-700 ${className}`}>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2">
-            <Brain className="h-4 w-4" />
-            AI Analysis
-            {analysisCount > 0 && (
-              <Badge variant="secondary" className="text-xs ml-2 flex items-center gap-1">
-                <Database className="h-3 w-3" />
-                {analysisCount} saved
-              </Badge>
-            )}
-          </CardTitle>
+            <CardTitle className="text-sm text-indigo-900 dark:text-indigo-100 flex items-center gap-2">
+              <Brain className="h-4 w-4" />
+              AI Analysis
+              {isAnalyzing && <Loader2 className="h-3 w-3 animate-spin" />}
+              {isSaving ? (
+                <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Saving...
+                </Badge>
+              ) : analysisCount > 0 ? (
+                <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                  <Database className="h-3 w-3" />
+                  {analysisCount} saved
+                </Badge>
+              ) : null}
+            </CardTitle>
         </CardHeader>
         <CardContent className="text-center py-8">
           <MessageSquare className="h-8 w-8 mx-auto mb-3 text-gray-400" />
@@ -601,17 +607,6 @@ Return only the JSON object, no additional text.`
               className="h-6 px-2 text-xs"
               title={isAnalyzing ? "Analyzing..." : "Run Analysis"}
             >
-              {isAnalyzing ? (
-                <>
-                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                  Analyzing
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="h-3 w-3 mr-1" />
-                  Analyze
-                </>
-              )}
             </Button>
             
             <Button
