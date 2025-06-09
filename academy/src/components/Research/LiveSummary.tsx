@@ -1,4 +1,4 @@
-// src/components/Research/LiveSummary.tsx - Fixed Session Switching
+// src/components/Research/LiveSummary.tsx - Fixed Header and Added Analysis Details
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
@@ -147,7 +147,7 @@ export function LiveSummary({ className = '' }: LiveSummaryProps) {
         console.log(`📊 LiveSummary: Performing fresh analysis for session ${currentSession.id}`)
         // Small delay to ensure UI updates
         setTimeout(() => {
-          performAIAnalysis(false) // Don't auto-save initial analysis
+          performAIAnalysis(true) // Auto-save initial analysis
         }, 500)
       }
     }
@@ -256,7 +256,7 @@ Focus on:
 Return only the JSON object, no additional text.`
   }
 
-  const performAIAnalysis = async (autoSave: boolean = false) => {
+  const performAIAnalysis = async (autoSave: boolean = true) => {
     if (!currentSession || !mcp.isConnected || isAnalyzing) return
 
     try {
@@ -454,6 +454,16 @@ Return only the JSON object, no additional text.`
     return provider === 'claude' ? '🟠' : '🟢'
   }
 
+  const getDepthColor = (depth: string) => {
+    switch (depth) {
+      case 'profound': return 'bg-purple-100 text-purple-800 border-purple-200'
+      case 'deep': return 'bg-blue-100 text-blue-800 border-blue-200'
+      case 'moderate': return 'bg-green-100 text-green-800 border-green-200'
+      case 'surface': return 'bg-yellow-100 text-yellow-800 border-yellow-200'
+      default: return 'bg-gray-100 text-gray-800 border-gray-200'
+    }
+  }
+
   if (!currentSession || currentSession.messages.length < 4) {
     return (
       <Card className={`bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-700/50 border-gray-200 dark:border-gray-700 ${className}`}>
@@ -505,7 +515,7 @@ Return only the JSON object, no additional text.`
           <Button
             variant="outline"
             size="sm"
-            onClick={() => performAIAnalysis(false)}
+            onClick={() => performAIAnalysis(true)}
             disabled={isAnalyzing}
             className="w-full"
           >
@@ -533,29 +543,6 @@ Return only the JSON object, no additional text.`
             )}
           </CardTitle>
           <div className="flex items-center gap-2">
-            {/* Save Analysis Button */}
-            {summary && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => saveAnalysisSnapshot()}
-                disabled={isSaving || isAnalyzing}
-                className="h-6 px-2 text-xs"
-                title="Save analysis snapshot"
-              >
-                {isSaving ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : lastSaved ? (
-                  <CheckCircle2 className="h-3 w-3 text-green-600" />
-                ) : (
-                  <>
-                    <Database className="h-3 w-3 mr-1" />
-                    <BookmarkPlus className="h-3 w-3" />
-                  </>
-                )}
-              </Button>
-            )}
-
             {/* Provider Selection */}
             <div className="relative">
               <Button
@@ -609,12 +596,24 @@ Return only the JSON object, no additional text.`
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => performAIAnalysis(false)}
+              onClick={() => performAIAnalysis(true)}
               disabled={isAnalyzing}
-              className="h-6 w-6 p-0"
+              className="h-6 px-2 text-xs"
+              title={isAnalyzing ? "Analyzing..." : "Run Analysis"}
             >
-              <RefreshCw className={`h-3 w-3 ${isAnalyzing ? 'animate-spin' : ''}`} />
+              {isAnalyzing ? (
+                <>
+                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  Analyzing
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-3 w-3 mr-1" />
+                  Analyze
+                </>
+              )}
             </Button>
+            
             <Button
               variant="ghost"
               size="sm"
@@ -631,33 +630,15 @@ Return only the JSON object, no additional text.`
         <CardContent className="space-y-4 max-h-150 overflow-y-auto">
           {summary && (
             <>
-              {/* MCP Analysis Info */}
-              {analysisCount > 0 && (
-                <div className="p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
-                  <div className="flex items-center gap-2 text-xs text-blue-800 dark:text-blue-200">
-                    <Database className="h-3 w-3" />
-                    <span>{analysisCount} analysis snapshots stored via MCP</span>
-                  </div>
-                </div>
-              )}
-
               {/* Last Saved Indicator */}
               {lastSaved && (
                 <div className="p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg">
                   <div className="flex items-center gap-2 text-xs text-green-800 dark:text-green-200">
                     <CheckCircle2 className="h-3 w-3" />
-                    <span>Analysis saved to MCP at {lastSaved.toLocaleTimeString()}</span>
+                    <span>Analysis auto-saved at {lastSaved.toLocaleTimeString()}</span>
                   </div>
                 </div>
               )}
-
-              {/* Session Info */}
-              <div className="p-2 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-700 rounded-lg">
-                <div className="flex items-center gap-2 text-xs text-indigo-800 dark:text-indigo-200">
-                  <Zap className="h-3 w-3" />
-                  <span>Session: {currentSession.id.slice(0, 8)}... | {summary.messageCount} messages analyzed</span>
-                </div>
-              </div>
 
               {/* Main Topics */}
               {summary.mainTopics.length > 0 && (
@@ -703,6 +684,106 @@ Return only the JSON object, no additional text.`
                   </div>
                 </div>
               )}
+
+              {/* Participant Dynamics */}
+              {Object.keys(summary.participantDynamics).length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Users className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                    <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">Participant Dynamics</span>
+                  </div>
+                  <div className="space-y-2">
+                    {Object.entries(summary.participantDynamics).slice(0, 2).map(([participantName, dynamics]) => (
+                      <div key={participantName} className="text-xs bg-white/30 dark:bg-black/10 p-2 rounded">
+                        <div className="font-medium text-indigo-800 dark:text-indigo-200 mb-1">{participantName}</div>
+                        <div className="text-indigo-700 dark:text-indigo-300">
+                          <span className="font-medium">Perspective:</span> {dynamics.perspective}
+                        </div>
+                        <div className="text-indigo-700 dark:text-indigo-300">
+                          <span className="font-medium">Style:</span> {dynamics.style}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Emergent Themes */}
+              {summary.emergentThemes.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                    <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">Emergent Themes</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {summary.emergentThemes.slice(0, 4).map((theme, index) => (
+                      <Badge key={index} variant="secondary" className="text-xs">
+                        {theme}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Tensions & Convergences */}
+              <div className="grid grid-cols-2 gap-3">
+                {summary.tensions.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <TrendingUp className="h-4 w-4 text-red-500" />
+                      <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">Tensions</span>
+                    </div>
+                    <div className="space-y-1">
+                      {summary.tensions.slice(0, 2).map((tension, index) => (
+                        <div key={index} className="text-xs text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 p-2 rounded">
+                          • {tension}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {summary.convergences.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Target className="h-4 w-4 text-green-500" />
+                      <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">Convergences</span>
+                    </div>
+                    <div className="space-y-1">
+                      {summary.convergences.slice(0, 2).map((convergence, index) => (
+                        <div key={index} className="text-xs text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/20 p-2 rounded">
+                          • {convergence}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Conversation Phase & Depth */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Clock className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
+                    <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">Phase</span>
+                  </div>
+                  <Badge variant="outline" className="text-xs capitalize">
+                    {summary.conversationPhase}
+                  </Badge>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Brain className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
+                    <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">Depth</span>
+                  </div>
+                  <Badge 
+                    variant="outline" 
+                    className={`text-xs capitalize ${getDepthColor(summary.philosophicalDepth)}`}
+                  >
+                    {summary.philosophicalDepth}
+                  </Badge>
+                </div>
+              </div>
 
               {/* Last Updated */}
               <div className="pt-2 border-t border-indigo-200 dark:border-indigo-700">

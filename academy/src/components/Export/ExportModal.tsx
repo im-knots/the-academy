@@ -1,4 +1,4 @@
-// src/components/Export/ExportModal.tsx - MCP-Powered Export
+// src/components/Export/ExportModal.tsx - Fixed Modal Height and Preview
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
@@ -134,13 +134,19 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
     }
   }, [isOpen, currentSession, analysisCount, analysisTimeline.length, lastUpdate])
 
-  // Update preview when options change - with MCP data
+  // Update preview when options change - with MCP data and full content
   useEffect(() => {
     if (enhancedSession && showPreview) {
       try {
-        console.log(`📊 ExportModal: Generating preview with ${enhancedSession.analysisHistory?.length || 0} MCP analysis snapshots`)
-        const preview = ExportManager.getExportPreview(enhancedSession, exportOptions)
-        setPreviewContent(preview)
+        console.log(`📊 ExportModal: Generating full preview with ${enhancedSession.analysisHistory?.length || 0} MCP analysis snapshots`)
+        // Generate full content instead of preview
+        if (exportOptions.format === 'json') {
+          const fullContent = ExportManager.generateJSON(enhancedSession, exportOptions)
+          setPreviewContent(fullContent)
+        } else {
+          const fullContent = ExportManager.generateCSV(enhancedSession, exportOptions)
+          setPreviewContent(fullContent)
+        }
       } catch (error) {
         setPreviewContent('Error generating preview')
         console.error('Export preview error:', error)
@@ -226,9 +232,9 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-5xl h-[85vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl flex items-center justify-center">
               <FileDown className="h-5 w-5 text-white" />
@@ -247,8 +253,8 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
           </Button>
         </div>
 
-        {/* Content */}
-        <div className="flex h-[calc(90vh-140px)]">
+        {/* Content - Now flex-1 with proper overflow handling */}
+        <div className="flex flex-1 min-h-0">
           {/* Options Panel */}
           <div className="w-1/2 p-6 border-r border-gray-200 dark:border-gray-700 overflow-y-auto">
             <div className="space-y-6">
@@ -500,8 +506,8 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
           </div>
 
           {/* Preview Panel */}
-          <div className="w-1/2 flex flex-col">
-            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+          <div className="w-1/2 flex flex-col min-h-0">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
               <div className="flex items-center justify-between">
                 <h3 className="font-medium text-gray-900 dark:text-gray-100">
                   Export Preview
@@ -551,7 +557,7 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
             <div className="flex-1 overflow-hidden">
               {showPreview ? (
                 <div className="h-full p-6 overflow-y-auto">
-                  <pre className="text-xs bg-gray-50 dark:bg-gray-900 p-4 rounded-lg overflow-x-auto text-gray-900 dark:text-gray-100 font-mono leading-relaxed">
+                  <pre className="text-xs bg-gray-50 dark:bg-gray-900 p-4 rounded-lg overflow-x-auto text-gray-900 dark:text-gray-100 font-mono leading-relaxed whitespace-pre-wrap">
                     {previewContent || 'Generating preview...'}
                   </pre>
                 </div>
@@ -588,17 +594,17 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="border-t border-gray-200 dark:border-gray-700 p-6 bg-gray-50 dark:bg-gray-800/50">
+        {/* Footer - Now flex-shrink-0 */}
+        <div className="border-t border-gray-200 dark:border-gray-700 p-6 bg-gray-50 dark:bg-gray-800/50 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Badge variant={exportOptions.format === 'json' ? 'default' : 'secondary'}>
                 {exportOptions.format.toUpperCase()}
               </Badge>
-              <span className="text-sm text-gray-600 dark:text-gray-400">
+              <span className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-3">
                 {currentSession.messages.length} messages • {currentSession.participants.length} participants
                 {analysisCount > 0 && (
-                  <span className="flex items-center gap-1 ml-2">
+                  <span className="flex items-center gap-1">
                     <Zap className="h-3 w-3" />
                     {analysisCount} MCP analyses
                   </span>

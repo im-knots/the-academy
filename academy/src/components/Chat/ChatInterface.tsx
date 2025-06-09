@@ -780,7 +780,7 @@ export function ChatInterface() {
                     disabled={!hasMessages}
                   >
                     <Download className="h-4 w-4 mr-2" />
-                    Export Chat Log
+                    Export Chat Data
                   </Button>
                   
                   <Button 
