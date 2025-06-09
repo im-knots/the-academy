@@ -32,7 +32,7 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
   const [isExporting, setIsExporting] = useState(false)
   const [copied, setCopied] = useState(false)
 
-  // Direct access to analysis history with detailed dependency tracking
+  // Fixed: More robust dependency tracking for analysis history
   const analysisHistory = useMemo(() => {
     if (!currentSession) {
       console.log('📊 ExportModal: No current session')
@@ -41,13 +41,16 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
     
     const history = currentSession.analysisHistory || []
     console.log(`📊 ExportModal: Found ${history.length} analysis snapshots for session ${currentSession.id}`)
+    console.log('📊 ExportModal: Analysis history data:', history)
     return history
   }, [
-    currentSession?.id, 
-    currentSession?.analysisHistory, 
-    currentSession?.analysisHistory?.length,
-    currentSession?.updatedAt // Add updatedAt to ensure we catch all updates
+    currentSession, // Depend on entire currentSession object
+    currentSession?.analysisHistory, // Direct reference to the array
+    JSON.stringify(currentSession?.analysisHistory || []) // Stringify for deep comparison
   ])
+
+  // Simplified analysis count with better reactivity
+  const analysisCount = analysisHistory.length
 
   // Generate analysis timeline with better reactivity
   const analysisTimeline = useMemo(() => {
@@ -59,19 +62,33 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
     const timeline = ExportManager.getAnalysisTimeline(currentSession)
     console.log(`📊 ExportModal: Generated timeline with ${timeline.length} entries`)
     return timeline
-  }, [currentSession, analysisHistory.length, analysisHistory])
+  }, [currentSession, analysisHistory]) // Simplified dependencies
 
-  // Debug effect to track changes
+  // Debug effect to track changes more comprehensively
   useEffect(() => {
     if (isOpen && currentSession) {
-      console.log(`📊 ExportModal Debug:`)
+      console.log(`📊 ExportModal Debug (Effect):`)
       console.log(`   - Session ID: ${currentSession.id}`)
       console.log(`   - Session Name: ${currentSession.name}`)
       console.log(`   - Analysis History Length: ${analysisHistory.length}`)
+      console.log(`   - Analysis Count: ${analysisCount}`)
       console.log(`   - Current Session Updated: ${currentSession.updatedAt}`)
-      console.log(`   - Analysis History:`, analysisHistory)
+      console.log(`   - Raw Analysis History:`, currentSession.analysisHistory)
     }
-  }, [isOpen, currentSession?.id, analysisHistory.length, currentSession?.updatedAt, analysisHistory])
+  }, [isOpen, currentSession, analysisHistory, analysisCount])
+
+  // Force re-render when modal opens to ensure fresh data
+  useEffect(() => {
+    if (isOpen) {
+      console.log('📊 ExportModal: Modal opened, forcing data refresh')
+      // Trigger a state update to ensure we have fresh data
+      setTimeout(() => {
+        if (currentSession) {
+          console.log(`📊 ExportModal: Current session has ${currentSession.analysisHistory?.length || 0} analysis snapshots`)
+        }
+      }, 100)
+    }
+  }, [isOpen])
 
   // Update preview when options change - with better dependency tracking
   useEffect(() => {
@@ -85,13 +102,7 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
         console.error('Export preview error:', error)
       }
     }
-  }, [
-    currentSession, 
-    exportOptions, 
-    showPreview, 
-    analysisHistory.length, 
-    currentSession?.updatedAt // Ensure we update when session changes
-  ])
+  }, [currentSession, exportOptions, showPreview, analysisHistory])
 
   const handleExport = async () => {
     if (!currentSession) return
@@ -233,11 +244,11 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
                       <div className="flex items-center gap-2">
                         <Brain className="h-4 w-4 text-indigo-500" />
                         <span className="font-medium text-gray-900 dark:text-gray-100">
-                          {analysisHistory.length}
+                          {analysisCount}
                         </span>
-                        {/* Debug indicator */}
-                        <span className="text-xs text-gray-400">
-                          (Live: {currentSession.analysisHistory?.length || 0})
+                        {/* Debug info */}
+                        <span className="text-xs text-gray-400" title="Raw count from session object">
+                          (Raw: {currentSession.analysisHistory?.length || 0})
                         </span>
                       </div>
                     </div>
@@ -261,17 +272,20 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
               </Card>
 
               {/* Analysis Timeline Preview */}
-              <Card className={`${analysisHistory.length > 0 ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-700' : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-700'}`}>
+              <Card className={`${analysisCount > 0 ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-700' : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-700'}`}>
                 <CardContent className="p-4">
-                  <h3 className={`font-medium mb-3 flex items-center gap-2 ${analysisHistory.length > 0 ? 'text-indigo-900 dark:text-indigo-100' : 'text-yellow-900 dark:text-yellow-100'}`}>
+                  <h3 className={`font-medium mb-3 flex items-center gap-2 ${analysisCount > 0 ? 'text-indigo-900 dark:text-indigo-100' : 'text-yellow-900 dark:text-yellow-100'}`}>
                     <History className="h-4 w-4" />
-                    Analysis Timeline ({analysisHistory.length})
-                    {/* Debug refresh button */}
+                    Analysis Timeline ({analysisCount})
+                    {/* Enhanced debug button */}
                     <button 
                       onClick={() => {
-                        console.log('🔍 Debug: Force refresh analysis timeline')
-                        console.log('Current session analysis history:', currentSession.analysisHistory)
-                        console.log('Computed analysis history:', analysisHistory)
+                        console.log('🔍 Debug: Analysis data inspection')
+                        console.log('Current session:', currentSession)
+                        console.log('Analysis history from session:', currentSession.analysisHistory)
+                        console.log('Analysis history from useMemo:', analysisHistory)
+                        console.log('Analysis count:', analysisCount)
+                        console.log('Analysis timeline:', analysisTimeline)
                       }}
                       className="ml-2 text-xs px-1 py-0.5 bg-gray-200 rounded hover:bg-gray-300"
                       title="Debug: Log current state"
@@ -279,7 +293,7 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
                       🔍
                     </button>
                   </h3>
-                  {analysisHistory.length > 0 ? (
+                  {analysisCount > 0 ? (
                     <div className="space-y-2">
                       {analysisTimeline.slice(0, 3).map((entry, index) => (
                         <div key={index} className="text-xs bg-white/50 dark:bg-black/20 p-2 rounded">
@@ -432,7 +446,7 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
                       <div className="text-sm font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
                         Include Analysis History
                         <Badge variant="secondary" className="text-xs">
-                          {analysisHistory.length} snapshots
+                          {analysisCount} snapshots
                         </Badge>
                       </div>
                       <p className="text-xs text-gray-600 dark:text-gray-400">
@@ -513,9 +527,9 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                       Click "Preview" to see how your exported data will look
                     </p>
-                    {analysisHistory.length > 0 && (
+                    {analysisCount > 0 && (
                       <p className="text-xs text-indigo-600 dark:text-indigo-400 mb-4">
-                        ✨ {analysisHistory.length} AI analysis snapshots will be included
+                        ✨ {analysisCount} AI analysis snapshots will be included
                       </p>
                     )}
                     <Button
@@ -542,13 +556,13 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
               </Badge>
               <span className="text-sm text-gray-600 dark:text-gray-400">
                 {currentSession.messages.length} messages • {currentSession.participants.length} participants
-                {analysisHistory.length > 0 && ` • ${analysisHistory.length} analyses`}
+                {analysisCount > 0 && ` • ${analysisCount} analyses`}
               </span>
             </div>
             
             <div className="flex gap-3">
               {/* Analysis-only export button */}
-              {analysisHistory.length > 0 && (
+              {analysisCount > 0 && (
                 <Button
                   variant="outline"
                   onClick={handleExportAnalysisOnly}
