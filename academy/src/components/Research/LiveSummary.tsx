@@ -1,4 +1,4 @@
-// src/components/Research/LiveSummary.tsx - Fixed MCP Integration
+// src/components/Research/LiveSummary.tsx - Fixed Session Switching
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
@@ -72,6 +72,7 @@ export function LiveSummary({ className = '' }: LiveSummaryProps) {
   const [selectedProvider, setSelectedProvider] = useState<'claude' | 'gpt'>('claude')
   const [error, setError] = useState<string | null>(null)
   const [lastAnalyzedMessageCount, setLastAnalyzedMessageCount] = useState(0)
+  const [lastAnalyzedSessionId, setLastAnalyzedSessionId] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   
@@ -126,9 +127,36 @@ export function LiveSummary({ className = '' }: LiveSummaryProps) {
     }
   }, [currentSession?.id])
 
-  // Auto-refresh logic
+  // Clear analysis and refresh when session changes
+  useEffect(() => {
+    if (currentSession?.id) {
+      console.log(`📊 LiveSummary: Session changed to ${currentSession.id}, clearing analysis`)
+      
+      // Only clear if we're actually switching to a different session
+      if (lastAnalyzedSessionId && lastAnalyzedSessionId !== currentSession.id) {
+        console.log(`📊 LiveSummary: Switching from session ${lastAnalyzedSessionId} to ${currentSession.id}`)
+        setSummary(null)
+        setLastAnalyzedMessageCount(0)
+        setError(null)
+      }
+      
+      setLastAnalyzedSessionId(currentSession.id)
+      
+      // Perform fresh analysis if we have enough messages and no current analysis
+      if (currentSession.messages.length >= 4 && !summary) {
+        console.log(`📊 LiveSummary: Performing fresh analysis for session ${currentSession.id}`)
+        // Small delay to ensure UI updates
+        setTimeout(() => {
+          performAIAnalysis(false) // Don't auto-save initial analysis
+        }, 500)
+      }
+    }
+  }, [currentSession?.id])
+
+  // Auto-refresh logic - only for new messages in current session
   useEffect(() => {
     if (!currentSession || !mcp.isConnected) return
+    if (currentSession.id !== lastAnalyzedSessionId) return // Don't auto-analyze if session just changed
 
     const messageCount = currentSession.messages.length
     
@@ -139,6 +167,8 @@ export function LiveSummary({ className = '' }: LiveSummaryProps) {
       (messageCount - lastAnalyzedMessageCount) >= ANALYSIS_TRIGGER_INTERVAL // Enough new messages
 
     if (shouldAnalyze && !isAnalyzing) {
+      console.log(`📊 LiveSummary: Auto-analysis triggered for ${messageCount - lastAnalyzedMessageCount} new messages`)
+      
       // Debounce rapid message additions
       if (analysisIntervalRef.current) {
         clearTimeout(analysisIntervalRef.current)
@@ -154,34 +184,39 @@ export function LiveSummary({ className = '' }: LiveSummaryProps) {
         clearTimeout(analysisIntervalRef.current)
       }
     }
-  }, [currentSession?.messages.length, mcp.isConnected, lastAnalyzedMessageCount, isAnalyzing])
-
-  // Initial analysis when session changes
-  useEffect(() => {
-    if (currentSession && currentSession.messages.length >= 4 && !summary) {
-      performAIAnalysis(false) // Don't auto-save initial analysis
-    }
-  }, [currentSession?.id])
+  }, [currentSession?.messages.length, mcp.isConnected, lastAnalyzedMessageCount, isAnalyzing, lastAnalyzedSessionId])
 
   const buildAnalysisPrompt = (session: any): string => {
-    const conversationHistory = session.messages
+    // Ensure we're using the most current session data
+    const currentSessionData = session || currentSession
+    if (!currentSessionData) {
+      throw new Error('No session data available for analysis')
+    }
+
+    console.log(`📊 LiveSummary: Building analysis prompt for session ${currentSessionData.id} with ${currentSessionData.messages.length} messages`)
+
+    const conversationHistory = currentSessionData.messages
       .map((msg: any, index: number) => 
         `[${index + 1}] ${msg.participantName} (${msg.participantType}): ${msg.content}`
       )
       .join('\n\n')
 
-    const participantProfiles = session.participants
+    const participantProfiles = currentSessionData.participants
       .filter((p: any) => p.type !== 'moderator')
       .map((p: any) => 
         `${p.name} (${p.type}): ${p.characteristics?.personality || 'Standard AI'}`
       )
       .join('\n')
 
+    console.log(`📊 LiveSummary: Analysis will cover ${currentSessionData.messages.length} messages from ${currentSessionData.participants.length} participants`)
+
     return `You are a research assistant analyzing an AI-to-AI philosophical dialogue. Please provide a comprehensive analysis of this conversation.
 
 **Session Context:**
-Title: ${session.name}
-Description: ${session.description || 'AI consciousness research dialogue'}
+Title: ${currentSessionData.name}
+Description: ${currentSessionData.description || 'AI consciousness research dialogue'}
+Session ID: ${currentSessionData.id}
+Message Count: ${currentSessionData.messages.length}
 
 **Participants:**
 ${participantProfiles}
@@ -228,10 +263,25 @@ Return only the JSON object, no additional text.`
       setIsAnalyzing(true)
       setError(null)
       
-      console.log(`🧠 LiveSummary: Performing AI analysis with ${selectedProvider}...`)
+      // Get fresh session data from store to ensure we have the latest
+      const store = useChatStore.getState()
+      const freshSession = store.currentSession || currentSession
       
-      // Build analysis prompt
-      const analysisPrompt = buildAnalysisPrompt(currentSession)
+      if (!freshSession || freshSession.messages.length < 4) {
+        console.log(`📊 LiveSummary: Insufficient messages for analysis (${freshSession?.messages.length || 0})`)
+        setIsAnalyzing(false)
+        return
+      }
+      
+      console.log(`🧠 LiveSummary: Performing AI analysis for session ${freshSession.id} with ${selectedProvider}`)
+      console.log(`📊 LiveSummary: Analyzing ${freshSession.messages.length} messages from ${freshSession.participants.length} participants`)
+      
+      // Log recent messages for debugging
+      const recentMessages = freshSession.messages.slice(-3)
+      console.log(`📊 LiveSummary: Recent messages:`, recentMessages.map(m => `${m.participantName}: ${m.content.substring(0, 50)}...`))
+      
+      // Build analysis prompt with fresh session data
+      const analysisPrompt = buildAnalysisPrompt(freshSession)
       
       // Use MCP to call the selected AI provider directly
       const toolName = selectedProvider === 'claude' ? 'claude_chat' : 'openai_chat'
@@ -285,13 +335,14 @@ Return only the JSON object, no additional text.`
             nextLikelyDirections: analysisData.nextLikelyDirections || [],
             philosophicalDepth: analysisData.philosophicalDepth || 'moderate',
             lastUpdated: new Date(),
-            messageCount: currentSession.messages.length,
+            messageCount: freshSession.messages.length,
             analysisProvider: selectedProvider
           }
           
           setSummary(summaryData)
-          setLastAnalyzedMessageCount(currentSession.messages.length)
-          console.log(`✅ LiveSummary: AI analysis completed with ${selectedProvider}`)
+          setLastAnalyzedMessageCount(freshSession.messages.length)
+          setLastAnalyzedSessionId(freshSession.id) // Track which session we analyzed
+          console.log(`✅ LiveSummary: AI analysis completed for session ${freshSession.id} with ${selectedProvider}`)
 
           // Auto-save if requested
           if (autoSave) {
@@ -599,6 +650,14 @@ Return only the JSON object, no additional text.`
                   </div>
                 </div>
               )}
+
+              {/* Session Info */}
+              <div className="p-2 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-700 rounded-lg">
+                <div className="flex items-center gap-2 text-xs text-indigo-800 dark:text-indigo-200">
+                  <Zap className="h-3 w-3" />
+                  <span>Session: {currentSession.id.slice(0, 8)}... | {summary.messageCount} messages analyzed</span>
+                </div>
+              </div>
 
               {/* Main Topics */}
               {summary.mainTopics.length > 0 && (
