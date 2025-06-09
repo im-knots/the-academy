@@ -1,9 +1,10 @@
-// src/components/Research/LiveSummary.tsx - AI-Powered Analysis with Save Feature
+// src/components/Research/LiveSummary.tsx - Simplified MCP Integration
 'use client'
 
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useChatStore } from '@/lib/stores/chatStore'
 import { useMCP } from '@/hooks/useMCP'
+import { mcpAnalysisHandler } from '@/lib/mcp/analysis-handler'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -11,7 +12,7 @@ import {
   Brain, Loader2, RefreshCw, MessageSquare, TrendingUp, 
   Users, Lightbulb, Target, Clock, Eye, EyeOff, Sparkles,
   ArrowRight, Hash, Zap, Settings, ChevronDown, Bot,
-  Save, CheckCircle2, BookmarkPlus, History
+  Save, CheckCircle2, BookmarkPlus, History, Database
 } from 'lucide-react'
 
 interface AnalysisProvider {
@@ -61,7 +62,7 @@ const ANALYSIS_PROVIDERS: AnalysisProvider[] = [
 ]
 
 export function LiveSummary({ className = '' }: LiveSummaryProps) {
-  const { currentSession, addAnalysisSnapshot } = useChatStore()
+  const { currentSession } = useChatStore()
   const mcp = useMCP()
   
   const [summary, setSummary] = useState<SummaryData | null>(null)
@@ -74,16 +75,53 @@ export function LiveSummary({ className = '' }: LiveSummaryProps) {
   const [isSaving, setIsSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   
+  // MCP analysis tracking with real-time updates
+  const [analysisCount, setAnalysisCount] = useState(0)
+  
   const analysisIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const ANALYSIS_TRIGGER_INTERVAL = 3 // Analyze every 3 new messages
 
-  // Get analysis history count directly from current session - automatically reactive
-  const analysisCount = useMemo(() => {
-    if (!currentSession) return 0
-    const count = currentSession.analysisHistory?.length || 0
-    console.log(`📊 LiveSummary: Analysis count = ${count} for session ${currentSession.id}`)
-    return count
-  }, [currentSession?.analysisHistory?.length, currentSession?.id])
+  // Subscribe to MCP analysis events for real-time updates
+  useEffect(() => {
+    if (!currentSession) return
+
+    console.log(`📊 LiveSummary: Setting up MCP subscriptions for session ${currentSession.id}`)
+
+    // Initial load of analysis count
+    const initialSnapshots = mcpAnalysisHandler.getAnalysisHistory(currentSession.id)
+    setAnalysisCount(initialSnapshots.length)
+    console.log(`📊 LiveSummary: Initial analysis count = ${initialSnapshots.length}`)
+
+    // Subscribe to analysis updates
+    const unsubscribeSaved = mcpAnalysisHandler.subscribe('analysis_snapshot_saved', (data) => {
+      if (data.sessionId === currentSession.id) {
+        console.log(`📊 LiveSummary: Analysis snapshot saved event received. New count: ${data.totalSnapshots}`)
+        setAnalysisCount(data.totalSnapshots)
+        setLastSaved(new Date())
+        setTimeout(() => setLastSaved(null), 2000)
+      }
+    })
+
+    const unsubscribeUpdated = mcpAnalysisHandler.subscribe('analysis_history_updated', (data) => {
+      if (data.sessionId === currentSession.id) {
+        console.log(`📊 LiveSummary: Analysis history updated event received. New count: ${data.count}`)
+        setAnalysisCount(data.count)
+      }
+    })
+
+    const unsubscribeCleared = mcpAnalysisHandler.subscribe('analysis_history_cleared', (data) => {
+      if (data.sessionId === currentSession.id) {
+        console.log(`📊 LiveSummary: Analysis history cleared event received`)
+        setAnalysisCount(0)
+      }
+    })
+
+    return () => {
+      unsubscribeSaved()
+      unsubscribeUpdated()
+      unsubscribeCleared()
+    }
+  }, [currentSession?.id])
 
   // Auto-refresh logic
   useEffect(() => {
@@ -187,12 +225,12 @@ Return only the JSON object, no additional text.`
       setIsAnalyzing(true)
       setError(null)
       
-      console.log(`🧠 Performing AI analysis with ${selectedProvider}...`)
+      console.log(`🧠 LiveSummary: Performing AI analysis with ${selectedProvider}...`)
       
       // Build analysis prompt
       const analysisPrompt = buildAnalysisPrompt(currentSession)
       
-      // Use MCP to call the selected AI provider
+      // Use MCP to call the selected AI provider directly
       const toolName = selectedProvider === 'claude' ? 'claude_chat' : 'openai_chat'
       
       const messages = [
@@ -214,6 +252,7 @@ Return only the JSON object, no additional text.`
         toolArgs.systemPrompt = 'You are an expert research assistant specializing in philosophical dialogue analysis. Provide precise, insightful analysis in the requested JSON format.'
       }
 
+      console.log(`🔧 LiveSummary: Calling MCP tool ${toolName}`)
       const result = await mcp.callTool(toolName, toolArgs)
       
       if (result.success && result.content) {
@@ -249,9 +288,9 @@ Return only the JSON object, no additional text.`
           
           setSummary(summaryData)
           setLastAnalyzedMessageCount(currentSession.messages.length)
-          console.log(`✅ AI analysis completed with ${selectedProvider}`)
+          console.log(`✅ LiveSummary: AI analysis completed with ${selectedProvider}`)
         } catch (parseError) {
-          console.error('Failed to parse AI analysis response:', parseError)
+          console.error('❌ LiveSummary: Failed to parse AI analysis response:', parseError)
           setError('AI provided invalid analysis format')
         }
       } else {
@@ -259,7 +298,7 @@ Return only the JSON object, no additional text.`
       }
       
     } catch (error) {
-      console.error('❌ Error performing AI analysis:', error)
+      console.error('❌ LiveSummary: Error performing AI analysis:', error)
       setError(error instanceof Error ? error.message : 'Analysis failed')
     } finally {
       setIsAnalyzing(false)
@@ -268,13 +307,13 @@ Return only the JSON object, no additional text.`
 
   const saveAnalysisSnapshot = async () => {
     if (!currentSession || !summary) {
-      console.warn('⚠️ Cannot save analysis snapshot: missing session or summary')
+      console.warn('⚠️ LiveSummary: Cannot save analysis snapshot: missing session or summary')
       return
     }
 
     try {
       setIsSaving(true)
-      console.log(`💾 Saving analysis snapshot for session ${currentSession.id}`)
+      console.log(`💾 LiveSummary: Saving analysis snapshot for session ${currentSession.id}`)
 
       // Count moderator interventions
       const moderatorInterventions = currentSession.messages.filter(
@@ -286,8 +325,8 @@ Return only the JSON object, no additional text.`
         .filter(p => p.status === 'active' || p.status === 'thinking')
         .map(p => p.name)
 
-      // Create analysis snapshot
-      const snapshot = {
+      // Prepare analysis data for MCP handler
+      const analysisData = {
         messageCountAtAnalysis: summary.messageCount,
         participantCountAtAnalysis: currentSession.participants.length,
         provider: selectedProvider,
@@ -312,40 +351,21 @@ Return only the JSON object, no additional text.`
         }
       }
 
-      console.log('📊 Snapshot data:', snapshot)
+      console.log('📊 LiveSummary: Analysis data prepared:', analysisData)
 
-      // Save to store
-      addAnalysisSnapshot(snapshot)
+      // Save via MCP analysis handler (not MCP tools to avoid circular calls)
+      const snapshotId = await mcpAnalysisHandler.saveAnalysisSnapshot(currentSession.id, analysisData)
       
-      setLastSaved(new Date())
+      console.log(`💾 LiveSummary: Analysis snapshot saved successfully: ${snapshotId}`)
       
-      console.log('💾 Analysis snapshot saved successfully')
-
-      // Wait a moment and verify it was saved
-      setTimeout(() => {
-        const { currentSession: updatedSession } = useChatStore.getState()
-        console.log(`🔍 Verification: Session now has ${updatedSession?.analysisHistory?.length || 0} analysis snapshots`)
-      }, 100)
-
-      // Show saved feedback for 2 seconds
-      setTimeout(() => {
-        setLastSaved(null)
-      }, 2000)
+      // The MCP handler will emit events that will update our UI automatically
+      // No need to manually update state here
 
     } catch (error) {
-      console.error('Failed to save analysis snapshot:', error)
+      console.error('❌ LiveSummary: Failed to save analysis snapshot:', error)
+      setError('Failed to save analysis. Please try again.')
     } finally {
       setIsSaving(false)
-    }
-  }
-
-  const getDepthColor = (depth: string) => {
-    switch (depth) {
-      case 'surface': return 'text-gray-600 bg-gray-50 border-gray-200'
-      case 'moderate': return 'text-blue-600 bg-blue-50 border-blue-200'
-      case 'deep': return 'text-purple-600 bg-purple-50 border-purple-200'
-      case 'profound': return 'text-indigo-600 bg-indigo-50 border-indigo-200'
-      default: return 'text-gray-600 bg-gray-50 border-gray-200'
     }
   }
 
@@ -361,7 +381,8 @@ Return only the JSON object, no additional text.`
             <Brain className="h-4 w-4" />
             AI Analysis
             {analysisCount > 0 && (
-              <Badge variant="secondary" className="text-xs ml-2">
+              <Badge variant="secondary" className="text-xs ml-2 flex items-center gap-1">
+                <Database className="h-3 w-3" />
                 {analysisCount} saved
               </Badge>
             )}
@@ -373,8 +394,9 @@ Return only the JSON object, no additional text.`
             Need 4+ messages for AI analysis
           </div>
           {analysisCount > 0 && (
-            <div className="text-xs text-gray-400 mt-2">
-              {analysisCount} analysis snapshots available in export
+            <div className="text-xs text-gray-400 mt-2 flex items-center justify-center gap-1">
+              <Database className="h-3 w-3" />
+              {analysisCount} analysis snapshots available
             </div>
           )}
         </CardContent>
@@ -388,9 +410,10 @@ Return only the JSON object, no additional text.`
         <CardHeader className="pb-3">
           <CardTitle className="text-sm text-red-700 dark:text-red-300 flex items-center gap-2">
             <Brain className="h-4 w-4" />
-            AI Analysis
+            AI Analysis Error
             {analysisCount > 0 && (
-              <Badge variant="secondary" className="text-xs ml-2">
+              <Badge variant="secondary" className="text-xs ml-2 flex items-center gap-1">
+                <Database className="h-3 w-3" />
                 {analysisCount} saved
               </Badge>
             )}
@@ -422,7 +445,8 @@ Return only the JSON object, no additional text.`
             AI Analysis
             {isAnalyzing && <Loader2 className="h-3 w-3 animate-spin" />}
             {analysisCount > 0 && (
-              <Badge variant="secondary" className="text-xs">
+              <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                <Database className="h-3 w-3" />
                 {analysisCount} saved
               </Badge>
             )}
@@ -436,14 +460,17 @@ Return only the JSON object, no additional text.`
                 onClick={saveAnalysisSnapshot}
                 disabled={isSaving || isAnalyzing}
                 className="h-6 px-2 text-xs"
-                title="Save analysis snapshot to export history"
+                title="Save analysis snapshot"
               >
                 {isSaving ? (
                   <Loader2 className="h-3 w-3 animate-spin" />
                 ) : lastSaved ? (
                   <CheckCircle2 className="h-3 w-3 text-green-600" />
                 ) : (
-                  <BookmarkPlus className="h-3 w-3" />
+                  <>
+                    <Database className="h-3 w-3 mr-1" />
+                    <BookmarkPlus className="h-3 w-3" />
+                  </>
                 )}
               </Button>
             )}
@@ -523,12 +550,22 @@ Return only the JSON object, no additional text.`
         <CardContent className="space-y-4 max-h-150 overflow-y-auto">
           {summary && (
             <>
-              {/* Analysis History Info */}
+              {/* MCP Analysis Info */}
               {analysisCount > 0 && (
                 <div className="p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
                   <div className="flex items-center gap-2 text-xs text-blue-800 dark:text-blue-200">
-                    <History className="h-3 w-3" />
-                    <span>{analysisCount} analysis snapshots saved for export</span>
+                    <Database className="h-3 w-3" />
+                    <span>{analysisCount} analysis snapshots stored</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Last Saved Indicator */}
+              {lastSaved && (
+                <div className="p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg">
+                  <div className="flex items-center gap-2 text-xs text-green-800 dark:text-green-200">
+                    <CheckCircle2 className="h-3 w-3" />
+                    <span>Analysis saved at {lastSaved.toLocaleTimeString()}</span>
                   </div>
                 </div>
               )}
@@ -578,81 +615,6 @@ Return only the JSON object, no additional text.`
                 </div>
               )}
 
-              {/* Participant Dynamics */}
-              {Object.keys(summary.participantDynamics).length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Users className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                    <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">Participant Dynamics</span>
-                  </div>
-                  <div className="space-y-2">
-                    {Object.entries(summary.participantDynamics).map(([name, dynamics]) => (
-                      <div key={name} className="bg-white/30 dark:bg-black/10 p-2 rounded">
-                        <div className="font-medium text-xs text-indigo-800 dark:text-indigo-200 mb-1">{name}</div>
-                        <div className="text-xs text-indigo-700 dark:text-indigo-300 space-y-0.5">
-                          <div><strong>Perspective:</strong> {dynamics.perspective}</div>
-                          <div><strong>Style:</strong> {dynamics.style}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Tensions & Convergences */}
-              {(summary.tensions.length > 0 || summary.convergences.length > 0) && (
-                <div className="grid grid-cols-1 gap-3">
-                  {summary.tensions.length > 0 && (
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <Zap className="h-4 w-4 text-red-600 dark:text-red-400" />
-                        <span className="text-xs font-medium text-red-700 dark:text-red-300">Tensions</span>
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {summary.tensions.slice(0, 2).map((tension, index) => (
-                          <Badge key={index} className="text-xs bg-red-100 text-red-700 border-red-200">
-                            {tension}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {summary.convergences.length > 0 && (
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <Sparkles className="h-4 w-4 text-green-600 dark:text-green-400" />
-                        <span className="text-xs font-medium text-green-700 dark:text-green-300">Convergences</span>
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {summary.convergences.slice(0, 2).map((convergence, index) => (
-                          <Badge key={index} className="text-xs bg-green-100 text-green-700 border-green-200">
-                            {convergence}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Next Likely Directions */}
-              {summary.nextLikelyDirections.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <TrendingUp className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                    <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">Likely Next</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    {summary.nextLikelyDirections.slice(0, 2).map((direction, index) => (
-                      <Badge key={index} className="text-xs bg-purple-100 text-purple-700 border-purple-200">
-                        {direction}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {/* Last Updated */}
               <div className="pt-2 border-t border-indigo-200 dark:border-indigo-700">
                 <div className="flex items-center justify-between text-xs text-indigo-600 dark:text-indigo-400">
@@ -662,9 +624,10 @@ Return only the JSON object, no additional text.`
                   </div>
                   <div className="flex items-center gap-2">
                     <span>{summary.messageCount} messages</span>
-                    {lastSaved && (
-                      <span className="text-green-600 dark:text-green-400">Saved!</span>
-                    )}
+                    <div className="flex items-center gap-1">
+                      <Database className="h-3 w-3" />
+                      <span>{analysisCount} snapshots</span>
+                    </div>
                   </div>
                 </div>
               </div>

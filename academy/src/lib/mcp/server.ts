@@ -1,5 +1,6 @@
-// src/lib/mcp/server.ts - Fixed and enhanced MCP Server
+// src/lib/mcp/server.ts - Enhanced with Analysis Tools
 import { ChatSession, Message, Participant } from '@/types/chat'
+import { mcpAnalysisHandler } from './analysis-handler'
 
 interface JSONRPCRequest {
   jsonrpc: '2.0'
@@ -111,12 +112,16 @@ export class MCPServer {
           },
           prompts: {
             listChanged: false
+          },
+          experimental: {
+            analysis: true,
+            realTimeUpdates: true
           }
         },
         serverInfo: {
           name: 'The Academy MCP Server',
-          version: '1.0.0',
-          description: 'AI Research Platform with conversation management and AI provider tools'
+          version: '1.1.0',
+          description: 'AI Research Platform with conversation management, AI provider tools, and analysis engine'
         }
       }
     }
@@ -128,6 +133,7 @@ export class MCPServer {
     }
 
     const sessions = globalStoreData.sessions || []
+    const analysisStats = mcpAnalysisHandler.getGlobalAnalysisStats()
     
     const resources = [
       {
@@ -148,6 +154,20 @@ export class MCPServer {
         description: 'Overall platform usage statistics',
         mimeType: 'application/json'
       },
+      // Analysis resources
+      {
+        uri: 'academy://analysis/stats',
+        name: 'Analysis Statistics',
+        description: `Global analysis statistics (${analysisStats.totalSnapshots} total snapshots)`,
+        mimeType: 'application/json'
+      },
+      {
+        uri: 'academy://analysis/timeline',
+        name: 'Analysis Timeline',
+        description: 'Complete timeline of all analysis snapshots across sessions',
+        mimeType: 'application/json'
+      },
+      // Session-specific resources
       ...sessions.map(session => ({
         uri: `academy://session/${session.id}`,
         name: `Session: ${session.name}`,
@@ -159,7 +179,17 @@ export class MCPServer {
         name: `Messages: ${session.name}`,
         description: `Complete message history for session ${session.name}`,
         mimeType: 'application/json'
-      }))
+      })),
+      // Analysis resources per session
+      ...sessions.map(session => {
+        const analysisCount = mcpAnalysisHandler.getAnalysisHistory(session.id).length
+        return {
+          uri: `academy://session/${session.id}/analysis`,
+          name: `Analysis: ${session.name}`,
+          description: `Analysis snapshots for ${session.name} (${analysisCount} snapshots)`,
+          mimeType: 'application/json'
+        }
+      })
     ]
 
     return {
@@ -185,9 +215,22 @@ export class MCPServer {
         content = globalStoreData.currentSession
       } else if (uri === 'academy://stats') {
         content = this.getPlatformStats()
+      } else if (uri === 'academy://analysis/stats') {
+        content = mcpAnalysisHandler.getGlobalAnalysisStats()
+      } else if (uri === 'academy://analysis/timeline') {
+        content = this.getGlobalAnalysisTimeline()
       } else if (uri.startsWith('academy://session/')) {
-        const sessionId = uri.split('/')[2]
-        if (uri.endsWith('/messages')) {
+        const pathParts = uri.split('/')
+        const sessionId = pathParts[2]
+        
+        if (uri.endsWith('/analysis')) {
+          content = {
+            sessionId,
+            snapshots: mcpAnalysisHandler.getAnalysisHistory(sessionId),
+            timeline: mcpAnalysisHandler.getAnalysisTimeline(sessionId),
+            count: mcpAnalysisHandler.getAnalysisHistory(sessionId).length
+          }
+        } else if (uri.endsWith('/messages')) {
           content = this.getSessionMessages(sessionId)
         } else {
           content = this.getSession(sessionId)
@@ -331,9 +374,83 @@ export class MCPServer {
           required: ['sessionId', 'content', 'participantId']
         }
       },
+      // NEW: Analysis Tools
+      {
+        name: 'save_analysis_snapshot',
+        description: 'Save an analysis snapshot for a session via MCP',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            sessionId: { type: 'string', description: 'Session ID' },
+            messageCountAtAnalysis: { type: 'number', description: 'Number of messages when analysis was performed' },
+            participantCountAtAnalysis: { type: 'number', description: 'Number of participants when analysis was performed' },
+            provider: { type: 'string', enum: ['claude', 'gpt'], description: 'AI provider that performed the analysis' },
+            conversationPhase: { type: 'string', description: 'Current phase of conversation' },
+            analysis: {
+              type: 'object',
+              properties: {
+                mainTopics: { type: 'array', items: { type: 'string' }, description: 'Main topics being discussed' },
+                keyInsights: { type: 'array', items: { type: 'string' }, description: 'Key insights from the conversation' },
+                currentDirection: { type: 'string', description: 'Current direction of the conversation' },
+                participantDynamics: { type: 'object', description: 'Dynamics between participants' },
+                emergentThemes: { type: 'array', items: { type: 'string' }, description: 'Emerging themes' },
+                tensions: { type: 'array', items: { type: 'string' }, description: 'Areas of tension' },
+                convergences: { type: 'array', items: { type: 'string' }, description: 'Areas of convergence' },
+                nextLikelyDirections: { type: 'array', items: { type: 'string' }, description: 'Likely next directions' },
+                philosophicalDepth: { type: 'string', enum: ['surface', 'moderate', 'deep', 'profound'], description: 'Depth of philosophical exploration' }
+              },
+              required: ['mainTopics', 'keyInsights', 'currentDirection', 'philosophicalDepth']
+            },
+            conversationContext: {
+              type: 'object',
+              properties: {
+                recentMessages: { type: 'number', description: 'Number of recent messages considered' },
+                activeParticipants: { type: 'array', items: { type: 'string' }, description: 'Currently active participants' },
+                sessionStatus: { type: 'string', description: 'Current session status' },
+                moderatorInterventions: { type: 'number', description: 'Number of moderator interventions' }
+              }
+            }
+          },
+          required: ['sessionId', 'messageCountAtAnalysis', 'participantCountAtAnalysis', 'provider', 'conversationPhase', 'analysis']
+        }
+      },
+      {
+        name: 'get_analysis_history',
+        description: 'Get analysis history for a session',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            sessionId: { type: 'string', description: 'Session ID' }
+          },
+          required: ['sessionId']
+        }
+      },
+      {
+        name: 'clear_analysis_history',
+        description: 'Clear analysis history for a session',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            sessionId: { type: 'string', description: 'Session ID' }
+          },
+          required: ['sessionId']
+        }
+      },
+      {
+        name: 'get_analysis_timeline',
+        description: 'Get analysis timeline for export',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            sessionId: { type: 'string', description: 'Session ID' }
+          },
+          required: ['sessionId']
+        }
+      },
+      // Legacy analysis tool (for backward compatibility)
       {
         name: 'analyze_conversation',
-        description: 'Analyze conversation patterns and extract insights',
+        description: 'Analyze conversation patterns and extract insights (legacy)',
         inputSchema: {
           type: 'object',
           properties: {
@@ -381,6 +498,19 @@ export class MCPServer {
           break
         case 'send_message':
           result = await this.toolSendMessage(args)
+          break
+        // NEW: Analysis tools
+        case 'save_analysis_snapshot':
+          result = await this.toolSaveAnalysisSnapshot(args)
+          break
+        case 'get_analysis_history':
+          result = await this.toolGetAnalysisHistory(args)
+          break
+        case 'clear_analysis_history':
+          result = await this.toolClearAnalysisHistory(args)
+          break
+        case 'get_analysis_timeline':
+          result = await this.toolGetAnalysisTimeline(args)
           break
         case 'analyze_conversation':
           result = await this.toolAnalyzeConversation(args)
@@ -575,6 +705,79 @@ export class MCPServer {
     }
   }
 
+  // NEW: Analysis Tool Implementations
+  private async toolSaveAnalysisSnapshot(args: any): Promise<any> {
+    const { sessionId, ...analysisData } = args
+
+    try {
+      console.log(`💾 MCP Tool: Saving analysis snapshot for session ${sessionId}`)
+      
+      const snapshotId = await mcpAnalysisHandler.saveAnalysisSnapshot(sessionId, analysisData)
+      
+      const snapshots = mcpAnalysisHandler.getAnalysisHistory(sessionId)
+      
+      return {
+        success: true,
+        snapshotId,
+        totalSnapshots: snapshots.length,
+        message: `Analysis snapshot saved successfully. Session now has ${snapshots.length} snapshots.`
+      }
+    } catch (error) {
+      throw new Error(`Failed to save analysis snapshot: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  private async toolGetAnalysisHistory(args: any): Promise<any> {
+    const { sessionId } = args
+
+    try {
+      const snapshots = mcpAnalysisHandler.getAnalysisHistory(sessionId)
+      
+      return {
+        success: true,
+        sessionId,
+        snapshots,
+        count: snapshots.length,
+        timeline: mcpAnalysisHandler.getAnalysisTimeline(sessionId)
+      }
+    } catch (error) {
+      throw new Error(`Failed to get analysis history: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  private async toolClearAnalysisHistory(args: any): Promise<any> {
+    const { sessionId } = args
+
+    try {
+      mcpAnalysisHandler.clearAnalysisHistory(sessionId)
+      
+      return {
+        success: true,
+        sessionId,
+        message: 'Analysis history cleared successfully'
+      }
+    } catch (error) {
+      throw new Error(`Failed to clear analysis history: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  private async toolGetAnalysisTimeline(args: any): Promise<any> {
+    const { sessionId } = args
+
+    try {
+      const timeline = mcpAnalysisHandler.getAnalysisTimeline(sessionId)
+      
+      return {
+        success: true,
+        sessionId,
+        timeline,
+        count: timeline.length
+      }
+    } catch (error) {
+      throw new Error(`Failed to get analysis timeline: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
   // Helper methods
   private uninitializedError(id: any): JSONRPCResponse {
     return {
@@ -601,12 +804,38 @@ export class MCPServer {
     const sessions = globalStoreData.sessions || []
     const totalMessages = sessions.reduce((sum, s) => sum + s.messages.length, 0)
     const activeSessions = sessions.filter(s => s.status === 'active').length
+    const analysisStats = mcpAnalysisHandler.getGlobalAnalysisStats()
 
     return {
       totalSessions: sessions.length,
       activeSessions,
       totalMessages,
-      averageMessagesPerSession: Math.round(totalMessages / sessions.length) || 0
+      averageMessagesPerSession: Math.round(totalMessages / sessions.length) || 0,
+      analysis: analysisStats
+    }
+  }
+
+  private getGlobalAnalysisTimeline(): any {
+    const allSessions = mcpAnalysisHandler.getAllAnalysisSessions()
+    const timeline: any[] = []
+
+    allSessions.forEach(session => {
+      const sessionTimeline = mcpAnalysisHandler.getAnalysisTimeline(session.sessionId)
+      sessionTimeline.forEach(entry => {
+        timeline.push({
+          ...entry,
+          sessionId: session.sessionId
+        })
+      })
+    })
+
+    // Sort by timestamp
+    timeline.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+
+    return {
+      totalEntries: timeline.length,
+      sessions: allSessions.length,
+      timeline: timeline.slice(0, 50) // Return latest 50 entries
     }
   }
 

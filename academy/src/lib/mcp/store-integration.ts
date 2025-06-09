@@ -1,10 +1,10 @@
-// src/lib/mcp/store-integration.ts
+// src/lib/mcp/store-integration.ts - Fixed MCP Store Integration
 'use client'
 
 import { useChatStore } from '../stores/chatStore'
 import { setMCPStoreReference } from './server'
 import { MCPClient } from './client'
-import { broadcastAcademyUpdate } from '../../app/api/mcp/ws/route'
+import { mcpAnalysisHandler } from './analysis-handler'
 
 // Store integration for MCP
 export class MCPStoreIntegration {
@@ -23,152 +23,113 @@ export class MCPStoreIntegration {
   }
 
   async initialize() {
-    if (this.isInitialized) return
+    if (this.isInitialized) {
+      console.log('🔧 MCP Store Integration: Already initialized')
+      return
+    }
 
     try {
-      // Set up store reference for server-side access
+      console.log('🔧 MCP Store Integration: Starting initialization...')
+      
+      // Get the current store state
       const store = useChatStore.getState()
-      setMCPStoreReference(store)
+      console.log(`🔧 MCP Store Integration: Found ${store.sessions.length} sessions in store`)
+
+      // Set up store reference for server-side access
+      setMCPStoreReference({
+        sessions: store.sessions,
+        currentSession: store.currentSession
+      })
+      console.log('✅ MCP Store Integration: Store reference set')
 
       // Initialize MCP client
       this.mcpClient = MCPClient.getInstance()
-      await this.mcpClient.initialize()
+      if (!this.mcpClient.isConnected()) {
+        console.log('🔧 MCP Store Integration: Initializing MCP client...')
+        await this.mcpClient.initialize()
+      }
+      console.log('✅ MCP Store Integration: MCP client ready')
+
+      // Initialize analysis handler with existing data
+      mcpAnalysisHandler.initializeFromChatStore(store.sessions)
+      console.log('✅ MCP Store Integration: Analysis handler initialized')
 
       // Set up store change listeners
       this.setupStoreListeners()
+      console.log('✅ MCP Store Integration: Store listeners set up')
 
       this.isInitialized = true
-      console.log('MCP Store Integration initialized successfully')
+      console.log('✅ MCP Store Integration: Initialization complete')
 
     } catch (error) {
-      console.error('Failed to initialize MCP Store Integration:', error)
+      console.error('❌ MCP Store Integration: Failed to initialize:', error)
       throw error
     }
   }
 
   private setupStoreListeners() {
-    // Subscribe to store changes and broadcast them via MCP
+    // Subscribe to store changes and update MCP server reference
     this.unsubscribeStore = useChatStore.subscribe(
-      (state) => state,
+      (state) => ({
+        sessions: state.sessions,
+        currentSession: state.currentSession,
+        hasHydrated: state.hasHydrated
+      }),
       (newState, prevState) => {
+        // Only update if store is hydrated to avoid initialization noise
+        if (!newState.hasHydrated) return
+
+        console.log('🔄 MCP Store Integration: Store state changed, updating MCP server reference')
+        
+        // Update MCP server reference with new data
+        setMCPStoreReference({
+          sessions: newState.sessions,
+          currentSession: newState.currentSession
+        })
+
+        // Handle specific changes
         this.handleStoreChange(newState, prevState)
       }
     )
   }
 
   private handleStoreChange(newState: any, prevState: any) {
-    if (!this.mcpClient) return
-
     try {
       // Check for session changes
       if (newState.currentSession?.id !== prevState.currentSession?.id) {
-        this.broadcastSessionChange(newState.currentSession)
+        console.log(`🔄 MCP Store Integration: Current session changed to ${newState.currentSession?.id}`)
       }
 
       // Check for new messages
       if (newState.currentSession && prevState.currentSession &&
           newState.currentSession.messages.length > prevState.currentSession.messages.length) {
         const newMessages = newState.currentSession.messages.slice(prevState.currentSession.messages.length)
-        newMessages.forEach(message => this.broadcastMessageAdded(message))
+        console.log(`🔄 MCP Store Integration: ${newMessages.length} new messages added`)
       }
 
       // Check for participant changes
       if (newState.currentSession && prevState.currentSession &&
           newState.currentSession.participants.length !== prevState.currentSession.participants.length) {
-        this.broadcastParticipantChange(newState.currentSession)
-      }
-
-      // Check for session status changes
-      if (newState.currentSession && prevState.currentSession &&
-          newState.currentSession.status !== prevState.currentSession.status) {
-        this.broadcastSessionStatusChange(newState.currentSession)
+        console.log(`🔄 MCP Store Integration: Participants changed from ${prevState.currentSession.participants.length} to ${newState.currentSession.participants.length}`)
       }
 
     } catch (error) {
-      console.error('Error handling store change in MCP integration:', error)
-    }
-  }
-
-  private broadcastSessionChange(session: any) {
-    if (typeof broadcastAcademyUpdate === 'function') {
-      broadcastAcademyUpdate('session_changed', {
-        sessionId: session?.id,
-        sessionName: session?.name,
-        timestamp: new Date().toISOString()
-      })
-    }
-  }
-
-  private broadcastMessageAdded(message: any) {
-    if (typeof broadcastAcademyUpdate === 'function') {
-      broadcastAcademyUpdate('message_added', {
-        sessionId: useChatStore.getState().currentSession?.id,
-        message: {
-          id: message.id,
-          content: message.content,
-          participantId: message.participantId,
-          participantName: message.participantName,
-          participantType: message.participantType,
-          timestamp: message.timestamp
-        },
-        timestamp: new Date().toISOString()
-      })
-    }
-  }
-
-  private broadcastParticipantChange(session: any) {
-    if (typeof broadcastAcademyUpdate === 'function') {
-      broadcastAcademyUpdate('participants_changed', {
-        sessionId: session.id,
-        participantCount: session.participants.length,
-        participants: session.participants.map((p: any) => ({
-          id: p.id,
-          name: p.name,
-          type: p.type,
-          status: p.status
-        })),
-        timestamp: new Date().toISOString()
-      })
-    }
-  }
-
-  private broadcastSessionStatusChange(session: any) {
-    if (typeof broadcastAcademyUpdate === 'function') {
-      broadcastAcademyUpdate('session_status_changed', {
-        sessionId: session.id,
-        status: session.status,
-        timestamp: new Date().toISOString()
-      })
+      console.error('❌ MCP Store Integration: Error handling store change:', error)
     }
   }
 
   // Manual trigger methods for external use
   async triggerResourceUpdate() {
     if (this.mcpClient) {
+      console.log('🔄 MCP Store Integration: Triggering resource update')
       await this.mcpClient.refreshResources()
-    }
-  }
-
-  async triggerAnalysisUpdate(sessionId: string) {
-    if (this.mcpClient) {
-      try {
-        const analysis = await this.mcpClient.analyzeConversation(sessionId)
-        
-        if (typeof broadcastAcademyUpdate === 'function') {
-          broadcastAcademyUpdate('analysis_updated', {
-            sessionId,
-            analysis,
-            timestamp: new Date().toISOString()
-          })
-        }
-      } catch (error) {
-        console.error('Failed to trigger analysis update:', error)
-      }
     }
   }
 
   // Cleanup
   destroy() {
+    console.log('🧹 MCP Store Integration: Cleaning up...')
+    
     if (this.unsubscribeStore) {
       this.unsubscribeStore()
       this.unsubscribeStore = null
@@ -180,6 +141,7 @@ export class MCPStoreIntegration {
     }
 
     this.isInitialized = false
+    console.log('✅ MCP Store Integration: Cleanup complete')
   }
 
   // Getters
@@ -190,16 +152,34 @@ export class MCPStoreIntegration {
   get client() {
     return this.mcpClient
   }
+
+  // Debug method
+  debug() {
+    console.log('🔍 MCP Store Integration Debug:')
+    console.log(`  - Initialized: ${this.isInitialized}`)
+    console.log(`  - MCP Client: ${this.mcpClient ? 'present' : 'null'}`)
+    console.log(`  - MCP Connected: ${this.mcpClient?.isConnected() || false}`)
+    console.log(`  - Store Listener: ${this.unsubscribeStore ? 'active' : 'inactive'}`)
+    
+    const store = useChatStore.getState()
+    console.log(`  - Sessions in store: ${store.sessions.length}`)
+    console.log(`  - Current session: ${store.currentSession?.id || 'none'}`)
+    console.log(`  - Store hydrated: ${store.hasHydrated}`)
+
+    mcpAnalysisHandler.debug()
+  }
 }
 
 // Convenience function for easy initialization
 export async function initializeMCPIntegration() {
   try {
+    console.log('🚀 Starting MCP integration initialization...')
     const integration = MCPStoreIntegration.getInstance()
     await integration.initialize()
+    console.log('🎉 MCP integration ready!')
     return integration
   } catch (error) {
-    console.error('Failed to initialize MCP integration:', error)
+    console.error('💥 Failed to initialize MCP integration:', error)
     throw error
   }
 }
@@ -213,13 +193,17 @@ if (typeof window !== 'undefined') {
   const checkStoreAndInitialize = () => {
     const store = useChatStore.getState()
     if (store.hasHydrated) {
-      initializeMCPIntegration().catch(console.error)
+      console.log('📦 Store is hydrated, initializing MCP integration...')
+      initializeMCPIntegration().catch(error => {
+        console.error('💥 Auto-initialization failed:', error)
+      })
     } else {
+      console.log('⏳ Waiting for store to hydrate...')
       // Check again in 100ms
       setTimeout(checkStoreAndInitialize, 100)
     }
   }
 
-  // Start the initialization check
-  setTimeout(checkStoreAndInitialize, 1000) // Give some time for app to load
+  // Start the initialization check after a brief delay
+  setTimeout(checkStoreAndInitialize, 500)
 }
