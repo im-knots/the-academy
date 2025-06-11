@@ -1,4 +1,4 @@
-// src/lib/mcp/server.ts - Enhanced with Complete Custom Prompts Integration
+// src/lib/mcp/server.ts - FIXED VERSION
 import { ChatSession, Message, Participant } from '@/types/chat'
 import { mcpAnalysisHandler } from './analysis-handler'
 
@@ -317,14 +317,10 @@ export class MCPServer {
             totalParticipants,
             hasCurrentSession: !!globalStoreData.currentSession,
             lastUpdate: globalStoreData.lastUpdate
-          },
-          customPrompts: this.getCustomPromptsInfo()
+          }
         }
       } else if (uri === 'academy://store/debug') {
         content = this.getStoreDebugInfo()
-      } else if (uri === 'academy://prompts/custom') {
-        // *** THIS IS THE MISSING PIECE! ***
-        content = this.getCustomPromptsInfo()
       } else if (uri === 'academy://analysis/stats') {
         if (this.isAnalysisHandlerAvailable()) {
           content = mcpAnalysisHandler.getGlobalAnalysisStats()
@@ -333,7 +329,7 @@ export class MCPServer {
         }
       } else if (uri === 'academy://analysis/timeline') {
         if (this.isAnalysisHandlerAvailable()) {
-          content = mcpAnalysisHandler.getGlobalAnalysisTimeline()
+          content = mcpAnalysisHandler.getAllAnalysisSessions()
         } else {
           content = { error: 'Analysis functionality not available' }
         }
@@ -468,64 +464,6 @@ export class MCPServer {
           required: []
         }
       },
-      {
-        name: 'refresh_store',
-        description: 'Force refresh the store reference in MCP server',
-        inputSchema: {
-          type: 'object',
-          properties: {},
-          required: []
-        }
-      },
-      // Session Management Tools
-      {
-        name: 'create_session',
-        description: 'Create a new conversation session',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            name: { type: 'string', description: 'Session name' },
-            description: { type: 'string', description: 'Session description' },
-            template: { type: 'string', description: 'Template ID to use' }
-          },
-          required: ['name']
-        }
-      },
-      {
-        name: 'add_participant',
-        description: 'Add a participant to a session',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            sessionId: { type: 'string', description: 'Session ID' },
-            name: { type: 'string', description: 'Participant name' },
-            type: { type: 'string', enum: ['claude', 'gpt', 'human'], description: 'Participant type' },
-            settings: {
-              type: 'object',
-              properties: {
-                model: { type: 'string', description: 'AI model to use' },
-                temperature: { type: 'number', description: 'AI creativity (0-1)' },
-                maxTokens: { type: 'number', description: 'Maximum response length' },
-                characteristics: { type: 'string', description: 'AI personality/characteristics' }
-              }
-            }
-          },
-          required: ['sessionId', 'name', 'type']
-        }
-      },
-      {
-        name: 'send_message',
-        description: 'Send a message to a session',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            sessionId: { type: 'string', description: 'Session ID' },
-            content: { type: 'string', description: 'Message content' },
-            participantId: { type: 'string', description: 'Participant ID (optional for human messages)' }
-          },
-          required: ['sessionId', 'content']
-        }
-      },
       // Analysis Tools
       {
         name: 'save_analysis_snapshot',
@@ -534,11 +472,14 @@ export class MCPServer {
           type: 'object',
           properties: {
             sessionId: { type: 'string', description: 'Session ID' },
+            messageCountAtAnalysis: { type: 'number', description: 'Message count at time of analysis' },
+            participantCountAtAnalysis: { type: 'number', description: 'Participant count at time of analysis' },
+            provider: { type: 'string', description: 'Analysis provider (claude/gpt)' },
+            conversationPhase: { type: 'string', description: 'Current conversation phase' },
             analysis: { type: 'object', description: 'Analysis data' },
-            title: { type: 'string', description: 'Analysis title' },
-            provider: { type: 'string', description: 'Analysis provider (claude/gpt)' }
+            conversationContext: { type: 'object', description: 'Conversation context' }
           },
-          required: ['sessionId', 'analysis']
+          required: ['sessionId', 'messageCountAtAnalysis', 'participantCountAtAnalysis', 'provider', 'conversationPhase', 'analysis']
         }
       },
       {
@@ -564,20 +505,8 @@ export class MCPServer {
         }
       },
       {
-        name: 'get_analysis_timeline',
-        description: 'Get analysis timeline for export',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            sessionId: { type: 'string', description: 'Session ID' }
-          },
-          required: ['sessionId']
-        }
-      },
-      // Legacy analysis tool (for backward compatibility)
-      {
         name: 'analyze_conversation',
-        description: 'Analyze conversation patterns and extract insights (legacy)',
+        description: 'Analyze conversation patterns and extract insights',
         inputSchema: {
           type: 'object',
           properties: {
@@ -623,18 +552,6 @@ export class MCPServer {
         case 'debug_store':
           result = await this.toolDebugStore()
           break
-        case 'refresh_store':
-          result = await this.toolRefreshStore()
-          break
-        case 'create_session':
-          result = await this.toolCreateSession(args)
-          break
-        case 'add_participant':
-          result = await this.toolAddParticipant(args)
-          break
-        case 'send_message':
-          result = await this.toolSendMessage(args)
-          break
         // Analysis tools
         case 'save_analysis_snapshot':
           result = await this.toolSaveAnalysisSnapshot(args)
@@ -644,9 +561,6 @@ export class MCPServer {
           break
         case 'clear_analysis_history':
           result = await this.toolClearAnalysisHistory(args)
-          break
-        case 'get_analysis_timeline':
-          result = await this.toolGetAnalysisTimeline(args)
           break
         case 'analyze_conversation':
           result = await this.toolAnalyzeConversation(args)
@@ -760,45 +674,22 @@ export class MCPServer {
     return this.getStoreDebugInfo()
   }
 
-  private async toolRefreshStore(): Promise<any> {
-    // This would trigger a refresh from the client side
+  private getStoreDebugInfo(): any {
     return {
-      success: true,
-      message: 'Store refresh signal sent',
-      currentState: this.getStoreDebugInfo()
-    }
-  }
-
-  // Helper method to get custom prompts info for resources
-  private getCustomPromptsInfo(): any {
-    const customPrompts = globalStoreData.customPrompts
-    
-    return {
-      configuration: {
-        analysisSystemPrompt: {
-          isCustom: !!customPrompts.analysisSystemPrompt,
-          prompt: customPrompts.analysisSystemPrompt,
-          default: globalStoreData.getAnalysisPrompt(),
-          lastModified: globalStoreData.lastUpdate
-        },
-        chatSystemPrompt: {
-          isCustom: !!customPrompts.chatSystemPrompt,
-          prompt: customPrompts.chatSystemPrompt,
-          default: globalStoreData.getChatPrompt(),
-          lastModified: globalStoreData.lastUpdate
-        }
+      storeState: {
+        hasHydrated: globalStoreData.hasHydrated,
+        sessionsCount: globalStoreData.sessions.length,
+        currentSessionId: globalStoreData.currentSession?.id || null,
+        lastUpdate: globalStoreData.lastUpdate
       },
-      summary: {
-        hasCustomAnalysis: !!customPrompts.analysisSystemPrompt,
-        hasCustomChat: !!customPrompts.chatSystemPrompt,
-        totalCustomPrompts: (!!customPrompts.analysisSystemPrompt ? 1 : 0) + (!!customPrompts.chatSystemPrompt ? 1 : 0)
+      capabilities: {
+        analysis: this.isAnalysisHandlerAvailable(),
+        realTimeUpdates: true
       },
-      availableActions: [
-        'get_custom_prompts',
-        'set_custom_analysis_prompt', 
-        'set_custom_chat_prompt',
-        'reset_custom_prompts'
-      ]
+      serverInfo: {
+        initialized: this.initialized,
+        clientInfo: this.clientInfo
+      }
     }
   }
 
@@ -831,27 +722,6 @@ export class MCPServer {
     }
   }
 
-  private getStoreDebugInfo(): any {
-    return {
-      storeState: {
-        hasHydrated: globalStoreData.hasHydrated,
-        sessionsCount: globalStoreData.sessions.length,
-        currentSessionId: globalStoreData.currentSession?.id || null,
-        lastUpdate: globalStoreData.lastUpdate
-      },
-      customPrompts: this.getCustomPromptsInfo(),
-      capabilities: {
-        analysis: this.isAnalysisHandlerAvailable(),
-        customPrompts: true,
-        realTimeUpdates: true
-      },
-      serverInfo: {
-        initialized: this.initialized,
-        clientInfo: this.clientInfo
-      }
-    }
-  }
-
   private uninitializedError(id: any): JSONRPCResponse {
     return {
       jsonrpc: '2.0',
@@ -863,66 +733,279 @@ export class MCPServer {
     }
   }
 
-  // AI API Methods (implement these based on your existing patterns)
+  // AI API Methods - Direct API calls using server-side logic
   private async callClaudeAPI(args: any): Promise<any> {
-    // Implementation depends on your existing Claude API integration
-    return { success: true, message: 'Claude API call would be implemented here', args }
+    try {
+      console.log('🔧 MCP Server: Calling Claude API directly...')
+      
+      const apiKey = process.env.ANTHROPIC_API_KEY
+      if (!apiKey) {
+        throw new Error('Anthropic API key not configured')
+      }
+
+      const { messages, systemPrompt, temperature = 0.7, maxTokens = 1500, model = 'claude-3-5-sonnet-20241022' } = args
+
+      if (!messages || !Array.isArray(messages)) {
+        throw new Error('Messages array is required')
+      }
+
+      // Filter out any empty messages and ensure proper format
+      const validMessages = messages.filter(msg => 
+        msg && msg.content && typeof msg.content === 'string' && msg.content.trim()
+      )
+
+      if (validMessages.length === 0) {
+        throw new Error('No valid messages provided')
+      }
+
+      // Transform messages to Claude format
+      const claudeMessages = validMessages.map((msg: any) => {
+        let role = msg.role
+        let content = msg.content
+
+        // Handle system messages by converting to user messages
+        if (role === 'system') {
+          role = 'user'
+          content = `[System Context] ${content}`
+        }
+
+        return {
+          role: role === 'user' ? 'user' : 'assistant',
+          content: content.trim()
+        }
+      })
+
+      // Ensure the conversation starts with a user message
+      if (claudeMessages.length > 0 && claudeMessages[0].role !== 'user') {
+        claudeMessages.unshift({
+          role: 'user',
+          content: 'Please respond to the following conversation:'
+        })
+      }
+
+      const requestBody = {
+        model: model,
+        max_tokens: Math.min(maxTokens, 4000),
+        temperature: Math.max(0, Math.min(1, temperature)),
+        system: systemPrompt || 'You are a thoughtful AI participating in a research dialogue.',
+        messages: claudeMessages
+      }
+
+      const startTime = Date.now()
+      
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify(requestBody)
+      })
+
+      const responseTime = Date.now() - startTime
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`Claude API error: ${response.status} - ${errorText}`)
+      }
+
+      const data = await response.json()
+      
+      if (!data.content || !Array.isArray(data.content) || data.content.length === 0) {
+        throw new Error('Invalid response format from Claude')
+      }
+
+      const content = data.content[0]?.text
+      if (!content) {
+        throw new Error('No text content in Claude response')
+      }
+
+      return {
+        success: true,
+        content: content,
+        usage: data.usage,
+        model: data.model,
+        responseTime,
+        stopReason: data.stop_reason
+      }
+    } catch (error) {
+      console.error('❌ MCP Server: Claude API call failed:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }
+    }
   }
 
   private async callOpenAIAPI(args: any): Promise<any> {
-    // Implementation depends on your existing OpenAI API integration
-    return { success: true, message: 'OpenAI API call would be implemented here', args }
+    try {
+      console.log('🔧 MCP Server: Calling OpenAI API directly...')
+      
+      const apiKey = process.env.OPENAI_API_KEY
+      if (!apiKey) {
+        throw new Error('OpenAI API key not configured')
+      }
+
+      const { messages, temperature = 0.7, maxTokens = 1500, model = 'gpt-4o' } = args
+
+      if (!messages || !Array.isArray(messages)) {
+        throw new Error('Messages array is required')
+      }
+
+      // Filter and validate messages
+      const validMessages = messages.filter(msg => {
+        if (!msg || typeof msg !== 'object') return false
+        if (!msg.content || typeof msg.content !== 'string' || !msg.content.trim()) return false
+        if (!msg.role || !['user', 'assistant', 'system'].includes(msg.role)) return false
+        return true
+      })
+
+      if (validMessages.length === 0) {
+        throw new Error('No valid messages provided')
+      }
+
+      // Process and clean up messages
+      const openaiMessages = validMessages.map((msg: any) => ({
+        role: msg.role,
+        content: msg.content.trim()
+      }))
+
+      // Ensure conversation starts with a non-assistant message
+      if (openaiMessages[0].role === 'assistant') {
+        openaiMessages.unshift({
+          role: 'user',
+          content: 'Please continue the conversation.'
+        })
+      }
+
+      const requestBody = {
+        model: model,
+        messages: openaiMessages,
+        max_tokens: Math.min(maxTokens, 4000),
+        temperature: Math.max(0, Math.min(2, temperature)),
+        stream: false
+      }
+
+      const startTime = Date.now()
+      
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify(requestBody)
+      })
+
+      const responseTime = Date.now() - startTime
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`OpenAI API error: ${response.status} - ${errorText}`)
+      }
+
+      const data = await response.json()
+      
+      if (!data.choices || !Array.isArray(data.choices) || data.choices.length === 0) {
+        throw new Error('Invalid response format from OpenAI')
+      }
+
+      const choice = data.choices[0]
+      if (!choice?.message?.content) {
+        throw new Error('No content in OpenAI response')
+      }
+
+      const content = choice.message.content
+      if (typeof content !== 'string' || content.trim() === '') {
+        throw new Error('Invalid content in OpenAI response')
+      }
+
+      return {
+        success: true,
+        content: content.trim(),
+        usage: data.usage,
+        model: data.model,
+        responseTime,
+        finishReason: choice.finish_reason
+      }
+    } catch (error) {
+      console.error('❌ MCP Server: OpenAI API call failed:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }
+    }
   }
 
-  // Analysis Tool Methods (implement based on your existing analysis handler)
+  // Analysis Tool Methods
   private async toolSaveAnalysisSnapshot(args: any): Promise<any> {
     if (!this.isAnalysisHandlerAvailable()) {
       throw new Error('Analysis functionality not available')
     }
-    return mcpAnalysisHandler.saveAnalysisSnapshot(args.sessionId, args.analysis, args.title, args.provider)
+    
+    const snapshotId = await mcpAnalysisHandler.saveAnalysisSnapshot(args.sessionId, {
+      messageCountAtAnalysis: args.messageCountAtAnalysis,
+      participantCountAtAnalysis: args.participantCountAtAnalysis,
+      provider: args.provider,
+      conversationPhase: args.conversationPhase,
+      analysis: args.analysis,
+      conversationContext: args.conversationContext || {}
+    })
+    
+    return {
+      success: true,
+      snapshotId,
+      sessionId: args.sessionId
+    }
   }
 
   private async toolGetAnalysisHistory(args: any): Promise<any> {
     if (!this.isAnalysisHandlerAvailable()) {
       throw new Error('Analysis functionality not available')
     }
-    return mcpAnalysisHandler.getAnalysisHistory(args.sessionId)
+    
+    const history = mcpAnalysisHandler.getAnalysisHistory(args.sessionId)
+    return {
+      sessionId: args.sessionId,
+      history,
+      count: history.length
+    }
   }
 
   private async toolClearAnalysisHistory(args: any): Promise<any> {
     if (!this.isAnalysisHandlerAvailable()) {
       throw new Error('Analysis functionality not available')
     }
-    return mcpAnalysisHandler.clearAnalysisHistory(args.sessionId)
-  }
-
-  private async toolGetAnalysisTimeline(args: any): Promise<any> {
-    if (!this.isAnalysisHandlerAvailable()) {
-      throw new Error('Analysis functionality not available')
+    
+    mcpAnalysisHandler.clearAnalysisHistory(args.sessionId)
+    return {
+      success: true,
+      sessionId: args.sessionId
     }
-    return mcpAnalysisHandler.getAnalysisTimeline(args.sessionId)
   }
 
   private async toolAnalyzeConversation(args: any): Promise<any> {
-    if (!this.isAnalysisHandlerAvailable()) {
-      throw new Error('Analysis functionality not available')
+    // Basic conversation analysis without external dependencies
+    const session = this.getSession(args.sessionId)
+    
+    const analysis = {
+      sessionId: args.sessionId,
+      analysisType: args.analysisType || 'basic',
+      messageCount: session.messages.length,
+      participantCount: session.participants.length,
+      averageMessageLength: session.messages.length > 0 
+        ? Math.round(session.messages.reduce((sum, msg) => sum + msg.content.length, 0) / session.messages.length)
+        : 0,
+      messagesByParticipant: session.messages.reduce((acc, msg) => {
+        acc[msg.participantId] = (acc[msg.participantId] || 0) + 1
+        return acc
+      }, {} as Record<string, number>),
+      conversationDuration: session.messages.length > 0 
+        ? session.messages[session.messages.length - 1].timestamp.getTime() - session.messages[0].timestamp.getTime()
+        : 0
     }
-    return mcpAnalysisHandler.analyzeConversation(args.sessionId, args.analysisType)
-  }
-
-  // Session Management Tool Methods (implement based on your store patterns)
-  private async toolCreateSession(args: any): Promise<any> {
-    // Implementation depends on your session creation logic
-    return { success: true, message: 'Session creation would be implemented here', args }
-  }
-
-  private async toolAddParticipant(args: any): Promise<any> {
-    // Implementation depends on your participant addition logic
-    return { success: true, message: 'Participant addition would be implemented here', args }
-  }
-
-  private async toolSendMessage(args: any): Promise<any> {
-    // Implementation depends on your message sending logic
-    return { success: true, message: 'Message sending would be implemented here', args }
+    
+    return analysis
   }
 }
