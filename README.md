@@ -142,7 +142,7 @@ mcp.subscribe('analysis_snapshot_saved', (data) => {
 ```bash 
 git clone https://github.com/yourname/the-academy.git
 cd the-academy/academy
-docker build the-academy .
+docker build -t the-academy .
 docker run -d \
   --name academy-app \
   -p 3000:3000 \
@@ -229,4 +229,5 @@ Please feel free to reach out about contributing to this project. I'd love to de
 ## License
 
 MIT License - see LICENSE file for details.
+
 
