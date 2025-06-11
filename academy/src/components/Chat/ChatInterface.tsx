@@ -83,14 +83,6 @@ export function ChatInterface() {
       setConversationState('starting')
       setError(null)
       
-      // Add the opening prompt as a moderator message first
-      addMessage({
-        content: moderatorInput.trim(),
-        participantId: 'moderator',
-        participantName: 'Research Moderator',
-        participantType: 'moderator'
-      })
-      
       // Start the AI-to-AI conversation using the client-side manager
       await conversationManager.startConversation(currentSession.id, moderatorInput.trim())
       
