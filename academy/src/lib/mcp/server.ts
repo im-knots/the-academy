@@ -1399,40 +1399,62 @@ export class MCPServer {
       if (!sessionId) {
         throw new Error('Session ID is required')
       }
-
+      
       this.updateStoreReference()
-      
       const store = useChatStore.getState()
-      const originalSession = store.sessions.find(s => s.id === sessionId)
       
+      const originalSession = store.sessions.find(s => s.id === sessionId)
       if (!originalSession) {
         throw new Error(`Session ${sessionId} not found`)
       }
-
-      // Create duplicate session
-      const duplicateSession = {
-        ...originalSession,
-        id: `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        name: newName || `${originalSession.name} (Copy)`,
-        messages: includeMessages ? [...originalSession.messages] : [],
-        createdAt: new Date(),
-        updatedAt: new Date()
+      
+      // Create new session name
+      const duplicateName = newName || `${originalSession.name} (Copy)`
+      
+      // Create the session using the store's createSession method
+      store.createSession(
+        duplicateName,
+        originalSession.description,
+        undefined, // template parameter - not using since it doesn't exist on session type
+        originalSession.participants.map(p => ({
+          ...p,
+          id: undefined, // Let the store generate new IDs
+          joinedAt: undefined,
+          messageCount: 0,
+          lastActive: undefined
+        }))
+      )
+      
+      // Get the newly created session (it should be the current session after creation)
+      const updatedStore = useChatStore.getState()
+      const duplicateSession = updatedStore.currentSession
+      
+      if (!duplicateSession) {
+        throw new Error('Failed to create duplicate session')
       }
-
-      // Apply to store
-      const duplicateSessionId = store.createSession(duplicateSession.name, duplicateSession.description, duplicateSession.template, duplicateSession.participants)
-      store.setCurrentSession(duplicateSessionId)
-
+      
+      // If we need to include messages, add them to the new session
+      if (includeMessages && originalSession.messages.length > 0) {
+        originalSession.messages.forEach(msg => {
+          store.addMessage({
+            content: msg.content,
+            participantId: msg.participantId,
+            participantName: msg.participantName,
+            participantType: msg.participantType
+          })
+        })
+      }
+      
       // Update MCP store reference
       setMCPStoreReference(useChatStore.getState())
-
+      
       return {
         success: true,
         sessionId: duplicateSession.id,
         sessionData: duplicateSession,
         originalSessionId: sessionId,
         includeMessages: includeMessages,
-        message: `Session duplicated successfully as "${duplicateSession.name}"`
+        message: `Session duplicated successfully as "${duplicateName}"`
       }
     } catch (error) {
       console.error('Duplicate session failed:', error)
@@ -1638,32 +1660,38 @@ private async toolSendMessage(args: any): Promise<any> {
       if (!sessionId || !name || !type) {
         throw new Error('Session ID, participant name, and type are required')
       }
-
+      
       this.updateStoreReference()
       const store = useChatStore.getState()
       
-      if (store.currentSession?.id === sessionId) {
+      // Add explicit null check
+      if (!store.currentSession) {
+        throw new Error('No current session available')
+      }
+      
+      // Check if this is the current session
+      if (store.currentSession.id === sessionId) {
         const participantData: Omit<Participant, 'id' | 'joinedAt' | 'messageCount'> = {
           name: name,
           type: type,
-          provider: provider || 'claude',
-          model: model || 'claude-3-5-sonnet-20241022',
-          settings: settings || {
+          settings: {
             temperature: 0.7,
             maxTokens: 2000,
-            responseDelay: 2000
+            responseDelay: 2000,
+            model: model || 'claude-3-5-sonnet-20241022',
+            ...settings // Allow overriding defaults with provided settings
           },
           characteristics: characteristics || {},
-          status: 'active' as const, // Fix: Use proper union type with 'as const'
+          status: 'active' as const,
           systemPrompt: '',
           avatar: undefined,
           color: undefined,
           lastActive: undefined
         }
-
+        
         store.addParticipant(participantData)
         setMCPStoreReference(useChatStore.getState())
-
+        
         return {
           success: true,
           sessionId: sessionId,
@@ -1678,6 +1706,7 @@ private async toolSendMessage(args: any): Promise<any> {
       throw new Error(`Failed to add participant: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
+  
   private async toolRemoveParticipant(args: any): Promise<any> {
     try {
       const { sessionId, participantId } = args
@@ -1685,24 +1714,28 @@ private async toolSendMessage(args: any): Promise<any> {
       if (!sessionId || !participantId) {
         throw new Error('Session ID and participant ID are required')
       }
-
-      this.updateStoreReference()
       
+      this.updateStoreReference()
       const store = useChatStore.getState()
       
+      // Add explicit null check and store the session
+      if (!store.currentSession) {
+        throw new Error('No current session available')
+      }
+      
       // Check if this is the current session
-      if (store.currentSession?.id === sessionId) {
+      if (store.currentSession.id === sessionId) {
         const participant = store.currentSession.participants.find(p => p.id === participantId)
         
         if (!participant) {
           throw new Error(`Participant ${participantId} not found`)
         }
-
+        
         store.removeParticipant(participantId)
-
+        
         // Update MCP store reference
         setMCPStoreReference(useChatStore.getState())
-
+        
         return {
           success: true,
           sessionId: sessionId,
@@ -1726,24 +1759,28 @@ private async toolSendMessage(args: any): Promise<any> {
       if (!sessionId || !participantId || !updates) {
         throw new Error('Session ID, participant ID, and updates are required')
       }
-
-      this.updateStoreReference()
       
+      this.updateStoreReference()
       const store = useChatStore.getState()
       
+      // Add explicit null check
+      if (!store.currentSession) {
+        throw new Error('No current session available')
+      }
+      
       // Check if this is the current session
-      if (store.currentSession?.id === sessionId) {
+      if (store.currentSession.id === sessionId) {
         const participant = store.currentSession.participants.find(p => p.id === participantId)
         
         if (!participant) {
           throw new Error(`Participant ${participantId} not found`)
         }
-
+        
         store.updateParticipant(participantId, updates)
-
+        
         // Update MCP store reference
         setMCPStoreReference(useChatStore.getState())
-
+        
         return {
           success: true,
           sessionId: sessionId,
@@ -1819,18 +1856,23 @@ private async toolSendMessage(args: any): Promise<any> {
       if (!sessionId || !participantId) {
         throw new Error('Session ID and participant ID are required')
       }
-
-      this.updateStoreReference()
       
+      this.updateStoreReference()
       const store = useChatStore.getState()
       
-      if (store.currentSession?.id === sessionId) {
+      // Add explicit null check
+      if (!store.currentSession) {
+        throw new Error('No current session available')
+      }
+      
+      // Check if this is the current session
+      if (store.currentSession.id === sessionId) {
         const participant = store.currentSession.participants.find(p => p.id === participantId)
         
         if (!participant) {
           throw new Error(`Participant ${participantId} not found`)
         }
-
+        
         return {
           success: true,
           sessionId: sessionId,
@@ -2288,38 +2330,37 @@ private async toolSendMessage(args: any): Promise<any> {
       if (!sessionId) {
         throw new Error('Session ID is required')
       }
-
+      
       if (!this.isAnalysisHandlerAvailable()) {
         throw new Error('Analysis handler not available')
       }
-
-      const analysisData = mcpAnalysisHandler.getAnalysisHistory(sessionId)
       
+      const analysisData = mcpAnalysisHandler.getAnalysisHistory(sessionId)
       let formattedData: string
+      
       if (format === 'csv') {
         // CSV export of analysis timeline
         const headers = ['timestamp', 'analysisType', 'key', 'value']
         const rows: string[] = []
         
-        if (analysisData.snapshots) {
-          analysisData.snapshots.forEach((snapshot: any) => {
-            const timestamp = snapshot.timestamp
-            Object.entries(snapshot.analysis).forEach(([key, value]) => {
-              rows.push([
-                timestamp,
-                snapshot.analysisType || 'unknown',
-                key,
-                `"${String(value).replace(/"/g, '""')}"`
-              ].join(','))
-            })
+        // analysisData is already an array of AnalysisSnapshot
+        analysisData.forEach((snapshot: any) => {
+          const timestamp = snapshot.timestamp
+          Object.entries(snapshot.analysis).forEach(([key, value]) => {
+            rows.push([
+              timestamp,
+              snapshot.analysisType || 'unknown',
+              key,
+              `"${String(value).replace(/"/g, '""')}"`
+            ].join(','))
           })
-        }
+        })
         
         formattedData = [headers.join(','), ...rows].join('\n')
       } else {
         formattedData = JSON.stringify(analysisData, null, 2)
       }
-
+      
       return {
         success: true,
         sessionId: sessionId,
