@@ -1,4 +1,4 @@
-// src/hooks/useMCP.ts - Fixed TypeScript errors
+// src/hooks/useMCP.ts - Complete Fixed Version with State Synchronization
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
@@ -91,6 +91,7 @@ interface MCPHookMethods {
   debugStoreViaMCP: () => Promise<any>
   
   // Utility methods
+  syncStateWithClient: () => Promise<void>
   reconnect: () => Promise<void>
   disconnect: () => void
 }
@@ -111,28 +112,106 @@ export function useMCP(): MCPHook {
 
   const clientRef = useRef<MCPClient | null>(null)
 
+  // ========================================
+  // CORE CONNECTION MANAGEMENT (FIXED)
+  // ========================================
+
+  const syncStateWithClient = useCallback(async () => {
+    if (!clientRef.current) {
+      setState(prev => ({
+        ...prev,
+        isConnected: false,
+        isInitialized: false,
+        connectionStatus: 'disconnected'
+      }))
+      return
+    }
+
+    try {
+      // Test actual connection with a simple request
+      await clientRef.current.sendRequest('list_tools', {})
+      
+      // If we get here, it's connected
+      setState(prev => ({
+        ...prev,
+        isConnected: true,
+        isInitialized: true,
+        connectionStatus: 'connected',
+        error: null,
+        lastUpdate: new Date()
+      }))
+      
+      console.log('✅ useMCP: State synced - MCP is actually connected!')
+    } catch (error) {
+      setState(prev => ({
+        ...prev,
+        isConnected: false,
+        isInitialized: false,
+        connectionStatus: 'error',
+        error: 'Connection test failed',
+        lastUpdate: new Date()
+      }))
+      console.error('❌ useMCP: Connection test failed:', error)
+    }
+  }, [])
+
   const initializeConnection = useCallback(async () => {
     try {
       setState(prev => ({ ...prev, connectionStatus: 'connecting', error: null }))
       
       console.log('🔧 useMCP: Initializing MCP client...')
       
-      // Use singleton getInstance instead of constructor
+      // Get the singleton instance
       clientRef.current = MCPClient.getInstance()
       
-      if (!clientRef.current.isConnected()) {
+      // Check actual connection status
+      let actuallyConnected = false
+      try {
+        // Try to make a simple call to test if it's really connected
+        await clientRef.current.sendRequest('list_tools', {})
+        actuallyConnected = true
+        console.log('✅ useMCP: MCP client is already connected!')
+      } catch (error) {
+        console.log('🔧 useMCP: MCP client needs initialization...')
         await clientRef.current.initialize()
+        actuallyConnected = true
+        console.log('✅ useMCP: MCP client initialized successfully')
       }
       
-      console.log('✅ useMCP: MCP client initialized successfully')
-      
+      // Update state to reflect actual connection
       setState(prev => ({
         ...prev,
-        isConnected: true,
-        isInitialized: true,
-        connectionStatus: 'connected',
+        isConnected: actuallyConnected,
+        isInitialized: actuallyConnected,
+        connectionStatus: actuallyConnected ? 'connected' : 'error',
         lastUpdate: new Date()
       }))
+
+      // Load data if connected
+      if (actuallyConnected) {
+        setTimeout(async () => {
+          try {
+            const [tools, resources, prompts] = await Promise.allSettled([
+              clientRef.current!.listTools(),
+              clientRef.current!.listResources(),
+              clientRef.current!.listPrompts()
+            ])
+            
+            setState(prev => ({
+              ...prev,
+              tools: tools.status === 'fulfilled' ? tools.value : [],
+              resources: resources.status === 'fulfilled' ? resources.value : [],
+              prompts: prompts.status === 'fulfilled' ? prompts.value : [],
+              lastUpdate: new Date()
+            }))
+            
+            console.log(`✅ useMCP: Loaded ${tools.status === 'fulfilled' ? tools.value.length : 0} tools, ${resources.status === 'fulfilled' ? resources.value.length : 0} resources`)
+          } catch (loadError) {
+            console.warn('⚠️ useMCP: Failed to load data (non-critical):', loadError)
+          }
+        }, 100)
+      }
+      
     } catch (error) {
       console.error('❌ useMCP: Failed to initialize MCP client:', error)
       setState(prev => ({
@@ -147,13 +226,54 @@ export function useMCP(): MCPHook {
     }
   }, [])
 
+  const reconnect = useCallback(async () => {
+    console.log('🔄 useMCP: Reconnecting and syncing state...')
+    setState(prev => ({ 
+      ...prev, 
+      connectionStatus: 'connecting',
+      error: null,
+      tools: [],
+      resources: [],
+      prompts: []
+    }))
+    
+    try {
+      if (clientRef.current) {
+        clientRef.current = null // Reset client
+      }
+      await initializeConnection()
+      await syncStateWithClient()
+    } catch (error) {
+      console.error('❌ useMCP: Reconnection failed:', error)
+      throw error
+    }
+  }, [initializeConnection, syncStateWithClient])
+
+  const disconnect = useCallback(() => {
+    console.log('🔌 useMCP: Disconnecting...')
+    clientRef.current = null
+    setState({
+      isConnected: false,
+      isInitialized: false,
+      connectionStatus: 'disconnected',
+      error: null,
+      resources: [],
+      tools: [],
+      prompts: [],
+      lastUpdate: new Date()
+    })
+  }, [])
+
   useEffect(() => {
     initializeConnection().catch(error => {
       console.error('useMCP initialization error:', error)
     })
   }, [initializeConnection])
 
-  // Resource methods
+  // ========================================
+  // BASIC MCP OPERATIONS
+  // ========================================
+
   const listResources = useCallback(async () => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
     
@@ -191,7 +311,6 @@ export function useMCP(): MCPHook {
     }
   }, [listResources])
 
-  // Tool methods
   const listTools = useCallback(async () => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
     const tools = await clientRef.current.listTools()
@@ -230,7 +349,6 @@ export function useMCP(): MCPHook {
     }
   }, [refreshResources])
 
-  // Prompt methods
   const listPrompts = useCallback(async () => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
     const prompts = await clientRef.current.listPrompts()
@@ -250,7 +368,7 @@ export function useMCP(): MCPHook {
   const createSessionViaMCP = useCallback(async (name: string, description?: string, template?: string, participants?: any[]) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
     
-    console.log(`🔧 useMCP: Creating session via MCP: ${name}`)
+    console.log(`🆕 useMCP: Creating session via MCP: ${name}`)
     
     try {
       const result = await clientRef.current.createSessionViaMCP(name, description, template, participants)
@@ -390,18 +508,22 @@ export function useMCP(): MCPHook {
     
     try {
       const templates = await clientRef.current.getSessionTemplates()
-      console.log(`📋 useMCP: Retrieved ${templates.length} session templates`)
       return templates
     } catch (error) {
-      console.error('Failed to get session templates:', error)
-      return []
+      console.error('Failed to get session templates via MCP:', error)
+      setState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Failed to get session templates',
+        lastUpdate: new Date()
+      }))
+      throw error
     }
   }, [])
 
   const createSessionFromTemplateViaMCP = useCallback(async (templateId: string, name: string, description?: string, customizations?: any) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
     
-    console.log(`🎨 useMCP: Creating session from template via MCP: ${templateId}`)
+    console.log(`📋 useMCP: Creating session from template via MCP: ${templateId}`)
     
     try {
       const result = await clientRef.current.createSessionFromTemplateViaMCP(templateId, name, description, customizations)
@@ -421,10 +543,6 @@ export function useMCP(): MCPHook {
     }
   }, [refreshResources])
 
-  // ========================================
-  // PHASE 1: MESSAGE MANAGEMENT METHODS
-  // ========================================
-
   const sendMessageViaMCP = useCallback(async (sessionId: string, content: string, participantId: string, participantName: string, participantType: any) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
     
@@ -433,7 +551,7 @@ export function useMCP(): MCPHook {
     try {
       const result = await clientRef.current.sendMessageViaMCP(sessionId, content, participantId, participantName, participantType)
       
-      // Refresh resources after message
+      // Refresh resources after message sent
       setTimeout(refreshResources, 100)
       
       return result
@@ -460,7 +578,7 @@ export function useMCP(): MCPHook {
     try {
       const result = await clientRef.current.addParticipantViaMCP(sessionId, name, type, provider, model, settings, characteristics)
       
-      // Refresh resources after adding participant
+      // Refresh resources after participant added
       setTimeout(refreshResources, 100)
       
       return result
@@ -483,7 +601,7 @@ export function useMCP(): MCPHook {
     try {
       const result = await clientRef.current.removeParticipantViaMCP(sessionId, participantId)
       
-      // Refresh resources after removing participant
+      // Refresh resources after participant removed
       setTimeout(refreshResources, 100)
       
       return result
@@ -506,7 +624,7 @@ export function useMCP(): MCPHook {
     try {
       const result = await clientRef.current.updateParticipantViaMCP(sessionId, participantId, updates)
       
-      // Refresh resources after updating participant
+      // Refresh resources after participant update
       setTimeout(refreshResources, 100)
       
       return result
@@ -544,7 +662,6 @@ export function useMCP(): MCPHook {
     }
   }, [refreshResources])
 
-  // Fixed method name to match MCPClient
   const getAvailableModelsViaMCP = useCallback(async (provider?: string) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
     
@@ -586,12 +703,12 @@ export function useMCP(): MCPHook {
   const startConversationViaMCP = useCallback(async (sessionId: string, initialPrompt?: string) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
     
-    console.log(`🚀 useMCP: Starting conversation via MCP: ${sessionId}`)
+    console.log(`▶️ useMCP: Starting conversation via MCP: ${sessionId}`)
     
     try {
       const result = await clientRef.current.startConversationViaMCP(sessionId, initialPrompt)
       
-      // Refresh resources after starting conversation
+      // Refresh resources after conversation started
       setTimeout(refreshResources, 100)
       
       return result
@@ -614,7 +731,7 @@ export function useMCP(): MCPHook {
     try {
       const result = await clientRef.current.pauseConversationViaMCP(sessionId)
       
-      // Refresh resources after pausing conversation
+      // Refresh resources after conversation paused
       setTimeout(refreshResources, 100)
       
       return result
@@ -637,7 +754,7 @@ export function useMCP(): MCPHook {
     try {
       const result = await clientRef.current.resumeConversationViaMCP(sessionId)
       
-      // Refresh resources after resuming conversation
+      // Refresh resources after conversation resumed
       setTimeout(refreshResources, 100)
       
       return result
@@ -655,12 +772,12 @@ export function useMCP(): MCPHook {
   const stopConversationViaMCP = useCallback(async (sessionId: string) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
     
-    console.log(`🛑 useMCP: Stopping conversation via MCP: ${sessionId}`)
+    console.log(`⏹️ useMCP: Stopping conversation via MCP: ${sessionId}`)
     
     try {
       const result = await clientRef.current.stopConversationViaMCP(sessionId)
       
-      // Refresh resources after stopping conversation
+      // Refresh resources after conversation stopped
       setTimeout(refreshResources, 100)
       
       return result
@@ -709,16 +826,15 @@ export function useMCP(): MCPHook {
     }
   }, [])
 
-  // Fixed: Added missing injectPromptViaMCP method
   const injectPromptViaMCP = useCallback(async (sessionId: string, prompt: string) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
     
-    console.log(`💬 useMCP: Injecting prompt via MCP: ${sessionId}`)
+    console.log(`💉 useMCP: Injecting prompt via MCP: ${sessionId}`)
     
     try {
-      const result = await clientRef.current.injectModeratorPromptViaMCP(sessionId, prompt)
+      const result = await clientRef.current.injectPromptViaMCP(sessionId, prompt)
       
-      // Refresh resources after injecting prompt
+      // Refresh resources after prompt injection
       setTimeout(refreshResources, 100)
       
       return result
@@ -740,10 +856,12 @@ export function useMCP(): MCPHook {
   const updateMessageViaMCP = useCallback(async (sessionId: string, messageId: string, content: string) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
     
+    console.log(`✏️ useMCP: Updating message via MCP: ${messageId}`)
+    
     try {
       const result = await clientRef.current.updateMessageViaMCP(sessionId, messageId, content)
       
-      // Refresh resources after updating message
+      // Refresh resources after message update
       setTimeout(refreshResources, 100)
       
       return result
@@ -761,10 +879,12 @@ export function useMCP(): MCPHook {
   const deleteMessageViaMCP = useCallback(async (sessionId: string, messageId: string) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
     
+    console.log(`🗑️ useMCP: Deleting message via MCP: ${messageId}`)
+    
     try {
       const result = await clientRef.current.deleteMessageViaMCP(sessionId, messageId)
       
-      // Refresh resources after deleting message
+      // Refresh resources after message deletion
       setTimeout(refreshResources, 100)
       
       return result
@@ -782,10 +902,12 @@ export function useMCP(): MCPHook {
   const clearMessagesViaMCP = useCallback(async (sessionId: string) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
     
+    console.log(`🧹 useMCP: Clearing messages via MCP: ${sessionId}`)
+    
     try {
       const result = await clientRef.current.clearMessagesViaMCP(sessionId)
       
-      // Refresh resources after clearing messages
+      // Refresh resources after messages cleared
       setTimeout(refreshResources, 100)
       
       return result
@@ -803,10 +925,12 @@ export function useMCP(): MCPHook {
   const injectModeratorPromptViaMCP = useCallback(async (sessionId: string, prompt: string) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
     
+    console.log(`👤 useMCP: Injecting moderator prompt via MCP: ${sessionId}`)
+    
     try {
       const result = await clientRef.current.injectModeratorPromptViaMCP(sessionId, prompt)
       
-      // Refresh resources after injecting moderator prompt
+      // Refresh resources after moderator prompt injection
       setTimeout(refreshResources, 100)
       
       return result
@@ -825,8 +949,10 @@ export function useMCP(): MCPHook {
   // PHASE 5: EXPORT METHODS
   // ========================================
 
-  const exportSessionViaMCP = useCallback(async (sessionId: string, format: 'json' | 'csv' = 'json', options: any = {}) => {
+  const exportSessionViaMCP = useCallback(async (sessionId: string, format: 'json' | 'csv' = 'json', options?: any) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
+    
+    console.log(`📤 useMCP: Exporting session via MCP: ${sessionId}`)
     
     try {
       const result = await clientRef.current.exportSessionViaMCP(sessionId, format, options)
@@ -844,6 +970,8 @@ export function useMCP(): MCPHook {
 
   const exportAnalysisTimelineViaMCP = useCallback(async (sessionId: string, format: 'json' | 'csv' = 'json') => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
+    
+    console.log(`📊 useMCP: Exporting analysis timeline via MCP: ${sessionId}`)
     
     try {
       const result = await clientRef.current.exportAnalysisTimelineViaMCP(sessionId, format)
@@ -863,8 +991,8 @@ export function useMCP(): MCPHook {
     if (!clientRef.current) throw new Error('MCP client not initialized')
     
     try {
-      const result = await clientRef.current.getExportPreviewViaMCP(sessionId, format)
-      return result
+      const preview = await clientRef.current.getExportPreviewViaMCP(sessionId, format)
+      return preview
     } catch (error) {
       console.error('Failed to get export preview via MCP:', error)
       setState(prev => ({
@@ -880,8 +1008,10 @@ export function useMCP(): MCPHook {
   // PHASE 6: LIVE ANALYSIS METHODS
   // ========================================
 
-  const triggerLiveAnalysisViaMCP = useCallback(async (sessionId: string, analysisType: string = 'full') => {
+  const triggerLiveAnalysisViaMCP = useCallback(async (sessionId: string, analysisType?: string) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
+    
+    console.log(`🔍 useMCP: Triggering live analysis via MCP: ${sessionId}`)
     
     try {
       const result = await clientRef.current.triggerLiveAnalysisViaMCP(sessionId, analysisType)
@@ -899,6 +1029,8 @@ export function useMCP(): MCPHook {
 
   const setAnalysisProviderViaMCP = useCallback(async (provider: string) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
+    
+    console.log(`🔧 useMCP: Setting analysis provider via MCP: ${provider}`)
     
     try {
       const result = await clientRef.current.setAnalysisProviderViaMCP(provider)
@@ -934,14 +1066,16 @@ export function useMCP(): MCPHook {
   const autoAnalyzeConversationViaMCP = useCallback(async (sessionId: string, enabled: boolean) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
     
+    console.log(`🤖 useMCP: Setting auto-analysis via MCP: ${sessionId} -> ${enabled}`)
+    
     try {
       const result = await clientRef.current.autoAnalyzeConversationViaMCP(sessionId, enabled)
       return result
     } catch (error) {
-      console.error('Failed to set auto analyze conversation via MCP:', error)
+      console.error('Failed to set auto-analysis via MCP:', error)
       setState(prev => ({
         ...prev,
-        error: error instanceof Error ? error.message : 'Failed to set auto analyze conversation',
+        error: error instanceof Error ? error.message : 'Failed to set auto-analysis',
         lastUpdate: new Date()
       }))
       throw error
@@ -1021,7 +1155,7 @@ export function useMCP(): MCPHook {
   }, [])
 
   // ========================================
-  // AI PROVIDER METHODS (EXISTING)
+  // AI PROVIDER METHODS
   // ========================================
 
   const callClaudeViaMCP = useCallback(async (message: string, systemPrompt?: string, sessionId?: string, participantId?: string) => {
@@ -1070,7 +1204,7 @@ export function useMCP(): MCPHook {
   }, [])
 
   // ========================================
-  // DEBUG METHODS (EXISTING)
+  // DEBUG METHODS
   // ========================================
 
   const debugStoreViaMCP = useCallback(async () => {
@@ -1091,28 +1225,10 @@ export function useMCP(): MCPHook {
   }, [])
 
   // ========================================
-  // UTILITY METHODS
+  // RETURN ALL METHODS AND STATE
   // ========================================
 
-  const reconnect = useCallback(async () => {
-    await initializeConnection()
-  }, [initializeConnection])
-
-  const disconnect = useCallback(() => {
-    if (clientRef.current) {
-      clientRef.current.disconnect()
-      setState(prev => ({
-        ...prev,
-        isConnected: false,
-        isInitialized: false,
-        connectionStatus: 'disconnected',
-        lastUpdate: new Date()
-      }))
-    }
-  }, [])
-
   return {
-    // State
     ...state,
     
     // Resource methods
@@ -1128,7 +1244,7 @@ export function useMCP(): MCPHook {
     listPrompts,
     getPrompt,
     
-    // PHASE 1: Session Management (Complete)
+    // PHASE 1: Session Management Methods
     createSessionViaMCP,
     deleteSessionViaMCP,
     updateSessionViaMCP,
@@ -1137,11 +1253,9 @@ export function useMCP(): MCPHook {
     importSessionViaMCP,
     getSessionTemplates,
     createSessionFromTemplateViaMCP,
-    
-    // PHASE 1: Message Management
     sendMessageViaMCP,
     
-    // PHASE 2: Participant Management (Complete)
+    // PHASE 2: Participant Management Methods
     addParticipantViaMCP,
     removeParticipantViaMCP,
     updateParticipantViaMCP,
@@ -1149,7 +1263,7 @@ export function useMCP(): MCPHook {
     getAvailableModelsViaMCP,
     getParticipantConfigViaMCP,
     
-    // PHASE 4: Conversation Control (Complete)
+    // PHASE 4: Conversation Control Methods
     startConversationViaMCP,
     pauseConversationViaMCP,
     resumeConversationViaMCP,
@@ -1158,18 +1272,18 @@ export function useMCP(): MCPHook {
     getConversationStatsViaMCP,
     injectPromptViaMCP,
     
-    // PHASE 3: Message Control
+    // PHASE 3: Message Control Methods
     updateMessageViaMCP,
     deleteMessageViaMCP,
     clearMessagesViaMCP,
     injectModeratorPromptViaMCP,
     
-    // PHASE 5: Export
+    // PHASE 5: Export Methods
     exportSessionViaMCP,
     exportAnalysisTimelineViaMCP,
     getExportPreviewViaMCP,
     
-    // PHASE 6: Live Analysis
+    // PHASE 6: Live Analysis Methods
     triggerLiveAnalysisViaMCP,
     setAnalysisProviderViaMCP,
     getAnalysisProvidersViaMCP,
@@ -1189,6 +1303,7 @@ export function useMCP(): MCPHook {
     debugStoreViaMCP,
     
     // Utility methods
+    syncStateWithClient,
     reconnect,
     disconnect
   }
@@ -1259,27 +1374,6 @@ export function useSessionMCP() {
     return await mcp.stopConversationViaMCP(currentSession.id)
   }, [mcp, currentSession])
 
-  const getConversationStatus = useCallback(async () => {
-    if (!currentSession) {
-      throw new Error('No current session available')
-    }
-    return await mcp.getConversationStatusViaMCP(currentSession.id)
-  }, [mcp, currentSession])
-
-  const getConversationStats = useCallback(async () => {
-    if (!currentSession) {
-      throw new Error('No current session available')
-    }
-    return await mcp.getConversationStatsViaMCP(currentSession.id)
-  }, [mcp, currentSession])
-
-  const sendMessage = useCallback(async (content: string, participantId: string, participantName: string, participantType: any) => {
-    if (!currentSession) {
-      throw new Error('No current session available')
-    }
-    return await mcp.sendMessageViaMCP(currentSession.id, content, participantId, participantName, participantType)
-  }, [mcp, currentSession])
-
   const addParticipant = useCallback(async (name: string, type: any, provider?: string, model?: string, settings?: any, characteristics?: any) => {
     if (!currentSession) {
       throw new Error('No current session available')
@@ -1287,59 +1381,14 @@ export function useSessionMCP() {
     return await mcp.addParticipantViaMCP(currentSession.id, name, type, provider, model, settings, characteristics)
   }, [mcp, currentSession])
 
-  const removeParticipant = useCallback(async (participantId: string) => {
-    if (!currentSession) {
-      throw new Error('No current session available')
-    }
-    return await mcp.removeParticipantViaMCP(currentSession.id, participantId)
-  }, [mcp, currentSession])
-
-  const updateParticipant = useCallback(async (participantId: string, updates: any) => {
-    if (!currentSession) {
-      throw new Error('No current session available')
-    }
-    return await mcp.updateParticipantViaMCP(currentSession.id, participantId, updates)
-  }, [mcp, currentSession])
-
-  const injectPrompt = useCallback(async (prompt: string) => {
-    if (!currentSession) {
-      throw new Error('No current session available')
-    }
-    return await mcp.injectPromptViaMCP(currentSession.id, prompt)
-  }, [mcp, currentSession])
-
-  const exportSession = useCallback(async (format: 'json' | 'csv' = 'json', options: any = {}) => {
+  const exportSession = useCallback(async (format: 'json' | 'csv' = 'json', options?: any) => {
     if (!currentSession) {
       throw new Error('No current session available')
     }
     return await mcp.exportSessionViaMCP(currentSession.id, format, options)
   }, [mcp, currentSession])
 
-  const exportAnalysisTimeline = useCallback(async (format: 'json' | 'csv' = 'json') => {
-    if (!currentSession) {
-      throw new Error('No current session available')
-    }
-    return await mcp.exportAnalysisTimelineViaMCP(currentSession.id, format)
-  }, [mcp, currentSession])
-
-  const triggerLiveAnalysis = useCallback(async (analysisType: string = 'full') => {
-    if (!currentSession) {
-      throw new Error('No current session available')
-    }
-    return await mcp.triggerLiveAnalysisViaMCP(currentSession.id, analysisType)
-  }, [mcp, currentSession])
-
   return {
-    // Session info
-    sessionId: currentSession?.id || null,
-    hasSession: !!currentSession,
-    
-    // MCP state from parent hook
-    isConnected: mcp.isConnected,
-    isInitialized: mcp.isInitialized,
-    error: mcp.error,
-
-    // Session-specific methods
     analyzeConversation,
     saveAnalysisSnapshot,
     getAnalysisHistory,
@@ -1348,15 +1397,8 @@ export function useSessionMCP() {
     pauseConversation,
     resumeConversation,
     stopConversation,
-    getConversationStatus,
-    getConversationStats,
-    sendMessage,
     addParticipant,
-    removeParticipant,
-    updateParticipant,
-    injectPrompt,
     exportSession,
-    exportAnalysisTimeline,
-    triggerLiveAnalysis
+    currentSession
   }
 }
