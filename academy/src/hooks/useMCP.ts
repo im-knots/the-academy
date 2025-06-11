@@ -1,4 +1,4 @@
-// src/hooks/useMCP.ts
+// src/hooks/useMCP.ts - Updated with Phase 1 MCP tools support
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
@@ -30,7 +30,25 @@ interface MCPHookMethods {
   listPrompts: () => Promise<any[]>
   getPrompt: (name: string, args?: any) => Promise<any>
   
-  // Academy-specific methods
+  // PHASE 1: Session Management Methods
+  createSessionViaMCP: (name: string, description?: string, template?: string, participants?: any[]) => Promise<any>
+  getSessionTemplates: () => Promise<any[]>
+  
+  // PHASE 1: Message Management Methods
+  sendMessageViaMCP: (sessionId: string, content: string, participantId: string, participantName: string, participantType: any) => Promise<any>
+  
+  // PHASE 1: Participant Management Methods
+  addParticipantViaMCP: (sessionId: string, name: string, type: any, settings?: any, characteristics?: any) => Promise<any>
+  
+  // PHASE 1: Conversation Control Methods
+  startConversationViaMCP: (sessionId: string, initialPrompt?: string) => Promise<any>
+  pauseConversationViaMCP: (sessionId: string) => Promise<any>
+  getConversationStatus: () => Promise<any>
+  
+  // PHASE 1: Export Methods
+  exportSessionViaMCP: (sessionId: string, format?: 'json' | 'csv', options?: any) => Promise<any>
+  
+  // Academy-specific methods (existing)
   createSession: (name: string, description?: string, template?: string) => Promise<string>
   addParticipant: (sessionId: string, participant: any) => Promise<string>
   startConversation: (sessionId: string, initialPrompt?: string) => Promise<void>
@@ -227,7 +245,181 @@ export function useMCP(): MCPHookState & MCPHookMethods {
     return await clientRef.current.getPrompt(name, args)
   }, [])
 
-  // Academy-specific methods
+  // ========================================
+  // PHASE 1: NEW CONVENIENCE METHODS
+  // ========================================
+
+  // Session Management Methods
+  const createSessionViaMCP = useCallback(async (name: string, description?: string, template?: string, participants?: any[]) => {
+    if (!clientRef.current) throw new Error('MCP client not initialized')
+    
+    console.log(`🔧 useMCP: Creating session via MCP: ${name}`)
+    
+    try {
+      const result = await clientRef.current.createSessionViaMCP(name, description, template, participants)
+      
+      // Refresh resources after session creation
+      setTimeout(refreshResources, 100)
+      
+      return result
+    } catch (error) {
+      console.error('Failed to create session via MCP:', error)
+      setState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Failed to create session',
+        lastUpdate: new Date()
+      }))
+      throw error
+    }
+  }, [refreshResources])
+
+  const getSessionTemplates = useCallback(async () => {
+    if (!clientRef.current) throw new Error('MCP client not initialized')
+    
+    try {
+      const templates = await clientRef.current.getSessionTemplates()
+      console.log(`📋 useMCP: Retrieved ${templates.length} session templates`)
+      return templates
+    } catch (error) {
+      console.error('Failed to get session templates:', error)
+      return []
+    }
+  }, [])
+
+  // Message Management Methods
+  const sendMessageViaMCP = useCallback(async (sessionId: string, content: string, participantId: string, participantName: string, participantType: any) => {
+    if (!clientRef.current) throw new Error('MCP client not initialized')
+    
+    console.log(`💬 useMCP: Sending message via MCP to session: ${sessionId}`)
+    
+    try {
+      const result = await clientRef.current.sendMessageViaMCP(sessionId, content, participantId, participantName, participantType)
+      
+      // Refresh resources after message
+      setTimeout(refreshResources, 100)
+      
+      return result
+    } catch (error) {
+      console.error('Failed to send message via MCP:', error)
+      setState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Failed to send message',
+        lastUpdate: new Date()
+      }))
+      throw error
+    }
+  }, [refreshResources])
+
+  // Participant Management Methods
+  const addParticipantViaMCP = useCallback(async (sessionId: string, name: string, type: any, settings?: any, characteristics?: any) => {
+    if (!clientRef.current) throw new Error('MCP client not initialized')
+    
+    console.log(`👤 useMCP: Adding participant via MCP to session: ${sessionId}`)
+    
+    try {
+      const result = await clientRef.current.addParticipantViaMCP(sessionId, name, type, settings, characteristics)
+      
+      // Refresh resources after adding participant
+      setTimeout(refreshResources, 100)
+      
+      return result
+    } catch (error) {
+      console.error('Failed to add participant via MCP:', error)
+      setState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Failed to add participant',
+        lastUpdate: new Date()
+      }))
+      throw error
+    }
+  }, [refreshResources])
+
+  // Conversation Control Methods
+  const startConversationViaMCP = useCallback(async (sessionId: string, initialPrompt?: string) => {
+    if (!clientRef.current) throw new Error('MCP client not initialized')
+    
+    console.log(`🚀 useMCP: Starting conversation via MCP for session: ${sessionId}`)
+    
+    try {
+      const result = await clientRef.current.startConversationViaMCP(sessionId, initialPrompt)
+      
+      // Update state to reflect conversation started
+      setState(prev => ({ ...prev, lastUpdate: new Date() }))
+      
+      return result
+    } catch (error) {
+      console.error('Failed to start conversation via MCP:', error)
+      setState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Failed to start conversation',
+        lastUpdate: new Date()
+      }))
+      throw error
+    }
+  }, [])
+
+  const pauseConversationViaMCP = useCallback(async (sessionId: string) => {
+    if (!clientRef.current) throw new Error('MCP client not initialized')
+    
+    console.log(`⏸️ useMCP: Pausing conversation via MCP for session: ${sessionId}`)
+    
+    try {
+      const result = await clientRef.current.pauseConversationViaMCP(sessionId)
+      
+      // Update state to reflect conversation paused
+      setState(prev => ({ ...prev, lastUpdate: new Date() }))
+      
+      return result
+    } catch (error) {
+      console.error('Failed to pause conversation via MCP:', error)
+      setState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Failed to pause conversation',
+        lastUpdate: new Date()
+      }))
+      throw error
+    }
+  }, [])
+
+  const getConversationStatus = useCallback(async () => {
+    if (!clientRef.current) throw new Error('MCP client not initialized')
+    
+    try {
+      const status = await clientRef.current.getConversationStatus()
+      console.log(`📊 useMCP: Retrieved conversation status`)
+      return status
+    } catch (error) {
+      console.error('Failed to get conversation status:', error)
+      return { hasActiveSession: false }
+    }
+  }, [])
+
+  // Export Methods
+  const exportSessionViaMCP = useCallback(async (sessionId: string, format: 'json' | 'csv' = 'json', options?: any) => {
+    if (!clientRef.current) throw new Error('MCP client not initialized')
+    
+    console.log(`📄 useMCP: Exporting session via MCP: ${sessionId} as ${format}`)
+    
+    try {
+      const result = await clientRef.current.exportSessionViaMCP(sessionId, format, options)
+      
+      console.log(`✅ useMCP: Session exported successfully: ${result.filename}`)
+      return result
+    } catch (error) {
+      console.error('Failed to export session via MCP:', error)
+      setState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Failed to export session',
+        lastUpdate: new Date()
+      }))
+      throw error
+    }
+  }, [])
+
+  // ========================================
+  // EXISTING ACADEMY-SPECIFIC METHODS (Preserved)
+  // ========================================
+
   const createSession = useCallback(async (name: string, description?: string, template?: string) => {
     return await callTool('create_session', { name, description, template })
   }, [callTool])
@@ -301,7 +493,25 @@ export function useMCP(): MCPHookState & MCPHookMethods {
     listPrompts,
     getPrompt,
     
-    // Academy-specific methods
+    // PHASE 1: Session Management
+    createSessionViaMCP,
+    getSessionTemplates,
+    
+    // PHASE 1: Message Management
+    sendMessageViaMCP,
+    
+    // PHASE 1: Participant Management
+    addParticipantViaMCP,
+    
+    // PHASE 1: Conversation Control
+    startConversationViaMCP,
+    pauseConversationViaMCP,
+    getConversationStatus,
+    
+    // PHASE 1: Export Methods
+    exportSessionViaMCP,
+    
+    // Academy-specific methods (existing)
     createSession,
     addParticipant,
     startConversation,
@@ -325,13 +535,23 @@ export function useSessionMCP(sessionId?: string) {
   const activeSessionId = sessionId || currentSession?.id
 
   const sessionMethods = {
-    // Session-specific methods that use the current session ID
+    // PHASE 1: Session-specific methods that use the current session ID
+    sendMessage: (content: string, participantId: string, participantName: string, participantType: any) => 
+      activeSessionId ? mcp.sendMessageViaMCP(activeSessionId, content, participantId, participantName, participantType) : Promise.reject('No active session'),
+    
+    addParticipant: (name: string, type: any, settings?: any, characteristics?: any) => 
+      activeSessionId ? mcp.addParticipantViaMCP(activeSessionId, name, type, settings, characteristics) : Promise.reject('No active session'),
+    
     startConversation: (initialPrompt?: string) => 
-      activeSessionId ? mcp.startConversation(activeSessionId, initialPrompt) : Promise.reject('No active session'),
+      activeSessionId ? mcp.startConversationViaMCP(activeSessionId, initialPrompt) : Promise.reject('No active session'),
     
     pauseConversation: () => 
-      activeSessionId ? mcp.pauseConversation(activeSessionId) : Promise.reject('No active session'),
+      activeSessionId ? mcp.pauseConversationViaMCP(activeSessionId) : Promise.reject('No active session'),
     
+    exportSession: (format?: 'json' | 'csv', options?: any) => 
+      activeSessionId ? mcp.exportSessionViaMCP(activeSessionId, format, options) : Promise.reject('No active session'),
+
+    // Original session-specific methods (preserved)
     resumeConversation: () => 
       activeSessionId ? mcp.resumeConversation(activeSessionId) : Promise.reject('No active session'),
     
@@ -341,14 +561,8 @@ export function useSessionMCP(sessionId?: string) {
     injectPrompt: (prompt: string) => 
       activeSessionId ? mcp.injectPrompt(activeSessionId, prompt) : Promise.reject('No active session'),
     
-    addParticipant: (participant: any) => 
-      activeSessionId ? mcp.addParticipant(activeSessionId, participant) : Promise.reject('No active session'),
-    
     analyzeConversation: (analysisType?: string) => 
       activeSessionId ? mcp.analyzeConversation(activeSessionId, analysisType) : Promise.reject('No active session'),
-    
-    exportSession: (format?: 'json' | 'csv', options?: any) => 
-      activeSessionId ? mcp.exportSession(activeSessionId, format, options) : Promise.reject('No active session'),
     
     // Resource access for current session
     getMessages: () => 
@@ -358,7 +572,11 @@ export function useSessionMCP(sessionId?: string) {
       activeSessionId ? mcp.readResource(`academy://session/${activeSessionId}/participants`) : Promise.reject('No active session'),
     
     getAnalysis: () => 
-      activeSessionId ? mcp.readResource(`academy://session/${activeSessionId}/analysis`) : Promise.reject('No active session')
+      activeSessionId ? mcp.readResource(`academy://session/${activeSessionId}/analysis`) : Promise.reject('No active session'),
+      
+    // PHASE 1: Export preview
+    getExportPreview: () => 
+      activeSessionId ? mcp.readResource(`academy://session/${activeSessionId}/export/preview`) : Promise.reject('No active session')
   }
 
   return {

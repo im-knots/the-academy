@@ -1,4 +1,4 @@
-// src/lib/mcp/client.ts - Updated with abort signal support
+// src/lib/mcp/client.ts - Updated with Phase 1 tool support
 'use client'
 
 import { useChatStore } from '../stores/chatStore'
@@ -252,6 +252,267 @@ export class MCPClient {
     })
     return result
   }
+
+  // ========================================
+  // PHASE 1: NEW CONVENIENCE METHODS
+  // ========================================
+
+  // Session Management Methods
+  async createSessionViaMCP(name: string, description?: string, template?: string, participants?: any[]): Promise<any> {
+    console.log(`🔧 Creating session via MCP: ${name}`)
+    
+    const result = await this.callTool('create_session', {
+      name,
+      description,
+      template,
+      participants
+    })
+    
+    if (result.success && result.sessionData) {
+      // Apply the session creation to the store
+      const store = useChatStore.getState()
+      
+      // Add the session to the store
+      store.createSession(
+        result.sessionData.name,
+        result.sessionData.description,
+        result.sessionData.metadata,
+        result.sessionData.participants.map((p: any) => ({
+          ...p,
+          id: undefined, // Let store generate new IDs
+          joinedAt: undefined,
+          messageCount: undefined
+        }))
+      )
+      
+      console.log(`✅ Session created via MCP: ${result.sessionId}`)
+      
+      // Update MCP store reference
+      this.updateStoreReference()
+      
+      return result
+    } else {
+      throw new Error('Failed to create session via MCP')
+    }
+  }
+
+  async sendMessageViaMCP(sessionId: string, content: string, participantId: string, participantName: string, participantType: any): Promise<any> {
+    console.log(`🔧 Sending message via MCP to session: ${sessionId}`)
+    
+    const result = await this.callTool('send_message', {
+      sessionId,
+      content,
+      participantId,
+      participantName,
+      participantType
+    })
+    
+    if (result.success && result.messageData) {
+      // Apply the message to the store
+      const store = useChatStore.getState()
+      
+      // Check if this is the current session
+      if (store.currentSession?.id === sessionId) {
+        store.addMessage({
+          content: result.messageData.content,
+          participantId: result.messageData.participantId,
+          participantName: result.messageData.participantName,
+          participantType: result.messageData.participantType
+        })
+        
+        console.log(`✅ Message sent via MCP to session: ${sessionId}`)
+        
+        // Update MCP store reference
+        this.updateStoreReference()
+      }
+      
+      return result
+    } else {
+      throw new Error('Failed to send message via MCP')
+    }
+  }
+
+  async addParticipantViaMCP(sessionId: string, name: string, type: any, settings?: any, characteristics?: any): Promise<any> {
+    console.log(`🔧 Adding participant via MCP to session: ${sessionId}`)
+    
+    const result = await this.callTool('add_participant', {
+      sessionId,
+      name,
+      type,
+      settings,
+      characteristics
+    })
+    
+    if (result.success && result.participantData) {
+      // Apply the participant to the store
+      const store = useChatStore.getState()
+      
+      // Check if this is the current session
+      if (store.currentSession?.id === sessionId) {
+        store.addParticipant({
+          name: result.participantData.name,
+          type: result.participantData.type,
+          status: result.participantData.status,
+          settings: result.participantData.settings,
+          characteristics: result.participantData.characteristics
+        })
+        
+        console.log(`✅ Participant added via MCP to session: ${sessionId}`)
+        
+        // Update MCP store reference
+        this.updateStoreReference()
+      }
+      
+      return result
+    } else {
+      throw new Error('Failed to add participant via MCP')
+    }
+  }
+
+  // Conversation Control Methods
+  async startConversationViaMCP(sessionId: string, initialPrompt?: string): Promise<any> {
+    console.log(`🔧 Starting conversation via MCP for session: ${sessionId}`)
+    
+    const result = await this.callTool('start_conversation', {
+      sessionId,
+      initialPrompt
+    })
+    
+    if (result.success) {
+      console.log(`✅ Conversation start instruction received via MCP for session: ${sessionId}`)
+      
+      // The result contains instructions for the client to execute
+      // Import and execute the conversation manager
+      try {
+        const { MCPConversationManager } = await import('@/lib/ai/mcp-conversation-manager')
+        const conversationManager = MCPConversationManager.getInstance()
+        
+        // Execute the conversation start
+        await conversationManager.startConversation(sessionId, initialPrompt)
+        
+        return result
+      } catch (error) {
+        console.error('Failed to start conversation via manager:', error)
+        throw new Error('Failed to execute conversation start instruction')
+      }
+    } else {
+      throw new Error('Failed to get conversation start instruction from MCP')
+    }
+  }
+
+  async pauseConversationViaMCP(sessionId: string): Promise<any> {
+    console.log(`🔧 Pausing conversation via MCP for session: ${sessionId}`)
+    
+    const result = await this.callTool('pause_conversation', {
+      sessionId
+    })
+    
+    if (result.success) {
+      console.log(`✅ Conversation pause instruction received via MCP for session: ${sessionId}`)
+      
+      // Execute the conversation pause
+      try {
+        const { MCPConversationManager } = await import('@/lib/ai/mcp-conversation-manager')
+        const conversationManager = MCPConversationManager.getInstance()
+        
+        // Execute the conversation pause
+        conversationManager.pauseConversation(sessionId)
+        
+        return result
+      } catch (error) {
+        console.error('Failed to pause conversation via manager:', error)
+        throw new Error('Failed to execute conversation pause instruction')
+      }
+    } else {
+      throw new Error('Failed to get conversation pause instruction from MCP')
+    }
+  }
+
+  // Export Methods
+  async exportSessionViaMCP(sessionId: string, format: 'json' | 'csv' = 'json', options?: any): Promise<any> {
+    console.log(`🔧 Exporting session via MCP: ${sessionId} as ${format}`)
+    
+    const exportOptions = {
+      includeMetadata: true,
+      includeParticipantInfo: true,
+      includeSystemPrompts: false,
+      includeAnalysisHistory: true,
+      ...options
+    }
+    
+    const result = await this.callTool('export_session', {
+      sessionId,
+      format,
+      ...exportOptions
+    })
+    
+    if (result.success && result.data) {
+      console.log(`✅ Session exported via MCP: ${sessionId} (${result.size} bytes)`)
+      
+      // Trigger download
+      this.downloadExportedData(result.data, result.filename, format)
+      
+      return result
+    } else {
+      throw new Error('Failed to export session via MCP')
+    }
+  }
+
+  private downloadExportedData(content: string, filename: string, format: string): void {
+    const mimeType = format === 'json' ? 'application/json' : 'text/csv'
+    const blob = new Blob([content], { type: mimeType })
+    const url = URL.createObjectURL(blob)
+    
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    link.style.display = 'none'
+    
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    
+    // Clean up the URL after a short delay
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
+
+  // Template and Resource Methods
+  async getSessionTemplates(): Promise<any> {
+    try {
+      const templates = await this.readResource('academy://templates')
+      return templates?.templates || []
+    } catch (error) {
+      console.error('Failed to get session templates:', error)
+      return []
+    }
+  }
+
+  async getConversationStatus(): Promise<any> {
+    try {
+      const status = await this.readResource('academy://conversation/status')
+      return status
+    } catch (error) {
+      console.error('Failed to get conversation status:', error)
+      return { hasActiveSession: false }
+    }
+  }
+
+  // Utility method to update store reference
+  private updateStoreReference(): void {
+    if (typeof window !== 'undefined') {
+      const store = useChatStore.getState()
+      setMCPStoreReference({
+        sessions: store.sessions,
+        currentSession: store.currentSession,
+        hasHydrated: store.hasHydrated,
+        lastUpdate: new Date()
+      })
+    }
+  }
+
+  // ========================================
+  // EXISTING METHODS (Preserved)
+  // ========================================
 
   // Academy-specific convenience methods
   async createSession(name: string, description?: string, template?: string): Promise<string> {

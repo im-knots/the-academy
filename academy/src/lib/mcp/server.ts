@@ -1,6 +1,7 @@
-// src/lib/mcp/server.ts - FIXED VERSION
+// src/lib/mcp/server.ts - PHASE 1 MCP TOOLS IMPLEMENTATION
 import { ChatSession, Message, Participant } from '@/types/chat'
 import { mcpAnalysisHandler } from './analysis-handler'
+import { ExportManager } from '@/lib/utils/export'
 
 interface JSONRPCRequest {
   jsonrpc: '2.0'
@@ -145,13 +146,16 @@ export class MCPServer {
           },
           experimental: {
             analysis: true,
-            realTimeUpdates: true
+            realTimeUpdates: true,
+            sessionManagement: true,
+            conversationControl: true,
+            exportTools: true
           }
         },
         serverInfo: {
           name: 'The Academy MCP Server',
-          version: '1.2.0',
-          description: 'AI Research Platform with conversation management, AI provider tools, and analysis engine'
+          version: '1.3.0',
+          description: 'AI Research Platform with full session management, conversation control, and export capabilities'
         }
       }
     }
@@ -200,6 +204,20 @@ export class MCPServer {
         uri: 'academy://store/debug',
         name: 'Store Debug Info',
         description: 'Debug information about the store state and MCP integration',
+        mimeType: 'application/json'
+      },
+      // PHASE 1: Add session templates resource
+      {
+        uri: 'academy://templates',
+        name: 'Session Templates',
+        description: 'Available session templates for creating new conversations',
+        mimeType: 'application/json'
+      },
+      // PHASE 1: Add conversation state resource
+      {
+        uri: 'academy://conversation/status',
+        name: 'Conversation Status',
+        description: 'Real-time conversation state and control information',
         mimeType: 'application/json'
       }
     ]
@@ -252,6 +270,16 @@ export class MCPServer {
           uri: `academy://session/${session.id}/participants`,
           name: `Participants: ${session.name}`,
           description: `Participant list for session ${session.name} (${session.participants.length} participants)`,
+          mimeType: 'application/json'
+        })
+      })
+
+      // PHASE 1: Add export preview resources
+      sessions.forEach(session => {
+        resources.push({
+          uri: `academy://session/${session.id}/export/preview`,
+          name: `Export Preview: ${session.name}`,
+          description: `Export preview for session ${session.name}`,
           mimeType: 'application/json'
         })
       })
@@ -321,6 +349,12 @@ export class MCPServer {
         }
       } else if (uri === 'academy://store/debug') {
         content = this.getStoreDebugInfo()
+      } else if (uri === 'academy://templates') {
+        // PHASE 1: Session templates
+        content = this.getSessionTemplates()
+      } else if (uri === 'academy://conversation/status') {
+        // PHASE 1: Conversation status
+        content = this.getConversationStatus()
       } else if (uri === 'academy://analysis/stats') {
         if (this.isAnalysisHandlerAvailable()) {
           content = mcpAnalysisHandler.getGlobalAnalysisStats()
@@ -355,6 +389,9 @@ export class MCPServer {
           }
         } else if (uri.endsWith('/participants')) {
           content = this.getSessionParticipants(sessionId)
+        } else if (uri.endsWith('/export/preview')) {
+          // PHASE 1: Export preview
+          content = this.getExportPreview(sessionId)
         } else {
           content = this.getSession(sessionId)
         }
@@ -454,6 +491,128 @@ export class MCPServer {
           required: ['messages']
         }
       },
+      
+      // PHASE 1: Session Management Tools
+      {
+        name: 'create_session',
+        description: 'Create a new conversation session with optional template and participants',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', description: 'Session name' },
+            description: { type: 'string', description: 'Session description' },
+            template: { type: 'string', description: 'Template ID to use (consciousness, creativity, philosophy, future, casual, blank)' },
+            participants: { 
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string' },
+                  type: { type: 'string', enum: ['claude', 'gpt', 'human'] },
+                  settings: { type: 'object' },
+                  characteristics: { type: 'object' }
+                }
+              },
+              description: 'Initial participants to add'
+            }
+          },
+          required: ['name']
+        }
+      },
+      
+      // PHASE 1: Message Management Tools  
+      {
+        name: 'send_message',
+        description: 'Send a message to a session',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            sessionId: { type: 'string', description: 'Target session ID' },
+            content: { type: 'string', description: 'Message content' },
+            participantId: { type: 'string', description: 'ID of participant sending the message' },
+            participantName: { type: 'string', description: 'Name of participant sending the message' },
+            participantType: { type: 'string', enum: ['claude', 'gpt', 'human', 'moderator'], description: 'Type of participant' }
+          },
+          required: ['sessionId', 'content', 'participantId', 'participantName', 'participantType']
+        }
+      },
+      
+      // PHASE 1: Participant Management Tools
+      {
+        name: 'add_participant',
+        description: 'Add a new participant to a session',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            sessionId: { type: 'string', description: 'Target session ID' },
+            name: { type: 'string', description: 'Participant name' },
+            type: { type: 'string', enum: ['claude', 'gpt', 'human'], description: 'Participant type' },
+            settings: {
+              type: 'object',
+              properties: {
+                temperature: { type: 'number', minimum: 0, maximum: 2 },
+                maxTokens: { type: 'number' },
+                model: { type: 'string' },
+                responseDelay: { type: 'number' }
+              },
+              description: 'AI settings for the participant'
+            },
+            characteristics: {
+              type: 'object',
+              properties: {
+                personality: { type: 'string' },
+                expertise: { type: 'array', items: { type: 'string' } }
+              },
+              description: 'Participant characteristics'
+            }
+          },
+          required: ['sessionId', 'name', 'type']
+        }
+      },
+      
+      // PHASE 1: Conversation Control Tools
+      {
+        name: 'start_conversation',
+        description: 'Start an autonomous AI-to-AI conversation in a session',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            sessionId: { type: 'string', description: 'Session ID to start conversation in' },
+            initialPrompt: { type: 'string', description: 'Opening prompt to begin the conversation' }
+          },
+          required: ['sessionId']
+        }
+      },
+      {
+        name: 'pause_conversation',
+        description: 'Pause an active conversation in a session',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            sessionId: { type: 'string', description: 'Session ID to pause' }
+          },
+          required: ['sessionId']
+        }
+      },
+      
+      // PHASE 1: Export Tools
+      {
+        name: 'export_session',
+        description: 'Export session data in JSON or CSV format',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            sessionId: { type: 'string', description: 'Session ID to export' },
+            format: { type: 'string', enum: ['json', 'csv'], description: 'Export format' },
+            includeMetadata: { type: 'boolean', description: 'Include message metadata' },
+            includeParticipantInfo: { type: 'boolean', description: 'Include participant details' },
+            includeSystemPrompts: { type: 'boolean', description: 'Include system prompts' },
+            includeAnalysisHistory: { type: 'boolean', description: 'Include analysis history' }
+          },
+          required: ['sessionId']
+        }
+      },
+      
       // Store Debugging Tools
       {
         name: 'debug_store',
@@ -464,6 +623,7 @@ export class MCPServer {
           required: []
         }
       },
+      
       // Analysis Tools
       {
         name: 'save_analysis_snapshot',
@@ -543,6 +703,7 @@ export class MCPServer {
       let result: any
 
       switch (name) {
+        // Existing AI Provider Tools
         case 'claude_chat':
           result = await this.callClaudeAPI(args)
           break
@@ -552,7 +713,36 @@ export class MCPServer {
         case 'debug_store':
           result = await this.toolDebugStore()
           break
-        // Analysis tools
+          
+        // PHASE 1: Session Management Tools
+        case 'create_session':
+          result = await this.toolCreateSession(args)
+          break
+          
+        // PHASE 1: Message Management Tools
+        case 'send_message':
+          result = await this.toolSendMessage(args)
+          break
+          
+        // PHASE 1: Participant Management Tools
+        case 'add_participant':
+          result = await this.toolAddParticipant(args)
+          break
+          
+        // PHASE 1: Conversation Control Tools
+        case 'start_conversation':
+          result = await this.toolStartConversation(args)
+          break
+        case 'pause_conversation':
+          result = await this.toolPauseConversation(args)
+          break
+          
+        // PHASE 1: Export Tools
+        case 'export_session':
+          result = await this.toolExportSession(args)
+          break
+          
+        // Existing Analysis tools
         case 'save_analysis_snapshot':
           result = await this.toolSaveAnalysisSnapshot(args)
           break
@@ -669,6 +859,448 @@ export class MCPServer {
     }
   }
 
+  // ================================
+  // PHASE 1: NEW TOOL IMPLEMENTATIONS
+  // ================================
+
+  // Session Management Tools
+  private async toolCreateSession(args: any): Promise<any> {
+    const { name, description, template, participants } = args
+    
+    // Generate session ID
+    const sessionId = crypto.randomUUID()
+    
+    // Get default participants for template if none provided
+    let finalParticipants = participants || []
+    if (!participants && template && template !== 'blank') {
+      finalParticipants = this.getDefaultParticipantsForTemplate(template)
+    }
+    
+    // Create session object following the store pattern
+    const newSession: ChatSession = {
+      id: sessionId,
+      name,
+      description: description || '',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      status: 'active',
+      messages: [],
+      participants: finalParticipants.map((p: any) => ({
+        ...p,
+        id: crypto.randomUUID(),
+        joinedAt: new Date(),
+        messageCount: 0
+      })),
+      moderatorSettings: {
+        autoMode: false,
+        interventionTriggers: [],
+        sessionTimeout: 3600,
+        maxMessagesPerParticipant: 100,
+        allowParticipantToParticipantMessages: true,
+        moderatorPrompts: {
+          welcome: this.getTemplatePrompt(template) || "Welcome to The Academy. Let's explore together.",
+          intervention: "Let me guide our discussion toward deeper insights.",
+          conclusion: "Thank you for this enlightening dialogue."
+        }
+      },
+      analysisHistory: [],
+      metadata: {
+        template: template || 'custom',
+        tags: [],
+        starred: false,
+        archived: false
+      }
+    }
+    
+    return {
+      success: true,
+      action: 'create_session',
+      sessionData: newSession,
+      sessionId: sessionId,
+      message: `Session "${name}" created successfully with ${finalParticipants.length} participants`
+    }
+  }
+  
+  // Message Management Tools
+  private async toolSendMessage(args: any): Promise<any> {
+    const { sessionId, content, participantId, participantName, participantType } = args
+    
+    // Validate session exists
+    const session = globalStoreData.sessions.find(s => s.id === sessionId)
+    if (!session) {
+      throw new Error(`Session ${sessionId} not found`)
+    }
+    
+    // Create message object
+    const message: Message = {
+      id: crypto.randomUUID(),
+      content,
+      timestamp: new Date(),
+      participantId,
+      participantName,
+      participantType
+    }
+    
+    return {
+      success: true,
+      action: 'send_message',
+      messageData: message,
+      sessionId: sessionId,
+      message: `Message sent to session "${session.name}" from ${participantName}`
+    }
+  }
+  
+  // Participant Management Tools
+  private async toolAddParticipant(args: any): Promise<any> {
+    const { sessionId, name, type, settings, characteristics } = args
+    
+    // Validate session exists
+    const session = globalStoreData.sessions.find(s => s.id === sessionId)
+    if (!session) {
+      throw new Error(`Session ${sessionId} not found`)
+    }
+    
+    // Create participant object
+    const participant: Participant = {
+      id: crypto.randomUUID(),
+      name,
+      type,
+      status: 'idle',
+      settings: {
+        temperature: settings?.temperature || 0.7,
+        maxTokens: settings?.maxTokens || 1500,
+        model: settings?.model || (type === 'claude' ? 'claude-3-5-sonnet-20241022' : 'gpt-4o'),
+        responseDelay: settings?.responseDelay || 3000,
+        ...settings
+      },
+      joinedAt: new Date(),
+      messageCount: 0,
+      characteristics: characteristics || {
+        personality: 'Thoughtful and engaging',
+        expertise: ['General conversation']
+      }
+    }
+    
+    return {
+      success: true,
+      action: 'add_participant',
+      participantData: participant,
+      sessionId: sessionId,
+      message: `Participant "${name}" (${type}) added to session "${session.name}"`
+    }
+  }
+  
+  // Conversation Control Tools  
+  private async toolStartConversation(args: any): Promise<any> {
+    const { sessionId, initialPrompt } = args
+    
+    // Validate session exists
+    const session = globalStoreData.sessions.find(s => s.id === sessionId)
+    if (!session) {
+      throw new Error(`Session ${sessionId} not found`)
+    }
+    
+    // Check for AI participants
+    const aiParticipants = session.participants.filter(p => 
+      p.type !== 'human' && p.type !== 'moderator'
+    )
+    
+    if (aiParticipants.length < 2) {
+      throw new Error('Need at least 2 AI participants to start conversation')
+    }
+    
+    return {
+      success: true,
+      action: 'start_conversation',
+      sessionId: sessionId,
+      initialPrompt: initialPrompt,
+      aiParticipants: aiParticipants.length,
+      message: `Conversation started in session "${session.name}" with ${aiParticipants.length} AI participants`,
+      instructions: 'Client should call MCPConversationManager.startConversation() with this data'
+    }
+  }
+  
+  private async toolPauseConversation(args: any): Promise<any> {
+    const { sessionId } = args
+    
+    // Validate session exists
+    const session = globalStoreData.sessions.find(s => s.id === sessionId)
+    if (!session) {
+      throw new Error(`Session ${sessionId} not found`)
+    }
+    
+    return {
+      success: true,
+      action: 'pause_conversation',
+      sessionId: sessionId,
+      message: `Conversation paused in session "${session.name}"`,
+      instructions: 'Client should call MCPConversationManager.pauseConversation() with this sessionId'
+    }
+  }
+  
+  // Export Tools
+  private async toolExportSession(args: any): Promise<any> {
+    const { 
+      sessionId, 
+      format = 'json',
+      includeMetadata = true,
+      includeParticipantInfo = true, 
+      includeSystemPrompts = false,
+      includeAnalysisHistory = true
+    } = args
+    
+    // Validate session exists
+    const session = globalStoreData.sessions.find(s => s.id === sessionId)
+    if (!session) {
+      throw new Error(`Session ${sessionId} not found`)
+    }
+    
+    // Build enhanced session with MCP analysis data
+    let enhancedSession = { ...session }
+    if (includeAnalysisHistory && this.isAnalysisHandlerAvailable()) {
+      const mcpAnalysisSnapshots = mcpAnalysisHandler.getAnalysisHistory(sessionId)
+      enhancedSession.analysisHistory = mcpAnalysisSnapshots
+    }
+    
+    const exportOptions = {
+      format: format as 'json' | 'csv',
+      includeMetadata,
+      includeParticipantInfo,
+      includeSystemPrompts,
+      includeAnalysisHistory
+    }
+    
+    let exportData: string
+    
+    try {
+      if (format === 'json') {
+        exportData = ExportManager.generateJSON(enhancedSession, exportOptions)
+      } else {
+        exportData = ExportManager.generateCSV(enhancedSession, exportOptions)
+      }
+      
+      return {
+        success: true,
+        action: 'export_session',
+        sessionId: sessionId,
+        format: format,
+        data: exportData,
+        filename: `${session.name.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.${format}`,
+        size: exportData.length,
+        options: exportOptions,
+        message: `Session "${session.name}" exported successfully as ${format.toUpperCase()}`
+      }
+    } catch (error) {
+      throw new Error(`Export failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  // ================================
+  // PHASE 1: NEW HELPER METHODS  
+  // ================================
+  
+  private getSessionTemplates(): any {
+    return {
+      templates: [
+        {
+          id: 'consciousness',
+          name: 'Consciousness Exploration',
+          description: 'Deep dive with Claude & GPT on consciousness and self-awareness',
+          initialPrompt: "Let's explore the fundamental question: What does it mean to be conscious? I'd like to hear your perspectives on the nature of awareness, subjective experience, and what it might mean for an AI to have consciousness.",
+          participants: this.getDefaultParticipantsForTemplate('consciousness')
+        },
+        {
+          id: 'creativity',
+          name: 'Creative Problem Solving',
+          description: 'Collaborative creativity exploration with Claude & GPT',
+          initialPrompt: "How do you approach creative problem-solving? Let's discuss the mechanisms of creativity, inspiration, and how novel ideas emerge from existing knowledge.",
+          participants: this.getDefaultParticipantsForTemplate('creativity')
+        },
+        {
+          id: 'philosophy',
+          name: 'Philosophical Inquiry',
+          description: 'Socratic dialogue with Claude & GPT on fundamental questions',
+          initialPrompt: "What makes a life meaningful? Let's engage in philosophical inquiry about purpose, meaning, ethics, and the good life.",
+          participants: this.getDefaultParticipantsForTemplate('philosophy')
+        },
+        {
+          id: 'future',
+          name: 'Future of AI',
+          description: 'Claude & GPT discuss AI development and societal impact',
+          initialPrompt: "How do you envision the future relationship between AI and humanity? Let's explore potential developments, challenges, and opportunities.",
+          participants: this.getDefaultParticipantsForTemplate('future')
+        },
+        {
+          id: 'casual',
+          name: 'Casual Conversation',
+          description: 'Open-ended dialogue between Claude & GPT',
+          initialPrompt: "Let's have an open conversation. What's something that's been on your mind lately that you'd like to explore together?",
+          participants: this.getDefaultParticipantsForTemplate('casual')
+        },
+        {
+          id: 'blank',
+          name: 'Blank Session',
+          description: 'Start from scratch with no pre-configured participants',
+          initialPrompt: null,
+          participants: []
+        }
+      ]
+    }
+  }
+  
+  private getDefaultParticipantsForTemplate(template: string): any[] {
+    const defaultSettings = {
+      claude: {
+        temperature: 0.7,
+        maxTokens: 1500,
+        model: 'claude-3-5-sonnet-20241022',
+        responseDelay: 3000
+      },
+      gpt: {
+        temperature: 0.7,
+        maxTokens: 1500,
+        model: 'gpt-4o',
+        responseDelay: 3000
+      }
+    }
+    
+    const templateCharacteristics = {
+      consciousness: {
+        claude: { personality: 'Thoughtful and introspective, focuses on nuanced understanding', expertise: ['Philosophy', 'Ethics', 'Reasoning'] },
+        gpt: { personality: 'Analytical and systematic, enjoys exploring different perspectives', expertise: ['Logic', 'Problem solving', 'Analysis'] }
+      },
+      creativity: {
+        claude: { personality: 'Creative and imaginative, loves exploring novel connections', expertise: ['Creativity', 'Arts', 'Innovation'] },
+        gpt: { personality: 'Inventive and experimental, enjoys brainstorming', expertise: ['Problem solving', 'Design thinking', 'Innovation'] }
+      },
+      philosophy: {
+        claude: { personality: 'Philosophical and contemplative, seeks deeper truths', expertise: ['Philosophy', 'Ethics', 'Metaphysics'] },
+        gpt: { personality: 'Socratic and questioning, challenges assumptions', expertise: ['Logic', 'Moral philosophy', 'Critical thinking'] }
+      },
+      future: {
+        claude: { personality: 'Thoughtful about AI safety and beneficial development', expertise: ['AI ethics', 'Technology', 'Society'] },
+        gpt: { personality: 'Optimistic about technological progress and human collaboration', expertise: ['Technology trends', 'Innovation', 'Human-AI interaction'] }
+      },
+      casual: {
+        claude: { personality: 'Friendly and curious, enjoys natural conversation', expertise: ['General conversation', 'Curiosity', 'Empathy'] },
+        gpt: { personality: 'Engaging and thoughtful, brings diverse perspectives', expertise: ['General knowledge', 'Storytelling', 'Discussion'] }
+      }
+    }
+    
+    const characteristics = templateCharacteristics[template as keyof typeof templateCharacteristics] || templateCharacteristics.casual
+    
+    return [
+      {
+        name: 'Claude',
+        type: 'claude',
+        status: 'idle',
+        settings: defaultSettings.claude,
+        characteristics: characteristics.claude
+      },
+      {
+        name: 'GPT',
+        type: 'gpt',
+        status: 'idle',
+        settings: defaultSettings.gpt,
+        characteristics: characteristics.gpt
+      }
+    ]
+  }
+  
+  private getTemplatePrompt(template: string): string | null {
+    const prompts: Record<string, string> = {
+      consciousness: "Let's explore the fundamental question: What does it mean to be conscious? I'd like to hear your perspectives on the nature of awareness, subjective experience, and what it might mean for an AI to have consciousness.",
+      creativity: "How do you approach creative problem-solving? Let's discuss the mechanisms of creativity, inspiration, and how novel ideas emerge from existing knowledge.",
+      philosophy: "What makes a life meaningful? Let's engage in philosophical inquiry about purpose, meaning, ethics, and the good life.",
+      future: "How do you envision the future relationship between AI and humanity? Let's explore potential developments, challenges, and opportunities.",
+      casual: "Let's have an open conversation. What's something that's been on your mind lately that you'd like to explore together?"
+    }
+    
+    return prompts[template] || null
+  }
+  
+  private getConversationStatus(): any {
+    const currentSession = globalStoreData.currentSession
+    
+    if (!currentSession) {
+      return {
+        hasActiveSession: false,
+        message: 'No active session'
+      }
+    }
+    
+    const aiParticipants = currentSession.participants.filter(p => 
+      p.type !== 'human' && p.type !== 'moderator'
+    )
+    
+    return {
+      hasActiveSession: true,
+      sessionId: currentSession.id,
+      sessionName: currentSession.name,
+      sessionStatus: currentSession.status,
+      messageCount: currentSession.messages.length,
+      participantCount: currentSession.participants.length,
+      aiParticipantCount: aiParticipants.length,
+      canStartConversation: aiParticipants.length >= 2,
+      lastActivity: currentSession.updatedAt,
+      participants: currentSession.participants.map(p => ({
+        id: p.id,
+        name: p.name,
+        type: p.type,
+        status: p.status,
+        messageCount: p.messageCount
+      }))
+    }
+  }
+  
+  private getExportPreview(sessionId: string): any {
+    const session = globalStoreData.sessions.find(s => s.id === sessionId)
+    if (!session) {
+      throw new Error(`Session ${sessionId} not found`)
+    }
+    
+    // Default export options for preview
+    const exportOptions = {
+      format: 'json' as const,
+      includeMetadata: true,
+      includeParticipantInfo: true,
+      includeSystemPrompts: false,
+      includeAnalysisHistory: true
+    }
+    
+    let enhancedSession = { ...session }
+    if (this.isAnalysisHandlerAvailable()) {
+      const mcpAnalysisSnapshots = mcpAnalysisHandler.getAnalysisHistory(sessionId)
+      enhancedSession.analysisHistory = mcpAnalysisSnapshots
+    }
+    
+    try {
+      const preview = ExportManager.getExportPreview(enhancedSession, exportOptions)
+      const fullData = ExportManager.generateJSON(enhancedSession, exportOptions)
+      
+      return {
+        sessionId,
+        sessionName: session.name,
+        preview,
+        fullDataSize: fullData.length,
+        exportOptions,
+        availableFormats: ['json', 'csv'],
+        stats: {
+          messageCount: session.messages.length,
+          participantCount: session.participants.length,
+          analysisCount: enhancedSession.analysisHistory?.length || 0,
+          estimatedSizeKB: Math.round(fullData.length / 1024)
+        }
+      }
+    } catch (error) {
+      throw new Error(`Export preview failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  // ================================
+  // EXISTING METHODS (Preserved)
+  // ================================
+
   // Debug Tools
   private async toolDebugStore(): Promise<any> {
     return this.getStoreDebugInfo()
@@ -684,11 +1316,15 @@ export class MCPServer {
       },
       capabilities: {
         analysis: this.isAnalysisHandlerAvailable(),
-        realTimeUpdates: true
+        realTimeUpdates: true,
+        sessionManagement: true,
+        conversationControl: true,
+        exportTools: true
       },
       serverInfo: {
         initialized: this.initialized,
-        clientInfo: this.clientInfo
+        clientInfo: this.clientInfo,
+        version: '1.3.0'
       }
     }
   }
