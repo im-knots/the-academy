@@ -1534,7 +1534,7 @@ export class MCPServer {
         throw new Error('Template ID and session name are required')
       }
 
-      // Get template (simplified version)
+      // Get template
       const templates = await this.toolListTemplates({})
       const template = templates.templates.find((t: any) => t.id === templateId)
       
@@ -1542,19 +1542,33 @@ export class MCPServer {
         throw new Error(`Template ${templateId} not found`)
       }
 
-      // Create session from template
+      // Create session from template - DON'T access .template property on ChatSession
       const sessionArgs = {
         name: name,
         description: description || template.description,
-        // Note: template property doesn't exist on ChatSession, use metadata instead
-        metadata: { template: templateId },
+        // Store template info in metadata instead of trying to access .template
+        metadata: { 
+          templateId: templateId,
+          templateName: template.name 
+        },
         participants: customizations?.participants || template.participants
       }
 
-      const result = await this.toolCreateSession(sessionArgs)
+      // Create the session and get the actual ChatSession object
+      const sessionId = await this.toolCreateSession(sessionArgs)
+      
+      // Get the created session object instead of passing string
+      this.updateStoreReference()
+      const store = useChatStore.getState()
+      const createdSession = store.getSessionById(sessionId)
+      
+      if (createdSession) {
+        store.setCurrentSession(createdSession) // Pass ChatSession object, not string
+      }
 
       return {
-        ...result,
+        success: true,
+        sessionId: sessionId,
         templateId: templateId,
         templateName: template.name,
         message: `Session "${name}" created from template "${template.name}"`
@@ -1569,49 +1583,48 @@ export class MCPServer {
   // PHASE 1: MESSAGE MANAGEMENT TOOLS
   // ========================================
 
-  private async toolSendMessage(args: any): Promise<any> {
-    try {
-      const { sessionId, content, participantId, participantName, participantType } = args
-      
-      if (!sessionId || !content || !participantId || !participantName || !participantType) {
-        throw new Error('Session ID, content, participant ID, name, and type are required')
-      }
-
-      this.updateStoreReference()
-      
-      const store = useChatStore.getState()
-      
-      // Check if this is the current session
-      if (store.currentSession?.id === sessionId) {
-        if (!store.currentSession) {
-          throw new Error('No current session available')
-        }
-        const messageData = {
-          content: content,
-          participantId: participantId,
-          participantName: participantName,
-          participantType: participantType
-        }
-
-        store.addMessage(messageData)
-
-        // Update MCP store reference
-        setMCPStoreReference(useChatStore.getState())
-
-        return {
-          success: true,
-          sessionId: sessionId,
-          messageData: messageData,
-          message: 'Message sent successfully'
-        }
-      } else {
-        throw new Error(`Session ${sessionId} is not the current session`)
-      }
-    } catch (error) {
-      console.error('Send message failed:', error)
-      throw new Error(`Failed to send message: ${error instanceof Error ? error.message : 'Unknown error'}`)
+private async toolSendMessage(args: any): Promise<any> {
+  try {
+    const { sessionId, content, participantId, participantName, participantType } = args
+    
+    if (!sessionId || !content || !participantId || !participantName || !participantType) {
+      throw new Error('Session ID, content, participant ID, name, and type are required')
     }
+
+    this.updateStoreReference()
+    const store = useChatStore.getState()
+    
+    // Fix: Add null check for store.currentSession
+    if (!store.currentSession) {
+      throw new Error('No current session available')
+    }
+    
+    // Check if this is the current session
+    if (store.currentSession.id === sessionId) {
+      const messageData = {
+        content: content,
+        participantId: participantId,
+        participantName: participantName,
+        participantType: participantType
+      }
+
+      store.addMessage(messageData)
+      setMCPStoreReference(useChatStore.getState())
+
+      return {
+        success: true,
+        sessionId: sessionId,
+        messageData: messageData,
+        message: 'Message sent successfully'
+      }
+    } else {
+      throw new Error(`Session ${sessionId} is not the current session`)
+    }
+  } catch (error) {
+    console.error('Send message failed:', error)
+    throw new Error(`Failed to send message: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
+}
 
   // ========================================
   // PHASE 2: PARTICIPANT MANAGEMENT TOOLS
@@ -1626,13 +1639,10 @@ export class MCPServer {
       }
 
       this.updateStoreReference()
-      
       const store = useChatStore.getState()
       
-      // Check if this is the current session
       if (store.currentSession?.id === sessionId) {
-        const participantData = {
-          id: `participant-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        const participantData: Omit<Participant, 'id' | 'joinedAt' | 'messageCount'> = {
           name: name,
           type: type,
           provider: provider || 'claude',
@@ -1643,14 +1653,14 @@ export class MCPServer {
             responseDelay: 2000
           },
           characteristics: characteristics || {},
-          status: 'active',
+          status: 'active' as const, // Fix: Use proper union type with 'as const'
           systemPrompt: '',
-          createdAt: new Date()
+          avatar: undefined,
+          color: undefined,
+          lastActive: undefined
         }
 
         store.addParticipant(participantData)
-
-        // Update MCP store reference
         setMCPStoreReference(useChatStore.getState())
 
         return {
@@ -1667,7 +1677,6 @@ export class MCPServer {
       throw new Error(`Failed to add participant: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
-
   private async toolRemoveParticipant(args: any): Promise<any> {
     try {
       const { sessionId, participantId } = args
@@ -2532,14 +2541,14 @@ export class MCPServer {
         throw new Error('Analysis handler not available')
       }
 
-      // Use the correct method name from the analysis handler
-      const history = mcpAnalysisHandler.getAnalysisHistory(sessionId)
+      // Get analysis history - this returns AnalysisSnapshot[]
+      const snapshots = mcpAnalysisHandler.getAnalysisHistory(sessionId)
 
       return {
         success: true,
         sessionId: sessionId,
-        history: history,
-        snapshotCount: history.length,
+        snapshots: snapshots, // Fix: Don't access .snapshots property
+        count: snapshots.length, // Fix: Don't access .snapshots property
         message: 'Analysis history retrieved successfully'
       }
     } catch (error) {

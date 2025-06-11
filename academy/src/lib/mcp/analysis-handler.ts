@@ -136,6 +136,51 @@ export class MCPAnalysisHandler {
     }))
   }
 
+  async analyzeSession(sessionId: string, analysisType: string = 'full'): Promise<any> {
+    console.log(`🔍 MCP Analysis Handler: Analyzing session ${sessionId} with type ${analysisType}`)
+    
+    try {
+      // Get existing snapshots for context
+      const existingSnapshots = this.getAnalysisHistory(sessionId)
+      
+      // Simulate analysis (replace with actual AI analysis logic)
+      const analysisResult = {
+        sessionId,
+        analysisType,
+        timestamp: new Date(),
+        mainTopics: ['AI Philosophy', 'Consciousness', 'Ethics'],
+        keyInsights: [
+          'Participants showed deep engagement with philosophical concepts',
+          'Convergence on ethical AI principles',
+          'Divergent views on consciousness definition'
+        ],
+        sentimentTrend: 'positive',
+        participantEngagement: {
+          total: 85,
+          distribution: {}
+        },
+        conversationFlow: {
+          phase: 'deep_exploration',
+          momentum: 'increasing',
+          coherence: 0.8
+        },
+        patterns: {
+          emergentThemes: ['AI consciousness', 'ethical boundaries'],
+          recursiveTopics: ['consciousness definition'],
+          consensusAreas: ['need for AI ethics'],
+          tensions: ['human vs AI consciousness']
+        }
+      }
+
+      console.log(`✅ MCP Analysis Handler: Analysis complete for session ${sessionId}`)
+      return analysisResult
+      
+    } catch (error) {
+      console.error(`❌ MCP Analysis Handler: Analysis failed for session ${sessionId}:`, error)
+      throw error
+    }
+  }
+
   // Initialize from existing chatStore data (migration)
   initializeFromChatStore(sessions: any[]): void {
     console.log(`🔄 MCP Analysis Handler: Migrating data from ${sessions.length} sessions`)
