@@ -1,2 +1,11 @@
 .env.local
 /notes
+.vscode/
+paper.synctex.gz
+paper.out
+paper.log
+paper.fls
+paper.fdb_latexmk
+paper.bbl
+paper.aux
+paper.pdf

@@ -61,3 +61,4 @@ export interface AIProvider {
   generateResponse(context: ConversationContext): Promise<string>
   isAvailable(): boolean
 }
+
