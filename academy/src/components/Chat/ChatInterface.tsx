@@ -18,7 +18,7 @@ import { SessionsSection } from '@/components/Sessions/SessionsSection'
 import { 
   Brain, Users, Settings, Play, Pause, Plus, Sparkles, MessageSquare, 
   Zap, Send, Hand, Square, AlertCircle, Clock, CheckCircle2, Loader2,
-  Download, FileDown, MoreVertical, ChevronLeft, ChevronRight, History,
+  Download, FileDown, ChevronLeft, History,
   Wifi, WifiOff, Terminal, Monitor
 } from 'lucide-react'
 

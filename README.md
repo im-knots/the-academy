@@ -136,13 +136,28 @@ mcp.subscribe('analysis_snapshot_saved', (data) => {
 - **WebSocket Support** - Real-time communication for MCP protocol
 - **Event-Driven Architecture** - Real-time analysis updates and state synchronization
 
-## Getting Started
+## Getting Started 
 
-### Prerequisites
+### Running with Docker
+```bash 
+git clone https://github.com/yourname/the-academy.git
+cd the-academy/academy
+docker build the-academy .
+docker run -d \
+  --name academy-app \
+  -p 3000:3000 \
+  -e ANTHROPIC_API_KEY=your_claude_api_key_here \
+  -e OPENAI_API_KEY=your_openai_api_key_here \
+  -e NODE_ENV=production \
+  --restart unless-stopped \
+  the-academy
+```
+
+### Running with Node
 - Node.js 18+ 
 - API keys for Anthropic Claude and/or OpenAI GPT
 
-### Installation
+#### Installation
 
 ```bash
 git clone https://github.com/yourname/the-academy.git
@@ -150,7 +165,7 @@ cd the-academy/academy
 pnpm install
 ```
 
-### Configuration
+#### Configuration
 
 Create a `.env.local` file with your API keys:
 ```env
@@ -158,7 +173,7 @@ ANTHROPIC_API_KEY=your_claude_api_key_here
 OPENAI_API_KEY=your_openai_api_key_here
 ```
 
-### Launch
+#### Launch
 
 ```bash
 pnpm dev

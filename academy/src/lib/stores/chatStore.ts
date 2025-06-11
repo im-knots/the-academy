@@ -709,7 +709,7 @@ export const useChatStore = create<ChatState>()(
             state.hasHydrated = true
           }
           // Even if there's no stored state (first time user), mark as hydrated
-          return (state) => {
+          return (state: ChatState | undefined) => {
             if (state) {
               state.hasHydrated = true
               console.log('🔄 Store hydration complete')

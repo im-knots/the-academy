@@ -38,6 +38,8 @@ FROM base AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
+# Disable telemetry during runtime
+ENV NEXT_TELEMETRY_DISABLED=1
 
 # Create user for security
 RUN addgroup --system --gid 1001 nodejs
@@ -46,8 +48,11 @@ RUN adduser --system --uid 1001 nextjs
 # Copy public assets
 COPY --from=builder /app/public ./public
 
-# Copy the standalone output
-# Note: You'll need to add output: 'standalone' to your next.config.ts
+# Set the correct permissions for precomputed static assets
+RUN mkdir .next
+RUN chown nextjs:nodejs .next
+
+# Copy the standalone build and static files with correct permissions
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
