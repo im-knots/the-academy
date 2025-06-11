@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 // src/lib/mcp/server.ts - Enhanced with Complete Custom Prompts Integration
-=======
-// src/lib/mcp/server.ts - Enhanced with Lazy Analysis Loading
->>>>>>> parent of ca12215 (custom prompts via mcp start)
 import { ChatSession, Message, Participant } from '@/types/chat'
 import { mcpAnalysisHandler } from './analysis-handler'
 
