@@ -1,9 +1,12 @@
-// src/lib/mcp/analysis-handler.ts - Fixed MCP Analysis System
-'use client'
+// src/lib/mcp/analysis-handler.ts - Universal Analysis Handler (Server & Client Compatible)
+// Remove the 'use client' directive to make this work in both contexts
 
 import { AnalysisSnapshot } from '@/types/chat'
 
-// In-memory analysis storage (in production, this would be a proper database)
+// Check if we're in browser or server context
+const isBrowser = typeof window !== 'undefined'
+
+// Universal storage - use Map for both contexts
 const analysisStore: Map<string, AnalysisSnapshot[]> = new Map()
 
 export class MCPAnalysisHandler {
@@ -11,7 +14,7 @@ export class MCPAnalysisHandler {
   private subscribers: Map<string, Array<(data: any) => void>> = new Map()
 
   private constructor() {
-    console.log('🔧 MCPAnalysisHandler: Initializing...')
+    console.log(`🔧 MCPAnalysisHandler: Initializing... (${isBrowser ? 'client' : 'server'} context)`)
   }
 
   static getInstance(): MCPAnalysisHandler {
@@ -23,11 +26,16 @@ export class MCPAnalysisHandler {
 
   // Save analysis snapshot via MCP
   async saveAnalysisSnapshot(sessionId: string, analysisData: Omit<AnalysisSnapshot, 'id' | 'timestamp'>): Promise<string> {
-    console.log(`💾 MCP Analysis Handler: Saving snapshot for session ${sessionId}`)
+    console.log(`💾 MCP Analysis Handler: Saving snapshot for session ${sessionId} (${isBrowser ? 'client' : 'server'})`)
     
+    // Generate ID using fallback for server context
+    const id = isBrowser && typeof crypto !== 'undefined' && crypto.randomUUID 
+      ? crypto.randomUUID() 
+      : this.generateId()
+
     const snapshot: AnalysisSnapshot = {
       ...analysisData,
-      id: crypto.randomUUID(),
+      id,
       timestamp: new Date()
     }
 
@@ -40,27 +48,34 @@ export class MCPAnalysisHandler {
 
     console.log(`✅ MCP Analysis Handler: Saved snapshot ${snapshot.id}. Session ${sessionId} now has ${updatedSnapshots.length} snapshots`)
 
-    // Broadcast the update via events
-    this.broadcast('analysis_snapshot_saved', {
-      sessionId,
-      snapshotId: snapshot.id,
-      totalSnapshots: updatedSnapshots.length,
-      snapshot
-    })
+    // Only broadcast events in browser context
+    if (isBrowser) {
+      this.broadcast('analysis_snapshot_saved', {
+        sessionId,
+        snapshotId: snapshot.id,
+        totalSnapshots: updatedSnapshots.length,
+        snapshot
+      })
 
-    this.broadcast('analysis_history_updated', {
-      sessionId,
-      snapshots: updatedSnapshots,
-      count: updatedSnapshots.length
-    })
+      this.broadcast('analysis_history_updated', {
+        sessionId,
+        snapshots: updatedSnapshots,
+        count: updatedSnapshots.length
+      })
+    }
 
     return snapshot.id
+  }
+
+  // Fallback ID generator for server context
+  private generateId(): string {
+    return Date.now().toString(36) + Math.random().toString(36).substr(2, 9)
   }
 
   // Get analysis history for a session
   getAnalysisHistory(sessionId: string): AnalysisSnapshot[] {
     const snapshots = analysisStore.get(sessionId) || []
-    console.log(`📊 MCP Analysis Handler: Retrieved ${snapshots.length} snapshots for session ${sessionId}`)
+    console.log(`📊 MCP Analysis Handler: Retrieved ${snapshots.length} snapshots for session ${sessionId} (${isBrowser ? 'client' : 'server'})`)
     return snapshots
   }
 
@@ -95,9 +110,11 @@ export class MCPAnalysisHandler {
     console.log(`🗑️ MCP Analysis Handler: Clearing history for session ${sessionId}`)
     analysisStore.delete(sessionId)
     
-    this.broadcast('analysis_history_cleared', {
-      sessionId
-    })
+    if (isBrowser) {
+      this.broadcast('analysis_history_cleared', {
+        sessionId
+      })
+    }
   }
 
   // Get analysis timeline (for export)
@@ -133,8 +150,13 @@ export class MCPAnalysisHandler {
     console.log(`✅ MCP Analysis Handler: Migration complete. Total sessions with analysis: ${analysisStore.size}`)
   }
 
-  // Event subscription system
+  // Event subscription system (only works in browser)
   subscribe(event: string, callback: (data: any) => void): () => void {
+    if (!isBrowser) {
+      console.warn('⚠️ MCP Analysis Handler: Event subscription not available in server context')
+      return () => {} // Return empty unsubscribe function
+    }
+
     if (!this.subscribers.has(event)) {
       this.subscribers.set(event, [])
     }
@@ -153,8 +175,10 @@ export class MCPAnalysisHandler {
     }
   }
 
-  // Broadcast events to subscribers
+  // Broadcast events to subscribers (only works in browser)
   private broadcast(event: string, data: any): void {
+    if (!isBrowser) return
+
     const callbacks = this.subscribers.get(event) || []
     console.log(`📡 MCP Analysis Handler: Broadcasting ${event} to ${callbacks.length} subscribers`)
     
@@ -202,9 +226,11 @@ export class MCPAnalysisHandler {
 
   // Debug method
   debug(): void {
-    console.log('🔍 MCP Analysis Handler Debug:')
+    console.log(`🔍 MCP Analysis Handler Debug (${isBrowser ? 'client' : 'server'}):`)
     console.log(`  - Total sessions with analysis: ${analysisStore.size}`)
-    console.log(`  - Active subscriptions:`, this.subscribers)
+    if (isBrowser) {
+      console.log(`  - Active subscriptions:`, this.subscribers)
+    }
     analysisStore.forEach((snapshots, sessionId) => {
       console.log(`  - Session ${sessionId}: ${snapshots.length} snapshots`)
     })

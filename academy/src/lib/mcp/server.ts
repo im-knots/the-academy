@@ -2462,9 +2462,10 @@ export class MCPServer {
   // ANALYSIS MANAGEMENT TOOLS
   // ========================================
 
+
   private async toolSaveAnalysisSnapshot(args: any): Promise<any> {
     try {
-      const { sessionId, analysis, analysisType = 'manual' } = args
+      const { sessionId, analysis, analysisType = 'manual', messageCountAtAnalysis, participantCountAtAnalysis, provider, conversationPhase, conversationContext } = args
       
       if (!sessionId || !analysis) {
         throw new Error('Session ID and analysis data are required')
@@ -2474,12 +2475,32 @@ export class MCPServer {
         throw new Error('Analysis handler not available')
       }
 
-      // Save analysis snapshot
-      mcpAnalysisHandler.saveAnalysisSnapshot(sessionId, analysis, analysisType)
+      // Prepare the complete analysis data structure that matches AnalysisSnapshot
+      const analysisData = {
+        messageCountAtAnalysis: messageCountAtAnalysis || 0,
+        participantCountAtAnalysis: participantCountAtAnalysis || 0,
+        provider: provider || 'unknown',
+        conversationPhase: conversationPhase || 'exploration',
+        analysis: analysis, // This contains mainTopics, keyInsights, etc.
+        conversationContext: conversationContext || {
+          recentMessages: 0,
+          activeParticipants: [],
+          sessionStatus: 'active',
+          moderatorInterventions: 0
+        }
+      }
+
+      console.log(`💾 MCP Server: Saving analysis snapshot for session ${sessionId}`, analysisData)
+
+      // Save analysis snapshot - AWAIT the async method
+      const snapshotId = await mcpAnalysisHandler.saveAnalysisSnapshot(sessionId, analysisData)
+
+      console.log(`✅ MCP Server: Analysis snapshot saved successfully: ${snapshotId}`)
 
       return {
         success: true,
         sessionId: sessionId,
+        snapshotId: snapshotId,
         analysisType: analysisType,
         timestamp: new Date().toISOString(),
         message: 'Analysis snapshot saved successfully'
@@ -2502,13 +2523,14 @@ export class MCPServer {
         throw new Error('Analysis handler not available')
       }
 
-      const history = mcpAnalysisHandler.getSessionAnalysis(sessionId)
+      // Use the correct method name from the analysis handler
+      const history = mcpAnalysisHandler.getAnalysisHistory(sessionId)
 
       return {
         success: true,
         sessionId: sessionId,
         history: history,
-        snapshotCount: history.snapshots?.length || 0,
+        snapshotCount: history.length,
         message: 'Analysis history retrieved successfully'
       }
     } catch (error) {
