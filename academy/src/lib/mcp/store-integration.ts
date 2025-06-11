@@ -129,14 +129,9 @@ export class MCPStoreIntegration {
   private setupStoreListeners() {
     // Subscribe to store changes and update MCP server reference
     this.unsubscribeStore = useChatStore.subscribe(
-      (state) => ({
-        sessions: state.sessions,
-        currentSession: state.currentSession,
-        hasHydrated: state.hasHydrated
-      }),
-      (newState, prevState) => {
+      (state, prevState) => {
         // Only update if store is hydrated to avoid initialization noise
-        if (!newState.hasHydrated) return
+        if (!state.hasHydrated) return
 
         console.log('🔄 MCP Store Integration: Store state changed, updating MCP server reference')
         
@@ -144,7 +139,7 @@ export class MCPStoreIntegration {
         this.updateMCPStoreReference()
 
         // Handle specific changes
-        this.handleStoreChange(newState, prevState)
+        this.handleStoreChange(state, prevState)
 
         // Trigger resource update in MCP client
         this.triggerResourceUpdate()

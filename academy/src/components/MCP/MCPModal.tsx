@@ -20,6 +20,19 @@ interface MCPModalProps {
   onClose: () => void
 }
 
+interface PromptArgument {
+  name: string
+  required?: boolean
+  description?: string
+  type?: string
+}
+
+interface MCPPrompt {
+  name: string
+  description?: string
+  arguments?: PromptArgument[]
+}
+
 export function MCPModal({ isOpen, onClose }: MCPModalProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'resources' | 'tools' | 'prompts' | 'analysis' | 'control'>('overview')
   const [selectedResource, setSelectedResource] = useState<string | null>(null)
@@ -613,7 +626,7 @@ export function MCPModal({ isOpen, onClose }: MCPModalProps) {
                               <div className="mt-2">
                                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Arguments:</p>
                                 <div className="flex flex-wrap gap-1">
-                                  {prompt.arguments.map((arg, index) => (
+                                  {prompt.arguments.map((arg: PromptArgument, index: number) => (
                                     <Badge key={index} variant="secondary" className="text-xs">
                                       {arg.name}
                                       {arg.required && '*'}

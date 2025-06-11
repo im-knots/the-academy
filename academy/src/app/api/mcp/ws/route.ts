@@ -1,9 +1,10 @@
 // src/app/api/mcp/ws/route.ts
 import { NextRequest } from 'next/server'
-import { WebSocketServer } from 'ws'
+import { WebSocketServer, WebSocket as WSWebSocket } from 'ws'
 import { MCPServer, setMCPStoreReference } from '@/lib/mcp/server'
+import { clients } from '@/lib/mcp/ws-utils'
 
-interface ExtendedWebSocket extends WebSocket {
+interface ExtendedWebSocket extends WSWebSocket {
   mcpServer?: MCPServer
   isAlive?: boolean
   clientId?: string
@@ -11,7 +12,6 @@ interface ExtendedWebSocket extends WebSocket {
 
 // Global WebSocket server instance
 let wss: WebSocketServer | null = null
-const clients = new Map<string, ExtendedWebSocket>()
 
 // Initialize WebSocket server on first request
 function initializeWebSocketServer() {
@@ -35,7 +35,7 @@ function initializeWebSocketServer() {
       ws.isAlive = true
     })
 
-    ws.on('message', async (data) => {
+    ws.on('message', async (data: Buffer) => {
       try {
         const message = JSON.parse(data.toString())
         console.log(`MCP WebSocket received from ${clientId}:`, message.method || message.id)
@@ -44,7 +44,7 @@ function initializeWebSocketServer() {
           const response = await ws.mcpServer.handleRequest(message)
           
           // Send response back to client
-          if (ws.readyState === WebSocket.OPEN) {
+          if (ws.readyState === WSWebSocket.OPEN) {
             ws.send(JSON.stringify(response))
           }
 
@@ -67,7 +67,7 @@ function initializeWebSocketServer() {
           }
         }
         
-        if (ws.readyState === WebSocket.OPEN) {
+        if (ws.readyState === WSWebSocket.OPEN) {
           ws.send(JSON.stringify(errorResponse))
         }
       }
@@ -78,7 +78,7 @@ function initializeWebSocketServer() {
       clients.delete(clientId)
     })
 
-    ws.on('error', (error) => {
+    ws.on('error', (error: Error) => {
       console.error(`MCP WebSocket error for client ${clientId}:`, error)
       clients.delete(clientId)
     })
@@ -97,24 +97,25 @@ function initializeWebSocketServer() {
       }
     }
 
-    if (ws.readyState === WebSocket.OPEN) {
+    if (ws.readyState === WSWebSocket.OPEN) {
       ws.send(JSON.stringify(welcomeMessage))
     }
   })
 
   // Set up periodic ping to check connection health
   const pingInterval = setInterval(() => {
-    wss?.clients.forEach((ws: ExtendedWebSocket) => {
-      if (!ws.isAlive) {
-        ws.terminate()
-        if (ws.clientId) {
-          clients.delete(ws.clientId)
+    wss?.clients.forEach((ws) => {
+      const extendedWs = ws as ExtendedWebSocket
+      if (!extendedWs.isAlive) {
+        extendedWs.terminate()
+        if (extendedWs.clientId) {
+          clients.delete(extendedWs.clientId)
         }
         return
       }
 
-      ws.isAlive = false
-      ws.ping()
+      extendedWs.isAlive = false
+      extendedWs.ping()
     })
   }, 30000) // 30 seconds
 
@@ -157,33 +158,11 @@ function broadcastNotification(method: string, params: any, excludeClientId?: st
   }
 
   clients.forEach((ws, clientId) => {
-    if (clientId !== excludeClientId && ws.readyState === WebSocket.OPEN) {
+    if (clientId !== excludeClientId && ws.readyState === WSWebSocket.OPEN) {
       try {
         ws.send(JSON.stringify(notification))
       } catch (error) {
         console.error(`Failed to send notification to client ${clientId}:`, error)
-      }
-    }
-  })
-}
-
-// Broadcast function for external use
-export function broadcastAcademyUpdate(event: string, data: any) {
-  const notification = {
-    jsonrpc: '2.0',
-    method: `academy/${event}`,
-    params: {
-      ...data,
-      timestamp: new Date().toISOString()
-    }
-  }
-
-  clients.forEach((ws, clientId) => {
-    if (ws.readyState === WebSocket.OPEN) {
-      try {
-        ws.send(JSON.stringify(notification))
-      } catch (error) {
-        console.error(`Failed to broadcast update to client ${clientId}:`, error)
       }
     }
   })

@@ -295,14 +295,12 @@ Return only the JSON object, no additional text.`
 
       const toolArgs = {
         messages,
-        temperature: 0.3, // Lower temperature for more consistent analysis
+        temperature: 0.3,
         maxTokens: 2000,
-        model: selectedProvider === 'claude' ? 'claude-3-5-sonnet-20241022' : 'gpt-4o'
-      }
-
-      // Add system prompt for Claude
-      if (selectedProvider === 'claude') {
-        toolArgs.systemPrompt = 'You are an expert research assistant specializing in philosophical dialogue analysis. Provide precise, insightful analysis in the requested JSON format.'
+        model: selectedProvider === 'claude' ? 'claude-3-5-sonnet-20241022' : 'gpt-4o',
+        ...(selectedProvider === 'claude' && {
+          systemPrompt: 'You are an expert research assistant specializing in philosophical dialogue analysis. Provide precise, insightful analysis in the requested JSON format.'
+        })
       }
 
       console.log(`🔧 LiveSummary: Calling MCP tool ${toolName}`)

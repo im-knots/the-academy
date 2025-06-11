@@ -56,7 +56,7 @@ export function ChatInterface() {
 
   const hasMessages = currentSession?.messages && currentSession.messages.length > 0
   const hasParticipants = currentSession?.participants && currentSession.participants.length > 0
-  const hasAIParticipants = currentSession?.participants.filter(p => p.type !== 'human' && p.type !== 'moderator').length >= 2
+  const hasAIParticipants = (currentSession?.participants || []).filter(p => p.type !== 'human' && p.type !== 'moderator').length >= 2
 
   // Get the conversation manager instance
   const conversationManager = MCPConversationManager.getInstance()

@@ -351,24 +351,18 @@ export class MCPConversationManager {
         content: msg.content
       }))
 
+      // Build system prompt once
+      const systemPrompt = this.buildSystemPrompt(participant, context)
+
       // Prepare tool arguments
       const toolArgs = {
-        messages,
+        messages: participant.type === 'gpt' && systemPrompt 
+          ? [{ role: 'system', content: systemPrompt }, ...messages]
+          : messages,
         temperature: context.settings.temperature,
         maxTokens: context.settings.maxTokens,
-        model: context.settings.model
-      }
-
-      // Add system prompt for Claude
-      if (participant.type === 'claude') {
-        toolArgs.systemPrompt = this.buildSystemPrompt(participant, context)
-      } else if (participant.type === 'gpt') {
-        // For GPT, add system message to the messages array
-        const systemPrompt = this.buildSystemPrompt(participant, context)
-        if (systemPrompt) {
-          messages.unshift({ role: 'system', content: systemPrompt })
-        }
-        toolArgs.messages = messages
+        model: context.settings.model,
+        ...(participant.type === 'claude' && systemPrompt && { systemPrompt })
       }
 
       console.log(`🌐 Calling MCP tool ${toolName} for ${participant.name}`)
