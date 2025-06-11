@@ -27,15 +27,13 @@ Designed for engineers, researchers, and builders interested in exploring multi-
 - **MCP Debug Tools**: Store debugging, resource inspection, and system monitoring
 
 ### Advanced Research & Analysis System
-- **Live AI Analysis**: Real-time conversation analysis
-- **Analysis Snapshots**: Automatic saving of analysis via MCP protocol with real-time updates
-- **Analysis Timeline**: Complete chronological view of conversation insights
-- **Multi-Provider Analysis**: Choose between Claude and GPT for different analytical perspectives
-- **Philosophical Depth Tracking**: Automatic assessment of conversation sophistication
-- **Participant Dynamics Analysis**: Real-time tracking of interaction patterns and styles
-- **Emergent Themes Detection**: Identification of novel concepts arising from dialogue
-- **Exportable Research Data**: JSON and CSV exports with complete analysis history
-- **Pattern Recognition**: Detection of tensions, convergences, and conversation phases
+- **Live AI Analysis**: Real-time conversation analysis during active dialogues
+- **Analysis Snapshots**: Save analysis states at specific points via MCP protocol
+- **Analysis Timeline**: View chronological progression of conversation insights
+- **Multi-Provider Analysis**: Choose between Claude and GPT for analysis perspectives
+- **Conversation Metrics**: Track message counts, participant engagement, and timing
+- **Export Integration**: Include analysis data in conversation exports
+- **Research Data Formats**: JSON and CSV export options with metadata
 
 ### Session Management & Templates
 - **Curated Session Templates**:
@@ -58,18 +56,23 @@ Designed for engineers, researchers, and builders interested in exploring multi-
 - **Participant Analytics**: Message counts and engagement tracking
 
 ### Export & Research Tools
-- **Comprehensive Export Options**:
-  - JSON format with complete conversation metadata
-  - CSV timeline format for analysis in external tools
-  - Analysis-only exports for research workflows
-  - Configurable export settings (metadata, system prompts, analysis history)
-- **Real-time Export Preview**: Full content preview before download
-- **MCP-Enhanced Exports**: Include real-time analysis data via MCP protocol
-- **Research Methodology Support**: Export formats designed for academic research
+- **Export Formats**:
+  - JSON format with complete conversation data and metadata
+  - CSV format for timeline-based analysis
+  - Optional inclusion of analysis snapshots
+  - Configurable metadata inclusion
+- **Export Preview**: View full export content before download
+- **Analysis Export**: Export analysis timeline separately
+- **Batch Export**: Export multiple sessions via MCP tools
+- **Research-Ready Data**: Structured formats suitable for external analysis tools
+
+## Bulk Experiment Support
+
+The Academy's comprehensive MCP tool suite enables scripted bulk experiment execution. Researchers can programmatically create sessions, configure participants, control conversations, analyze results, and export data - all through the MCP interface. This makes it possible to run comparative studies, parameter sweeps, intervention experiments, and large-scale conversation analysis without manual interaction.
 
 ## MCP Capabilities
 
-The Academy exposes its full functionality through MCP, making it interoperable with other MCP-compatible tools and workflows:
+The Academy exposes its functionality through a complete MCP server implementation, enabling programmatic access to all features:
 
 ### Resources
 - `academy://sessions` - All conversation sessions with metadata
@@ -83,14 +86,60 @@ The Academy exposes its full functionality through MCP, making it interoperable 
 - `academy://analysis/timeline` - Complete analysis timeline for research
 
 ### Tools
-- `claude_chat` / `openai_chat` - Direct AI model access with abort support
-- `create_session` - Programmatic session creation with templates
-- `add_participant` - Add AI agents to conversations dynamically
-- `start_conversation` / `pause_conversation` / `resume_conversation` - Session control
-- `analyze_conversation` - Extract insights and patterns in real-time
-- `save_analysis_snapshot` - Store analysis data via MCP protocol
-- `get_analysis_history` - Retrieve analysis timeline for sessions
-- `send_message` - Inject messages into conversations
+The Academy provides a comprehensive suite of 40+ MCP tools:
+
+#### Session Management (9 tools)
+- `create_session` - Create new conversation sessions
+- `delete_session` - Remove sessions
+- `update_session` - Modify session metadata
+- `switch_current_session` - Change active session
+- `duplicate_session` - Clone existing sessions
+- `import_session` - Import session data
+- `export_session` - Export conversation data
+- `get_session_templates` - List available templates
+- `create_session_from_template` - Create from predefined templates
+
+#### Message Management (1 tool)
+- `send_message` - Send messages to sessions
+- *Note: Message update/delete tools are not yet implemented*
+
+#### Participant Management (6 tools)
+- `add_participant` - Add AI agents to conversations
+- `remove_participant` - Remove participants from sessions
+- `update_participant` - Modify participant settings
+- `update_participant_status` - Change participant state
+- `get_available_models` - List available AI models
+- `get_participant_config` - Get participant configuration
+
+#### Conversation Control (7 tools)
+- `start_conversation` - Begin autonomous dialogue
+- `pause_conversation` - Pause active conversation
+- `resume_conversation` - Resume paused conversation
+- `stop_conversation` - End conversation
+- `inject_moderator_prompt` - Insert moderator messages
+- `get_conversation_status` - Check conversation state
+- `get_conversation_stats` - Retrieve conversation metrics
+
+#### Analysis Tools (8 tools)
+- `analyze_conversation` - Extract insights and patterns
+- `save_analysis_snapshot` - Store analysis data
+- `get_analysis_history` - Retrieve past analyses
+- `clear_analysis_history` - Remove analysis data
+- `trigger_live_analysis` - Run real-time analysis
+- `set_analysis_provider` - Choose analysis AI provider
+- `get_analysis_providers` - List available analyzers
+- `auto_analyze_conversation` - Enable automatic analysis
+
+#### Export Tools (3 tools)
+- `export_session` - Export conversation data
+- `export_analysis_timeline` - Export analysis history
+- `get_export_preview` - Preview export content
+
+#### AI Provider Tools (2 tools)
+- `claude_chat` - Direct Claude API access
+- `openai_chat` - Direct OpenAI API access
+
+#### Debug Tools (1 tool)
 - `debug_store` - Debug store state and MCP integration
 
 ### Real-time Integration Examples
@@ -115,15 +164,16 @@ mcp.subscribe('analysis_snapshot_saved', (data) => {
 
 ## Use Cases
 
-- **Multi-agent AI research** with standardized data access via MCP protocol
-- **Conversation pattern analysis** and behavioral studies with real-time insights
-- **AI coordination experiments** in structured dialogue environments
-- **Educational tools** for teaching dialogue systems and argument structure
-- **LLM evaluation** in adversarial, cooperative, and neutral settings with comprehensive metrics
-- **Synthetic data generation** for conversation training datasets with quality analysis
-- **MCP ecosystem integration** with other research and analysis tools
-- **Philosophical AI exploration** with depth tracking and emergent theme detection
-- **Real-time research monitoring** with live analysis and export capabilities
+- **Multi-agent AI research** - Study how different AI models interact in extended conversations
+- **Conversation analysis** - Analyze dialogue patterns, message flow, and participant dynamics
+- **Parameter studies** - Test how temperature, prompts, and settings affect conversation quality
+- **Model comparison** - Compare performance of different AI models on identical tasks
+- **Intervention experiments** - Study effects of moderator prompts on conversation direction
+- **Degradation analysis** - Track how conversation quality changes over extended dialogues
+- **MCP integration testing** - Develop and test MCP-compatible tools and workflows
+- **Educational demonstrations** - Teach concepts of multi-agent systems and dialogue management
+- **Synthetic data generation** - Create conversational datasets for research purposes
+- **Bulk experiment execution** - Run large-scale studies through programmatic control
 
 ## Technology Stack
 
@@ -229,5 +279,3 @@ Please feel free to reach out about contributing to this project. I'd love to de
 ## License
 
 MIT License - see LICENSE file for details.
-
-
