@@ -1,4 +1,4 @@
-// src/components/Chat/ChatInterface.tsx - Updated with LiveSummary
+// src/components/Chat/ChatInterface.tsx - Updated with Prompt Customization
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -13,12 +13,13 @@ import { ParticipantAvatar } from '@/components/ui/ParticipantAvatar'
 import { AddParticipant } from '@/components/Participants/AddParticipant'
 import { ExportModal } from '@/components/Export/ExportModal'
 import { MCPModal } from '@/components/MCP/MCPModal'
+import { PromptCustomizer } from '@/components/Prompts/PromptCustomizer'
 import { LiveSummary } from '@/components/Research/LiveSummary'
 import { SessionsSection } from '@/components/Sessions/SessionsSection'
 import { 
   Brain, Users, Settings, Play, Pause, Plus, Sparkles, MessageSquare, 
   Zap, Send, Hand, Square, AlertCircle, Clock, CheckCircle2, Loader2,
-  Download, FileDown, ChevronLeft, History,
+  Download, FileDown, ChevronLeft, History, FileText,
   Wifi, WifiOff, Terminal, Monitor
 } from 'lucide-react'
 
@@ -26,6 +27,7 @@ export function ChatInterface() {
   const [showAddParticipant, setShowAddParticipant] = useState(false)
   const [showExportModal, setShowExportModal] = useState(false)
   const [showMCPModal, setShowMCPModal] = useState(false)
+  const [showPromptCustomizer, setShowPromptCustomizer] = useState(false)
   const [moderatorInput, setModeratorInput] = useState('')
   const [isInterjecting, setIsInterjecting] = useState(false)
   const [conversationState, setConversationState] = useState<'idle' | 'starting' | 'running' | 'pausing' | 'stopping'>('idle')
@@ -767,6 +769,16 @@ export function ChatInterface() {
                     variant="outline" 
                     size="sm" 
                     className="w-full justify-start"
+                    onClick={() => setShowPromptCustomizer(true)}
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Customize Prompts
+                  </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full justify-start"
                     onClick={() => setShowExportModal(true)}
                     disabled={!hasMessages}
                   >
@@ -807,6 +819,11 @@ export function ChatInterface() {
       <MCPModal
         isOpen={showMCPModal}
         onClose={() => setShowMCPModal(false)}
+      />
+
+      <PromptCustomizer
+        isOpen={showPromptCustomizer}
+        onClose={() => setShowPromptCustomizer(false)}
       />
     </div>
   )

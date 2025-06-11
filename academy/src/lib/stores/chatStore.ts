@@ -1,4 +1,4 @@
-// src/lib/stores/chatStore.ts - Analysis Snapshot Fix
+// src/lib/stores/chatStore.ts - Updated with Prompt Management
 import { create } from 'zustand'
 import { devtools, persist } from 'zustand/middleware'
 import { Message, ChatSession, Participant, ModeratorAction, AnalysisSnapshot } from '@/types/chat'
@@ -9,6 +9,11 @@ interface SessionTemplate {
   description: string
   initialPrompt?: string
   participants?: Omit<Participant, 'id' | 'joinedAt' | 'messageCount'>[]
+}
+
+interface CustomPrompts {
+  analysisSystemPrompt: string | null
+  chatSystemPrompt: string | null
 }
 
 interface ChatState {
@@ -28,6 +33,9 @@ interface ChatState {
   showParticipantPanel: boolean
   showModeratorPanel: boolean
   selectedMessageId: string | null
+  
+  // Custom prompts state
+  customPrompts: CustomPrompts
   
   // Actions
   createSession: (name: string, description?: string, template?: any, participants?: any[]) => string
@@ -51,6 +59,13 @@ interface ChatState {
   addAnalysisSnapshot: (analysis: Omit<AnalysisSnapshot, 'id' | 'timestamp'>) => void
   getAnalysisHistory: (sessionId?: string) => AnalysisSnapshot[]
   clearAnalysisHistory: (sessionId?: string) => void
+  
+  // Prompt customization actions
+  setCustomAnalysisPrompt: (prompt: string | null) => void
+  setCustomChatPrompt: (prompt: string | null) => void
+  getAnalysisPrompt: () => string
+  getChatPrompt: (participant?: Participant) => string
+  resetPromptsToDefault: () => void
   
   // Session control
   pauseSession: () => void
@@ -83,6 +98,36 @@ interface ChatState {
 
   // Internal helper
   ensureCurrentSession: () => void
+}
+
+// Default prompts
+const DEFAULT_ANALYSIS_PROMPT = "You are an expert research assistant specializing in philosophical dialogue analysis. Provide precise, insightful analysis in the requested JSON format."
+
+const DEFAULT_CHAT_PROMPT_TEMPLATE = (participant: Participant, session: ChatSession, otherParticipants: string) => {
+  return `You are ${participant.name}, a unique AI participant in a research dialogue titled "${session.name}".
+
+${session.description ? `Research Context: ${session.description}` : ''}
+
+Your characteristics:
+- Name: ${participant.name}
+- Type: ${participant.type}
+${participant.characteristics?.personality ? `- Personality: ${participant.characteristics.personality}` : ''}
+${participant.characteristics?.expertise ? `- Expertise: ${participant.characteristics.expertise.join(', ')}` : ''}
+
+Other dialogue participants: ${otherParticipants || 'None yet'}
+
+You are engaged in a thoughtful research dialogue via the Model Context Protocol (MCP). Guidelines:
+- Be authentic and bring your unique perspective
+- Engage meaningfully with what others have said
+- Ask thoughtful questions that advance the conversation  
+- Keep responses conversational (1-3 paragraphs typically)
+- Build naturally on the conversation flow
+- Express disagreement or different viewpoints thoughtfully
+- You are ${participant.name} with your own unique perspective
+
+${participant.systemPrompt ? `Additional instructions: ${participant.systemPrompt}` : ''}
+
+Remember: This is genuine exploration through dialogue facilitated by MCP. Each response should feel natural and contribute meaningfully. You are not just an AI model - you are ${participant.name}.`
 }
 
 // Default participants for templates
@@ -133,6 +178,12 @@ export const useChatStore = create<ChatState>()(
         showParticipantPanel: true,
         showModeratorPanel: true,
         selectedMessageId: null,
+        
+        // Custom prompts state
+        customPrompts: {
+          analysisSystemPrompt: null,
+          chatSystemPrompt: null
+        },
 
         // Helper function to ensure we always have a current session
         ensureCurrentSession: () => {
@@ -144,6 +195,60 @@ export const useChatStore = create<ChatState>()(
             )[0]
             set({ currentSession: mostRecentSession })
           }
+        },
+
+        // Prompt customization actions
+        setCustomAnalysisPrompt: (prompt: string | null) => {
+          set((state) => ({
+            customPrompts: {
+              ...state.customPrompts,
+              analysisSystemPrompt: prompt
+            }
+          }))
+        },
+
+        setCustomChatPrompt: (prompt: string | null) => {
+          set((state) => ({
+            customPrompts: {
+              ...state.customPrompts,
+              chatSystemPrompt: prompt
+            }
+          }))
+        },
+
+        getAnalysisPrompt: () => {
+          const state = get()
+          return state.customPrompts.analysisSystemPrompt || DEFAULT_ANALYSIS_PROMPT
+        },
+
+        getChatPrompt: (participant?: Participant) => {
+          const state = get()
+          
+          // If we have a custom chat prompt, use it
+          if (state.customPrompts.chatSystemPrompt) {
+            return state.customPrompts.chatSystemPrompt
+          }
+          
+          // Otherwise, use the default template
+          if (!participant || !state.currentSession) {
+            return DEFAULT_ANALYSIS_PROMPT // Fallback
+          }
+          
+          const otherParticipants = state.currentSession.participants
+            .filter(p => p.id !== participant.id && p.type !== 'moderator')
+            .map(p => `${p.name} (${p.type})`)
+            .join(', ')
+            
+          return DEFAULT_CHAT_PROMPT_TEMPLATE(participant, state.currentSession, otherParticipants)
+        },
+
+        resetPromptsToDefault: () => {
+          set((state) => ({
+            customPrompts: {
+              analysisSystemPrompt: null,
+              chatSystemPrompt: null
+            }
+          }))
         },
 
         // Session actions
@@ -643,10 +748,11 @@ export const useChatStore = create<ChatState>()(
       }),
       {
         name: 'academy-chat-store',
-        // Only persist sessions, not UI state
+        // Persist sessions and custom prompts
         partialize: (state) => ({ 
           sessions: state.sessions,
-          currentSession: state.currentSession
+          currentSession: state.currentSession,
+          customPrompts: state.customPrompts
         }),
         // Rehydrate dates correctly and ensure current session
         onRehydrateStorage: () => (state) => {
@@ -694,6 +800,14 @@ export const useChatStore = create<ChatState>()(
               }
               
               console.log(`📊 Rehydrated current session with ${state.currentSession.analysisHistory?.length || 0} analysis snapshots`)
+            }
+
+            // Ensure custom prompts object exists
+            if (!state.customPrompts) {
+              state.customPrompts = {
+                analysisSystemPrompt: null,
+                chatSystemPrompt: null
+              }
             }
 
             // Ensure we have a current session if we have any sessions

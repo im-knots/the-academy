@@ -1,4 +1,4 @@
-// src/components/Research/LiveSummary.tsx - Fixed Header and Added Analysis Details
+// src/components/Research/LiveSummary.tsx - Updated with Custom Analysis Prompts
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
@@ -63,6 +63,7 @@ const ANALYSIS_PROVIDERS: AnalysisProvider[] = [
 
 export function LiveSummary({ className = '' }: LiveSummaryProps) {
   const { currentSession, addAnalysisSnapshot } = useChatStore()
+  const { getAnalysisPrompt } = useChatStore()
   const mcp = useMCP()
   
   const [summary, setSummary] = useState<SummaryData | null>(null)
@@ -210,7 +211,10 @@ export function LiveSummary({ className = '' }: LiveSummaryProps) {
 
     console.log(`📊 LiveSummary: Analysis will cover ${currentSessionData.messages.length} messages from ${currentSessionData.participants.length} participants`)
 
-    return `You are a research assistant analyzing an AI-to-AI philosophical dialogue. Please provide a comprehensive analysis of this conversation.
+    // Get custom analysis prompt from store
+    const systemPrompt = getAnalysisPrompt()
+
+    return `${systemPrompt}
 
 **Session Context:**
 Title: ${currentSessionData.name}
@@ -280,7 +284,7 @@ Return only the JSON object, no additional text.`
       const recentMessages = freshSession.messages.slice(-3)
       console.log(`📊 LiveSummary: Recent messages:`, recentMessages.map(m => `${m.participantName}: ${m.content.substring(0, 50)}...`))
       
-      // Build analysis prompt with fresh session data
+      // Build analysis prompt with fresh session data and custom prompt
       const analysisPrompt = buildAnalysisPrompt(freshSession)
       
       // Use MCP to call the selected AI provider directly
