@@ -1260,7 +1260,12 @@ export class MCPServer {
       // Apply to store
       const store = useChatStore.getState()
       const sessionId = store.createSession(newSession.name, newSession.description, newSession.template, newSession.participants)
-      store.setCurrentSession(sessionId)
+      const sessionToSwitch = store.sessions.find(s => s.id === sessionId)
+      if (!sessionToSwitch) {
+        throw new Error(`Session ${sessionId} not found`)
+      }
+
+      store.setCurrentSession(sessionToSwitch)
 
       // Update MCP store reference
       setMCPStoreReference(useChatStore.getState())
@@ -1541,7 +1546,8 @@ export class MCPServer {
       const sessionArgs = {
         name: name,
         description: description || template.description,
-        template: templateId,
+        // Note: template property doesn't exist on ChatSession, use metadata instead
+        metadata: { template: templateId },
         participants: customizations?.participants || template.participants
       }
 
