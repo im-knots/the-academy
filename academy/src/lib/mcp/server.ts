@@ -950,7 +950,7 @@ export class MCPServer {
       model = 'claude-3-5-sonnet-20241022'
     } = args
     
-    console.log('🔧 Using direct Claude API call (bypassing internal HTTP)')
+    console.log('🔧 Using direct Claude API call')
     
     // Process messages
     let processedMessages: any[]
@@ -1094,7 +1094,7 @@ export class MCPServer {
       maxTokens = 2000
     } = args
     
-    console.log('🔧 Using direct OpenAI API call (bypassing internal HTTP)')
+    console.log('🔧 Using direct OpenAI API call')
     
     // Handle both parameter formats
     let processedMessages: any[]
