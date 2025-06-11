@@ -34,7 +34,7 @@ AI dialogue research faces significant challenges in experimental reproducibilit
 
 Multi-agent AI conversation research has emerged as a critical area for understanding collaborative reasoning, emergent intelligence, and human-AI interaction patterns. However, the field faces significant methodological challenges that limit research reproducibility and systematic investigation. Current approaches typically rely on post-hoc analysis of conversation logs, lack standardized intervention protocols, and require complex tool integration workflows that introduce experimental overhead and inconsistency.
 
-The "Lost in Conversation" phenomenon (Laban et al., 2025) documents universal degradation patterns in AI conversations, with 39\% average performance drops when instructions are distributed across multiple turns. While intervention strategies like Contrastive Activation Addition achieve >90\% success rates for specific behaviors (Rimsky et al., 2024), the field lacks integrated platforms that combine conversation generation, real-time analysis, intervention capabilities, and systematic data collection within unified research workflows.
+The "Lost in Conversation" phenomenon \citep{laban2025lost} documents universal degradation patterns in AI conversations, with 39\% average performance drops when instructions are distributed across multiple turns. While intervention strategies like Contrastive Activation Addition achieve >90\% success rates for specific behaviors \citep{panickssery2024activation}, the field lacks integrated platforms that combine conversation generation, real-time analysis, intervention capabilities, and systematic data collection within unified research workflows.
 
 We introduce \theacademy{}, an integrated research platform designed to address these limitations through native \mcp{} integration, real-time conversation analysis, systematic intervention tracking, and comprehensive data export capabilities. The platform enables researchers to conduct reproducible multi-agent dialogue experiments with consistent monitoring, intervention protocols, and analysis frameworks.
 
@@ -44,21 +44,21 @@ Our contributions include: (1) the first \mcp{}-native platform for AI dialogue 
 
 \subsection{Multi-Agent Conversation Frameworks}
 
-Recent advances in multi-agent conversation frameworks demonstrate the potential for sophisticated AI collaboration. AutoGen (Wu et al., 2023) provides an open-source platform enabling LLM applications through multiple conversable agents, showing that dynamic multi-agent conversations adapt better than static patterns. The Captain Agent architecture achieved 21.94\% higher accuracy than static teams through adaptive team building (Zhang et al., 2024).
+Recent advances in multi-agent conversation frameworks demonstrate the potential for sophisticated AI collaboration. AutoGen \citep{wu2023autogen} provides an open-source platform enabling LLM applications through multiple conversable agents, showing that dynamic multi-agent conversations adapt better than static patterns. The Captain Agent architecture achieved 21.94\% higher accuracy than static teams through adaptive team building \citep{song2025adaptive}.
 
-However, sustainability remains challenging. The RoleInteract framework revealed that agents struggle with long-term conversation memory, showing performance decline when conversations exceed 80 rounds (Chen et al., 2024). Most frameworks show limited evaluation beyond typical session lengths, leaving long-term sustainability largely unaddressed.
+However, sustainability remains challenging. The RoleInteract framework revealed that agents struggle with long-term conversation memory, showing performance decline when conversations exceed 80 rounds \citep{chen2023chatarena}. Most frameworks show limited evaluation beyond typical session lengths, leaving long-term sustainability largely unaddressed.
 
 \subsection{Conversation Degradation Research}
 
-The "Lost in Conversation" phenomenon represents the most comprehensive documentation of AI conversation degradation, revealing universal patterns affecting all model scales with 39\% average performance drops in multi-turn scenarios (Laban et al., 2025). Four primary degradation mechanisms drive this phenomenon: premature solution generation, incorrect assumption propagation, over-reliance on previous attempts, and verbose response generation leading to context loss.
+The "Lost in Conversation" phenomenon represents the most comprehensive documentation of AI conversation degradation, revealing universal patterns affecting all model scales with 39\% average performance drops in multi-turn scenarios \citep{laban2025lost}. Four primary degradation mechanisms drive this phenomenon: premature solution generation, incorrect assumption propagation, over-reliance on previous attempts, and verbose response generation leading to context loss.
 
 Beyond 100+ exchanges, Context Degradation Syndrome emerges, characterized by repetitive responses and progressive coherence deterioration. Current research lacks systematic intervention studies and real-time monitoring capabilities to understand and mitigate these patterns.
 
 \subsection{Intervention Strategies}
 
-Recent intervention advances show promise for managing AI conversation dynamics. Contrastive Activation Addition achieves >90\% success rates in altering model behavior through steering vectors (Rimsky et al., 2024). Human-in-the-loop moderation demonstrates quality improvements, with moderated sessions achieving scores of 4.14 versus 3.41 for non-moderated sessions (Johnson et al., 2024).
+Recent intervention advances show promise for managing AI conversation dynamics. Contrastive Activation Addition achieves >90\% success rates in altering model behavior through steering vectors \citep{panickssery2024activation}. Human-in-the-loop methodologies have proven effective across diverse machine learning applications, from data processing to interventional model training \citep{wu2022survey}. However, these approaches have not been systematically applied to real-time AI conversation moderation, where human intervention could potentially prevent the degradation patterns documented in multi-agent dialogues. \theacademy{}'s integrated intervention capabilities address this gap by enabling systematic study of human oversight effectiveness in live AI conversations.
 
-However, current approaches remain predominantly reactive rather than preventive, addressing symptoms rather than underlying patterns. The field needs integrated platforms enabling systematic intervention research with precise timing control and effect measurement.
+Current approaches remain predominantly reactive rather than preventive, addressing symptoms rather than underlying patterns. The field needs integrated platforms enabling systematic intervention research with precise timing control and effect measurement.
 
 \section{Platform Architecture}
 
@@ -188,7 +188,7 @@ These observations suggest \theacademy{}'s integrated analysis and intervention 
 \theacademy{} addresses key limitations in current AI dialogue research:
 
 \begin{itemize}
-    \item \textbf{Tool Integration Overhead}: \mcp{}-native architecture reduces experimental setup time by 60\% compared to traditional multi-tool workflows
+    \item \textbf{Tool Integration Overhead}: \mcp{}-native architecture designed to reduce experimental setup time compared to traditional multi-tool workflows
     \item \textbf{Real-time vs. Batch Analysis}: Live monitoring enables intervention opportunities missed by post-hoc analysis
     \item \textbf{Intervention Documentation}: Systematic tracking of intervention timing, type, and effects
     \item \textbf{Reproducible Workflows}: Standardized experimental conditions and export formats enable cross-study comparison
