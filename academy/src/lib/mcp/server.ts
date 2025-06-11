@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 // src/lib/mcp/server.ts - Enhanced with Complete Custom Prompts Integration
+=======
+// src/lib/mcp/server.ts - Enhanced with Lazy Analysis Loading
+>>>>>>> parent of ca12215 (custom prompts via mcp start)
 import { ChatSession, Message, Participant } from '@/types/chat'
 import { mcpAnalysisHandler } from './analysis-handler'
 
@@ -32,31 +36,12 @@ let globalStoreData: {
   currentSession: ChatSession | null
   hasHydrated: boolean
   lastUpdate: Date
-  customPrompts: {
-    analysisSystemPrompt: string | null
-    chatSystemPrompt: string | null
-  }
-  // Store methods we need
-  setCustomAnalysisPrompt: (prompt: string | null) => void
-  setCustomChatPrompt: (prompt: string | null) => void
-  getAnalysisPrompt: () => string
-  getChatPrompt: (participant?: Participant) => string
-  resetPromptsToDefault: () => void
   debug?: any
 } = {
   sessions: [],
   currentSession: null,
   hasHydrated: false,
-  lastUpdate: new Date(),
-  customPrompts: {
-    analysisSystemPrompt: null,
-    chatSystemPrompt: null
-  },
-  setCustomAnalysisPrompt: () => {},
-  setCustomChatPrompt: () => {},
-  getAnalysisPrompt: () => 'You are an expert research assistant specializing in philosophical dialogue analysis.',
-  getChatPrompt: () => 'You are a thoughtful AI participant in a research dialogue.',
-  resetPromptsToDefault: () => {}
+  lastUpdate: new Date()
 }
 
 export function setMCPStoreReference(storeData: any) {
@@ -160,18 +145,17 @@ export class MCPServer {
             listChanged: false
           },
           prompts: {
-            listChanged: true
+            listChanged: false
           },
           experimental: {
             analysis: true,
-            realTimeUpdates: true,
-            customPrompts: true
+            realTimeUpdates: true
           }
         },
         serverInfo: {
           name: 'The Academy MCP Server',
-          version: '1.3.0',
-          description: 'AI Research Platform with conversation management, AI provider tools, analysis engine, and custom prompts'
+          version: '1.2.0',
+          description: 'AI Research Platform with conversation management, AI provider tools, and analysis engine'
         }
       }
     }
@@ -220,13 +204,6 @@ export class MCPServer {
         uri: 'academy://store/debug',
         name: 'Store Debug Info',
         description: 'Debug information about the store state and MCP integration',
-        mimeType: 'application/json'
-      },
-      // Custom Prompts Resources
-      {
-        uri: 'academy://prompts/custom',
-        name: 'Custom Prompts Configuration',
-        description: `Custom analysis and chat prompts (Analysis: ${globalStoreData.customPrompts.analysisSystemPrompt ? 'Custom' : 'Default'}, Chat: ${globalStoreData.customPrompts.chatSystemPrompt ? 'Custom' : 'Default'})`,
         mimeType: 'application/json'
       }
     ]
@@ -349,9 +326,12 @@ export class MCPServer {
         }
       } else if (uri === 'academy://store/debug') {
         content = this.getStoreDebugInfo()
+<<<<<<< HEAD
       } else if (uri === 'academy://prompts/custom') {
         // *** THIS IS THE MISSING PIECE! ***
         content = this.getCustomPromptsInfo()
+=======
+>>>>>>> parent of ca12215 (custom prompts via mcp start)
       } else if (uri === 'academy://analysis/stats') {
         if (this.isAnalysisHandlerAvailable()) {
           content = mcpAnalysisHandler.getGlobalAnalysisStats()
@@ -483,53 +463,6 @@ export class MCPServer {
             model: { type: 'string', description: 'OpenAI model to use' }
           },
           required: ['messages']
-        }
-      },
-      // Custom Prompts Management Tools
-      {
-        name: 'get_custom_prompts',
-        description: 'Get the current custom prompts configuration',
-        inputSchema: {
-          type: 'object',
-          properties: {},
-          required: []
-        }
-      },
-      {
-        name: 'set_custom_analysis_prompt',
-        description: 'Set a custom analysis prompt for research dialogue analysis',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            prompt: { 
-              type: 'string', 
-              description: 'The custom analysis prompt to set. Pass "null" to reset to default.' 
-            }
-          },
-          required: ['prompt']
-        }
-      },
-      {
-        name: 'set_custom_chat_prompt',
-        description: 'Set a custom chat prompt template for dialogue participants',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            prompt: { 
-              type: 'string', 
-              description: 'The custom chat prompt template to set. Pass "null" to reset to default.' 
-            }
-          },
-          required: ['prompt']
-        }
-      },
-      {
-        name: 'reset_custom_prompts',
-        description: 'Reset all custom prompts to defaults',
-        inputSchema: {
-          type: 'object',
-          properties: {},
-          required: []
         }
       },
       // Store Debugging Tools
@@ -694,19 +627,6 @@ export class MCPServer {
         case 'openai_chat':
           result = await this.callOpenAIAPI(args)
           break
-        // Custom Prompts Tools
-        case 'get_custom_prompts':
-          result = await this.toolGetCustomPrompts()
-          break
-        case 'set_custom_analysis_prompt':
-          result = await this.toolSetCustomAnalysisPrompt(args)
-          break
-        case 'set_custom_chat_prompt':
-          result = await this.toolSetCustomChatPrompt(args)
-          break
-        case 'reset_custom_prompts':
-          result = await this.toolResetCustomPrompts()
-          break
         case 'debug_store':
           result = await this.toolDebugStore()
           break
@@ -781,8 +701,7 @@ export class MCPServer {
       return this.uninitializedError(id)
     }
 
-    // Static prompts
-    const staticPrompts = [
+    const prompts = [
       {
         name: 'consciousness_dialogue',
         description: 'Start a dialogue about consciousness and AI awareness'
@@ -797,208 +716,49 @@ export class MCPServer {
       }
     ]
 
-    // Dynamic prompts based on custom prompt configuration
-    const customPrompts = globalStoreData.customPrompts
-    const dynamicPrompts = []
-
-    if (customPrompts.analysisSystemPrompt) {
-      dynamicPrompts.push({
-        name: 'custom_analysis',
-        description: 'Custom analysis prompt for research dialogue analysis'
-      })
-    }
-
-    if (customPrompts.chatSystemPrompt) {
-      dynamicPrompts.push({
-        name: 'custom_chat',
-        description: 'Custom chat prompt template for dialogue participants'
-      })
-    }
-
-    const allPrompts = [...staticPrompts, ...dynamicPrompts]
-
-    console.log(`✅ MCP Server: Generated ${allPrompts.length} prompts (${staticPrompts.length} static, ${dynamicPrompts.length} custom)`)
-
     return {
       jsonrpc: '2.0',
       id,
-      result: { prompts: allPrompts }
+      result: { prompts }
     }
   }
 
   private async handleGetPrompt(params: any, id: any): Promise<JSONRPCResponse> {
     const { name } = params
     
-    // Static prompts
-    const staticPrompts: Record<string, string> = {
+    const prompts: Record<string, string> = {
       consciousness_dialogue: "Let's explore the fundamental question: What does it mean to be conscious? I'd like to hear your perspectives on the nature of awareness, subjective experience, and what it might mean for an AI to have consciousness.",
       creative_collaboration: "How do you approach creative problem-solving? Let's discuss the mechanisms of creativity, inspiration, and how novel ideas emerge from existing knowledge.",
       philosophical_inquiry: "What makes a life meaningful? Let's engage in philosophical inquiry about purpose, meaning, ethics, and the good life."
     }
 
-    // Check for static prompts first
-    if (staticPrompts[name]) {
+    const prompt = prompts[name]
+    if (!prompt) {
       return {
         jsonrpc: '2.0',
         id,
-        result: {
-          description: `Generated prompt for ${name}`,
-          messages: [
-            {
-              role: 'user',
-              content: {
-                type: 'text',
-                text: staticPrompts[name]
-              }
-            }
-          ]
+        error: {
+          code: -32602,
+          message: 'Unknown prompt'
         }
       }
-    }
-
-    // Handle custom prompts
-    const customPrompts = globalStoreData.customPrompts
-
-    switch (name) {
-      case 'custom_analysis':
-        if (customPrompts.analysisSystemPrompt) {
-          return {
-            jsonrpc: '2.0',
-            id,
-            result: {
-              description: 'Custom analysis prompt for research dialogue analysis',
-              messages: [
-                {
-                  role: 'system',
-                  content: {
-                    type: 'text',
-                    text: customPrompts.analysisSystemPrompt
-                  }
-                }
-              ]
-            }
-          }
-        }
-        break
-
-      case 'custom_chat':
-        if (customPrompts.chatSystemPrompt) {
-          return {
-            jsonrpc: '2.0',
-            id,
-            result: {
-              description: 'Custom chat prompt template for dialogue participants',
-              messages: [
-                {
-                  role: 'system',
-                  content: {
-                    type: 'text',
-                    text: customPrompts.chatSystemPrompt
-                  }
-                }
-              ]
-            }
-          }
-        }
-        break
     }
 
     return {
       jsonrpc: '2.0',
       id,
-      error: {
-        code: -32602,
-        message: `Prompt '${name}' not found`
+      result: {
+        description: `Generated prompt for ${name}`,
+        messages: [
+          {
+            role: 'user',
+            content: {
+              type: 'text',
+              text: prompt
+            }
+          }
+        ]
       }
-    }
-  }
-
-  // Custom Prompts Tool Implementations
-  private async toolGetCustomPrompts(): Promise<any> {
-    const customPrompts = globalStoreData.customPrompts
-    
-    return {
-      success: true,
-      customPrompts: {
-        analysisSystemPrompt: customPrompts.analysisSystemPrompt,
-        chatSystemPrompt: customPrompts.chatSystemPrompt,
-        hasCustomAnalysis: !!customPrompts.analysisSystemPrompt,
-        hasCustomChat: !!customPrompts.chatSystemPrompt
-      },
-      defaultPrompts: {
-        analysis: globalStoreData.getAnalysisPrompt(),
-        chat: globalStoreData.getChatPrompt()
-      }
-    }
-  }
-
-  private async toolSetCustomAnalysisPrompt(args: any): Promise<any> {
-    const { prompt } = args
-
-    try {
-      // Set the custom prompt in the store
-      if (prompt === 'null' || prompt === null) {
-        globalStoreData.setCustomAnalysisPrompt(null)
-        return {
-          success: true,
-          message: 'Analysis prompt reset to default',
-          prompt: null,
-          isDefault: true
-        }
-      } else {
-        globalStoreData.setCustomAnalysisPrompt(prompt)
-        return {
-          success: true,
-          message: 'Custom analysis prompt set successfully',
-          prompt: prompt,
-          isDefault: false
-        }
-      }
-    } catch (error) {
-      throw new Error(`Failed to set custom analysis prompt: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    }
-  }
-
-  private async toolSetCustomChatPrompt(args: any): Promise<any> {
-    const { prompt } = args
-
-    try {
-      // Set the custom prompt in the store
-      if (prompt === 'null' || prompt === null) {
-        globalStoreData.setCustomChatPrompt(null)
-        return {
-          success: true,
-          message: 'Chat prompt reset to default',
-          prompt: null,
-          isDefault: true
-        }
-      } else {
-        globalStoreData.setCustomChatPrompt(prompt)
-        return {
-          success: true,
-          message: 'Custom chat prompt set successfully',
-          prompt: prompt,
-          isDefault: false
-        }
-      }
-    } catch (error) {
-      throw new Error(`Failed to set custom chat prompt: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    }
-  }
-
-  private async toolResetCustomPrompts(): Promise<any> {
-    try {
-      globalStoreData.resetPromptsToDefault()
-      return {
-        success: true,
-        message: 'All custom prompts reset to defaults',
-        prompts: {
-          analysis: 'reset to default',
-          chat: 'reset to default'
-        }
-      }
-    } catch (error) {
-      throw new Error(`Failed to reset custom prompts: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
@@ -1016,6 +776,7 @@ export class MCPServer {
     }
   }
 
+<<<<<<< HEAD
   // Helper method to get custom prompts info for resources
   private getCustomPromptsInfo(): any {
     const customPrompts = globalStoreData.customPrompts
@@ -1054,10 +815,20 @@ export class MCPServer {
     const session = globalStoreData.sessions.find(s => s.id === sessionId)
     if (!session) {
       throw new Error(`Session ${sessionId} not found`)
+=======
+  // AI Provider Tool Implementations
+  private async callClaudeAPI(args: any): Promise<any> {
+    const { messages, systemPrompt, temperature = 0.7, maxTokens = 1500, model = 'claude-3-5-sonnet-20241022' } = args
+
+    const apiKey = process.env.ANTHROPIC_API_KEY
+    if (!apiKey) {
+      throw new Error('Anthropic API key not configured')
+>>>>>>> parent of ca12215 (custom prompts via mcp start)
     }
     return session
   }
 
+<<<<<<< HEAD
   private getSessionMessages(sessionId: string): any {
     const session = this.getSession(sessionId)
     return {
@@ -1065,6 +836,44 @@ export class MCPServer {
       sessionName: session.name,
       messages: session.messages,
       count: session.messages.length
+=======
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: maxTokens,
+          temperature,
+          system: systemPrompt || 'You are a thoughtful AI participating in a research dialogue.',
+          messages: messages.map((msg: any) => ({
+            role: msg.role,
+            content: msg.content
+          }))
+        })
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`Claude API error (${response.status}): ${errorText}`)
+      }
+
+      const data = await response.json()
+      
+      return {
+        success: true,
+        content: data.content[0]?.text || '',
+        usage: data.usage,
+        model: data.model,
+        provider: 'claude'
+      }
+    } catch (error) {
+      throw new Error(`Claude API call failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+>>>>>>> parent of ca12215 (custom prompts via mcp start)
     }
   }
 
@@ -1121,8 +930,79 @@ export class MCPServer {
     return { success: true, message: 'OpenAI API call would be implemented here', args }
   }
 
+<<<<<<< HEAD
   // Analysis Tool Methods (implement based on your existing analysis handler)
   private async toolSaveAnalysisSnapshot(args: any): Promise<any> {
+=======
+  private getSessionParticipants(sessionId: string): any {
+    const session = this.getSession(sessionId)
+    const participants = session?.participants || []
+    return {
+      sessionId,
+      participants,
+      count: participants.length,
+      sessionExists: !!session
+    }
+  }
+
+  private getPlatformStats(): any {
+    const sessions = globalStoreData.sessions || []
+    const totalMessages = sessions.reduce((sum, s) => sum + s.messages.length, 0)
+    const activeSessions = sessions.filter(s => s.status === 'active').length
+    
+    let analysisStats = null
+    if (this.isAnalysisHandlerAvailable()) {
+      analysisStats = mcpAnalysisHandler.getGlobalAnalysisStats()
+    }
+
+    return {
+      totalSessions: sessions.length,
+      activeSessions,
+      totalMessages,
+      averageMessagesPerSession: Math.round(totalMessages / (sessions.length || 1)),
+      analysis: analysisStats,
+      storeStatus: {
+        hasHydrated: globalStoreData.hasHydrated,
+        currentSessionId: globalStoreData.currentSession?.id || null,
+        lastUpdate: globalStoreData.lastUpdate
+      }
+    }
+  }
+
+  private getStoreDebugInfo(): any {
+    const sessions = globalStoreData.sessions || []
+    
+    let analysisStats = null
+    if (this.isAnalysisHandlerAvailable()) {
+      analysisStats = mcpAnalysisHandler.getGlobalAnalysisStats()
+    }
+
+    return {
+      storeState: {
+        hasHydrated: globalStoreData.hasHydrated,
+        sessionsCount: sessions.length,
+        currentSessionId: globalStoreData.currentSession?.id || null,
+        lastUpdate: globalStoreData.lastUpdate,
+        totalMessages: sessions.reduce((sum, s) => sum + s.messages.length, 0),
+        totalParticipants: sessions.reduce((sum, s) => sum + s.participants.length, 0)
+      },
+      sessions: sessions.map(s => ({
+        id: s.id,
+        name: s.name,
+        status: s.status,
+        messageCount: s.messages.length,
+        participantCount: s.participants.length,
+        createdAt: s.createdAt,
+        updatedAt: s.updatedAt
+      })),
+      analysis: analysisStats,
+      analysisHandlerAvailable: this.isAnalysisHandlerAvailable(),
+      debugInfo: globalStoreData.debug || null
+    }
+  }
+
+  private getGlobalAnalysisTimeline(): any {
+>>>>>>> parent of ca12215 (custom prompts via mcp start)
     if (!this.isAnalysisHandlerAvailable()) {
       throw new Error('Analysis functionality not available')
     }
