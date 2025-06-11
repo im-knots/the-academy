@@ -261,20 +261,168 @@ All AI conversations were conducted using publicly available models with standar
 
 \appendix
 
+\section{Model Context Protocol Integration Details}
+\label{app:mcp}
+
+\theacademy{} implements a comprehensive Model Context Protocol (MCP) server that exposes all platform capabilities through standardized JSON-RPC 2.0 interfaces. The MCP integration enables seamless integration with external research tools and provides programmatic access to all conversation management, analysis, and export functionality.
+
+\subsection{MCP Server Architecture}
+
+The platform automatically exposes its MCP server at \texttt{/api/mcp} with WebSocket support at \texttt{/api/mcp/ws} for real-time updates. The implementation includes:
+
+\begin{itemize}
+    \item \textbf{Standards Compliance}: Full JSON-RPC 2.0 protocol with proper error handling and abort support
+    \item \textbf{Real-time Updates}: WebSocket integration for live conversation and analysis updates
+    \item \textbf{Resource Management}: Conversation data, messages, and analysis available via MCP URIs
+    \item \textbf{Tool Integration}: Direct AI provider access and conversation control tools
+    \item \textbf{Debug Capabilities}: Store debugging, resource inspection, and system monitoring
+\end{itemize}
+
+\subsection{MCP Tool Categories}
+
+The platform provides 25 MCP tools organized into functional categories:
+
+\subsubsection{Session Management (5 tools)}
+\begin{itemize}
+    \item \texttt{create\_session} - Create new conversation sessions
+    \item \texttt{delete\_session} - Remove sessions and associated data
+    \item \texttt{update\_session} - Modify session metadata and settings
+    \item \texttt{get\_session\_info} - Retrieve session details and status
+    \item \texttt{list\_sessions} - Enumerate all available sessions
+\end{itemize}
+
+\subsubsection{Participant Management (5 tools)}
+\begin{itemize}
+    \item \texttt{add\_participant} - Add AI agents to conversations
+    \item \texttt{remove\_participant} - Remove participants from sessions
+    \item \texttt{update\_participant} - Modify participant configuration
+    \item \texttt{update\_participant\_status} - Change participant state
+    \item \texttt{get\_participant\_config} - Retrieve participant settings
+\end{itemize}
+
+\subsubsection{Conversation Control (7 tools)}
+\begin{itemize}
+    \item \texttt{start\_conversation} - Begin autonomous dialogue
+    \item \texttt{pause\_conversation} - Pause active conversation
+    \item \texttt{resume\_conversation} - Resume paused conversation
+    \item \texttt{stop\_conversation} - End conversation
+    \item \texttt{inject\_moderator\_prompt} - Insert moderator messages
+    \item \texttt{get\_conversation\_status} - Check conversation state
+    \item \texttt{get\_conversation\_stats} - Retrieve conversation metrics
+\end{itemize}
+
+\subsubsection{Analysis Tools (8 tools)}
+\begin{itemize}
+    \item \texttt{analyze\_conversation} - Extract insights and patterns
+    \item \texttt{save\_analysis\_snapshot} - Store analysis data
+    \item \texttt{get\_analysis\_history} - Retrieve past analyses
+    \item \texttt{clear\_analysis\_history} - Remove analysis data
+    \item \texttt{trigger\_live\_analysis} - Run real-time analysis
+    \item \texttt{set\_analysis\_provider} - Choose analysis AI provider
+    \item \texttt{get\_analysis\_providers} - List available analyzers
+    \item \texttt{auto\_analyze\_conversation} - Enable automatic analysis
+\end{itemize}
+
+\subsubsection{Export and AI Provider Tools}
+Export tools (3 tools):
+\begin{itemize}
+    \item \texttt{export\_session} - Export conversation data
+    \item \texttt{export\_analysis\_timeline} - Export analysis history
+    \item \texttt{get\_export\_preview} - Preview export content
+\end{itemize}
+
+AI Provider tools (2 tools):
+\begin{itemize}
+    \item \texttt{claude\_chat} - Direct Claude API access
+    \item \texttt{openai\_chat} - Direct OpenAI API access
+\end{itemize}
+
+Debug tools (1 tool):
+\begin{itemize}
+    \item \texttt{debug\_store} - Debug store state and MCP integration
+\end{itemize}
+
+\subsection{Real-time Integration Examples}
+
+The MCP protocol enables sophisticated real-time integration patterns:
+
+\begin{verbatim}
+// Access conversation data via MCP
+const messages = await mcp.readResource('academy://session/123/messages')
+
+// Control conversations programmatically with abort support
+await mcp.callToolWithAbort('start_conversation', 
+    { sessionId, initialPrompt }, abortSignal)
+
+// Analyze dialogue patterns in real-time
+const analysis = await mcp.callTool('analyze_conversation', 
+    { sessionId, analysisType: 'full' })
+
+// Subscribe to analysis updates
+mcp.subscribe('analysis_snapshot_saved', (data) => {
+  console.log('New analysis saved:', data.totalSnapshots)
+})
+\end{verbatim}
+
+\subsection{Bulk Experiment Support}
+
+The comprehensive MCP tool suite enables scripted bulk experiment execution. Researchers can programmatically create sessions, configure participants, control conversations, analyze results, and export data through the MCP interface. This supports:
+
+\begin{itemize}
+    \item \textbf{Comparative Studies}: Run identical experiments across different model configurations
+    \item \textbf{Parameter Sweeps}: Systematically vary conversation parameters
+    \item \textbf{Intervention Experiments}: Test moderator prompt effects
+    \item \textbf{Large-scale Analysis}: Process multiple conversations without manual interaction
+\end{itemize}
+
+\subsection{Installation and Configuration}
+
+\subsubsection{Docker Deployment}
+\begin{verbatim}
+git clone https://github.com/yourname/the-academy.git
+cd the-academy/academy
+docker build -t the-academy .
+docker run -d \
+  --name academy-app \
+  -p 3000:3000 \
+  -e ANTHROPIC_API_KEY=your_claude_api_key_here \
+  -e OPENAI_API_KEY=your_openai_api_key_here \
+  -e NODE_ENV=production \
+  --restart unless-stopped \
+  the-academy
+\end{verbatim}
+
+\subsubsection{Node.js Installation}
+Prerequisites: Node.js 18+, API keys for Anthropic Claude and/or OpenAI GPT
+
+\begin{verbatim}
+git clone https://github.com/yourname/the-academy.git
+cd the-academy/academy
+pnpm install
+\end{verbatim}
+
+Configuration requires creating \texttt{.env.local}:
+\begin{verbatim}
+ANTHROPIC_API_KEY=your_claude_api_key_here
+OPENAI_API_KEY=your_openai_api_key_here
+\end{verbatim}
+
+Launch with \texttt{pnpm dev} and access at \texttt{http://localhost:3000}.
+
 \section{Platform Architecture Details}
 \label{app:architecture}
 
-The \mcp{} integration layer implements the following key interfaces:
+\theacademy{} is built on a modern technology stack optimized for research workflows:
 
 \begin{itemize}
-    \item \texttt{dialogue/initiate}: Start new conversation sessions with configurable parameters
-    \item \texttt{analysis/stream}: Real-time conversation analysis with customizable intervals
-    \item \texttt{intervention/trigger}: Human intervention mechanisms with effect tracking
-    \item \texttt{data/export}: Research data extraction in multiple formats
-    \item \texttt{session/batch}: Programmatic session creation for large-scale experiments
+    \item \textbf{Next.js 15}: Modern React framework with App Router and server-side capabilities
+    \item \textbf{TypeScript}: Type-safe development with comprehensive interfaces
+    \item \textbf{Tailwind CSS}: Responsive, accessible UI design with custom Academy theme
+    \item \textbf{Zustand}: Lightweight state management with persistence and real-time updates
+    \item \textbf{AI APIs}: Claude (Anthropic) and GPT (OpenAI) integration with abort support
+    \item \textbf{WebSocket Support}: Real-time communication for MCP protocol
+    \item \textbf{Event-Driven Architecture}: Real-time analysis updates and state synchronization
 \end{itemize}
-
-Complete API specifications, deployment guides, and integration examples are available in the supplementary repository.
 
 \section{Validation Session Analysis Details}
 \label{app:validation}
@@ -298,7 +446,5 @@ Detailed analysis of the extended 4-participant session reveals several notewort
 \end{itemize}
 
 \textbf{Analysis Snapshot Distribution:}
-Real-time analysis maintained consistent quality assessment across 29 snapshots, with no degradation indicators observed. This represents the first documented case of sustained analysis quality over 100+ turns in AI conversation research.
-
-
+Real-time analysis maintained consistent quality assessment across 29 snapshots, with no degradation indicators observed.
 \end{document}
