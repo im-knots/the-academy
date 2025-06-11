@@ -71,8 +71,8 @@ export class MCPClient {
 
       const jsonResponse: JSONRPCResponse = await response.json()
 
-      if ('error' in jsonResponse) {
-        throw new Error(`MCP Error: ${jsonResponse.error.message}`)
+      if ('error' in jsonResponse && jsonResponse.error) {
+        throw new Error(`MCP Error: ${jsonResponse.error.message || 'Unknown error'}`)
       }
 
       return jsonResponse.result

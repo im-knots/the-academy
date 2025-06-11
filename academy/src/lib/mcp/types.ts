@@ -1,4 +1,4 @@
-// src/lib/mcp/types.ts
+// src/lib/mcp/types.ts - Updated with missing JSON-RPC exports
 export interface MCPMessage {
   id: string
   type: 'request' | 'response' | 'notification'
@@ -12,7 +12,33 @@ export interface MCPMessage {
   }
 }
 
-interface ConversationContext {
+// JSON-RPC 2.0 interfaces (MISSING EXPORTS - ADD THESE)
+export interface JSONRPCRequest {
+  jsonrpc: '2.0'
+  id?: string | number | null
+  method: string
+  params?: any
+}
+
+export interface JSONRPCResponse {
+  jsonrpc: '2.0'
+  id: string | number | null
+  result?: any
+  error?: {
+    code: number
+    message: string
+    data?: any
+  }
+}
+
+export interface JSONRPCError {
+  code: number
+  message: string
+  data?: any
+}
+
+// Conversation context interface (previously not exported)
+export interface ConversationContext {
   sessionId: string
   participantId: string
   messageHistory: Array<{

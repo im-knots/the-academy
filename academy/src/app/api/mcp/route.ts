@@ -1,25 +1,7 @@
-// src/app/api/mcp/route.ts
+// src/app/api/mcp/route.ts - Updated to import types instead of defining locally
 import { NextRequest, NextResponse } from 'next/server'
 import { MCPServer } from '@/lib/mcp/server'
-
-// JSON-RPC 2.0 interface
-interface JSONRPCRequest {
-  jsonrpc: '2.0'
-  id?: string | number | null
-  method: string
-  params?: any
-}
-
-interface JSONRPCResponse {
-  jsonrpc: '2.0'
-  id: string | number | null
-  result?: any
-  error?: {
-    code: number
-    message: string
-    data?: any
-  }
-}
+import { JSONRPCRequest, JSONRPCResponse } from '@/lib/mcp/types'
 
 const mcpServer = new MCPServer()
 

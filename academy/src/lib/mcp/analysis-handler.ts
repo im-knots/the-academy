@@ -224,6 +224,61 @@ export class MCPAnalysisHandler {
     }
   }
 
+  // Initialize a session for analysis tracking
+  initializeSession(sessionId: string): void {
+    console.log(`🔧 MCP Analysis Handler: Initializing session ${sessionId} for analysis tracking`)
+    
+    // Ensure session has an entry in the analysis store
+    if (!analysisStore.has(sessionId)) {
+      analysisStore.set(sessionId, [])
+      console.log(`✅ MCP Analysis Handler: Session ${sessionId} initialized with empty analysis history`)
+    } else {
+      const existing = analysisStore.get(sessionId)!
+      console.log(`📊 MCP Analysis Handler: Session ${sessionId} already has ${existing.length} analysis snapshots`)
+    }
+
+    // Broadcast initialization event (only in browser context)
+    if (isBrowser) {
+      this.broadcast('session_initialized', {
+        sessionId,
+        existingSnapshots: analysisStore.get(sessionId)?.length || 0
+      })
+    }
+  }
+
+  // Handle new message and potentially trigger analysis
+  async handleNewMessage(sessionId: string, message: any): Promise<void> {
+    console.log(`📝 MCP Analysis Handler: New message received for session ${sessionId}`)
+    
+    if (!message) {
+      console.warn('⚠️ MCP Analysis Handler: Received null/undefined message')
+      return
+    }
+
+    // Ensure session is initialized
+    this.initializeSession(sessionId)
+
+    // Log message details
+    console.log(`📝 MCP Analysis Handler: Message from ${message.participantName} (${message.participantType}): ${message.content?.substring(0, 100)}...`)
+
+    // Broadcast new message event (only in browser context)
+    if (isBrowser) {
+      this.broadcast('message_received', {
+        sessionId,
+        messageId: message.id,
+        participantType: message.participantType,
+        participantName: message.participantName,
+        timestamp: message.timestamp || new Date()
+      })
+    }
+  }
+
+  // Add an alias method for backward compatibility
+  clearSessionAnalysis(sessionId: string): void {
+    console.log(`🔧 MCP Analysis Handler: clearSessionAnalysis called (redirecting to clearAnalysisHistory)`)
+    this.clearAnalysisHistory(sessionId)
+  }
+
   // Debug method
   debug(): void {
     console.log(`🔍 MCP Analysis Handler Debug (${isBrowser ? 'client' : 'server'}):`)
