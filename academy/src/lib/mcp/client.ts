@@ -439,9 +439,9 @@ export class MCPClient {
     }
   }
 
-  async listAvailableModels(): Promise<any[]> {
+  async listAvailableModels(): Promise<any> {
     const result = await this.callTool('list_available_models', {})
-    return result.models || []
+    return result.models || { claude: [], openai: [] }
   }
 
   async getParticipantConfig(sessionId: string, participantId: string): Promise<any> {
@@ -449,7 +449,7 @@ export class MCPClient {
       sessionId,
       participantId
     })
-    return result.config || {}
+    return result.config || result
   }
 
   // ========================================
@@ -581,6 +581,11 @@ export class MCPClient {
     } else {
       throw new Error('Failed to inject moderator prompt via MCP')
     }
+  }
+
+  // Alias method for backward compatibility
+  async injectPromptViaMCP(sessionId: string, prompt: string): Promise<any> {
+    return this.injectModeratorPromptViaMCP(sessionId, prompt)
   }
 
   // ========================================
