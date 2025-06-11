@@ -995,9 +995,9 @@ export class MCPServer {
       messageCount: session.messages.length,
       participantCount: session.participants.length,
       averageMessageLength: session.messages.length > 0 
-        ? Math.round(session.messages.reduce((sum, msg) => sum + msg.content.length, 0) / session.messages.length)
+        ? Math.round(session.messages.reduce((sum: number, msg: Message) => sum + msg.content.length, 0) / session.messages.length)
         : 0,
-      messagesByParticipant: session.messages.reduce((acc, msg) => {
+      messagesByParticipant: session.messages.reduce((acc: Record<string, number>, msg: Message) => {
         acc[msg.participantId] = (acc[msg.participantId] || 0) + 1
         return acc
       }, {} as Record<string, number>),
