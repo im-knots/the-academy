@@ -326,12 +326,9 @@ export class MCPServer {
         }
       } else if (uri === 'academy://store/debug') {
         content = this.getStoreDebugInfo()
-<<<<<<< HEAD
       } else if (uri === 'academy://prompts/custom') {
         // *** THIS IS THE MISSING PIECE! ***
         content = this.getCustomPromptsInfo()
-=======
->>>>>>> parent of ca12215 (custom prompts via mcp start)
       } else if (uri === 'academy://analysis/stats') {
         if (this.isAnalysisHandlerAvailable()) {
           content = mcpAnalysisHandler.getGlobalAnalysisStats()
@@ -776,7 +773,6 @@ export class MCPServer {
     }
   }
 
-<<<<<<< HEAD
   // Helper method to get custom prompts info for resources
   private getCustomPromptsInfo(): any {
     const customPrompts = globalStoreData.customPrompts
@@ -815,20 +811,10 @@ export class MCPServer {
     const session = globalStoreData.sessions.find(s => s.id === sessionId)
     if (!session) {
       throw new Error(`Session ${sessionId} not found`)
-=======
-  // AI Provider Tool Implementations
-  private async callClaudeAPI(args: any): Promise<any> {
-    const { messages, systemPrompt, temperature = 0.7, maxTokens = 1500, model = 'claude-3-5-sonnet-20241022' } = args
-
-    const apiKey = process.env.ANTHROPIC_API_KEY
-    if (!apiKey) {
-      throw new Error('Anthropic API key not configured')
->>>>>>> parent of ca12215 (custom prompts via mcp start)
     }
     return session
   }
 
-<<<<<<< HEAD
   private getSessionMessages(sessionId: string): any {
     const session = this.getSession(sessionId)
     return {
@@ -836,44 +822,6 @@ export class MCPServer {
       sessionName: session.name,
       messages: session.messages,
       count: session.messages.length
-=======
-    try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
-          model,
-          max_tokens: maxTokens,
-          temperature,
-          system: systemPrompt || 'You are a thoughtful AI participating in a research dialogue.',
-          messages: messages.map((msg: any) => ({
-            role: msg.role,
-            content: msg.content
-          }))
-        })
-      })
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`Claude API error (${response.status}): ${errorText}`)
-      }
-
-      const data = await response.json()
-      
-      return {
-        success: true,
-        content: data.content[0]?.text || '',
-        usage: data.usage,
-        model: data.model,
-        provider: 'claude'
-      }
-    } catch (error) {
-      throw new Error(`Claude API call failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
->>>>>>> parent of ca12215 (custom prompts via mcp start)
     }
   }
 
@@ -930,79 +878,8 @@ export class MCPServer {
     return { success: true, message: 'OpenAI API call would be implemented here', args }
   }
 
-<<<<<<< HEAD
   // Analysis Tool Methods (implement based on your existing analysis handler)
   private async toolSaveAnalysisSnapshot(args: any): Promise<any> {
-=======
-  private getSessionParticipants(sessionId: string): any {
-    const session = this.getSession(sessionId)
-    const participants = session?.participants || []
-    return {
-      sessionId,
-      participants,
-      count: participants.length,
-      sessionExists: !!session
-    }
-  }
-
-  private getPlatformStats(): any {
-    const sessions = globalStoreData.sessions || []
-    const totalMessages = sessions.reduce((sum, s) => sum + s.messages.length, 0)
-    const activeSessions = sessions.filter(s => s.status === 'active').length
-    
-    let analysisStats = null
-    if (this.isAnalysisHandlerAvailable()) {
-      analysisStats = mcpAnalysisHandler.getGlobalAnalysisStats()
-    }
-
-    return {
-      totalSessions: sessions.length,
-      activeSessions,
-      totalMessages,
-      averageMessagesPerSession: Math.round(totalMessages / (sessions.length || 1)),
-      analysis: analysisStats,
-      storeStatus: {
-        hasHydrated: globalStoreData.hasHydrated,
-        currentSessionId: globalStoreData.currentSession?.id || null,
-        lastUpdate: globalStoreData.lastUpdate
-      }
-    }
-  }
-
-  private getStoreDebugInfo(): any {
-    const sessions = globalStoreData.sessions || []
-    
-    let analysisStats = null
-    if (this.isAnalysisHandlerAvailable()) {
-      analysisStats = mcpAnalysisHandler.getGlobalAnalysisStats()
-    }
-
-    return {
-      storeState: {
-        hasHydrated: globalStoreData.hasHydrated,
-        sessionsCount: sessions.length,
-        currentSessionId: globalStoreData.currentSession?.id || null,
-        lastUpdate: globalStoreData.lastUpdate,
-        totalMessages: sessions.reduce((sum, s) => sum + s.messages.length, 0),
-        totalParticipants: sessions.reduce((sum, s) => sum + s.participants.length, 0)
-      },
-      sessions: sessions.map(s => ({
-        id: s.id,
-        name: s.name,
-        status: s.status,
-        messageCount: s.messages.length,
-        participantCount: s.participants.length,
-        createdAt: s.createdAt,
-        updatedAt: s.updatedAt
-      })),
-      analysis: analysisStats,
-      analysisHandlerAvailable: this.isAnalysisHandlerAvailable(),
-      debugInfo: globalStoreData.debug || null
-    }
-  }
-
-  private getGlobalAnalysisTimeline(): any {
->>>>>>> parent of ca12215 (custom prompts via mcp start)
     if (!this.isAnalysisHandlerAvailable()) {
       throw new Error('Analysis functionality not available')
     }
