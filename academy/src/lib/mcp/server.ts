@@ -2,6 +2,7 @@
 import { JSONRPCRequest, JSONRPCResponse, JSONRPCError } from './types'
 import { useChatStore } from '@/lib/stores/chatStore'
 import { mcpAnalysisHandler } from './analysis-handler'
+import { Participant } from '@/types/chat'
 
 // Store reference for server-side access
 let mcpStoreReference: any = null
