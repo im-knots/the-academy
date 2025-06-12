@@ -54,6 +54,13 @@ export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
       { value: 'grok-3-mini-latest', label: 'Grok 3 Mini' },
       { value: 'grok-3-mini-fast-latest', label: 'Grok 3 Mini Fast' },
       { value: 'grok-2-latest', label: 'Grok 2' }
+    ],
+    gemini: [
+      { value: 'gemini-2.5-flash-preview-05-20', label: 'Gemini 2.5 Flash Preview' },
+      { value: 'gemini-2.5-flash-preview-tts', label: 'Gemini 2.5 Flash Preview TTS' },
+      { value: 'gemini-2.5-pro-preview-06-05', label: 'Gemini 2.5 Pro Preview' },
+      { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
+      { value: 'gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash' }
     ]
   }
 
