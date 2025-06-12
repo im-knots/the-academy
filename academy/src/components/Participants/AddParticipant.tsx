@@ -81,7 +81,13 @@ export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
       type: 'grok' as const,
       name: 'Grok',
       description: 'xAI\'s large language AI model',
-      badge: 'gpt'
+      badge: 'grok'
+    },
+    {
+      type: 'gemini' as const,
+      name: 'Gemini',
+      description: 'Google\'s AI offerings',
+      badge: 'gemini'
     }
   ]
 
