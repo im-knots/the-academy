@@ -87,13 +87,13 @@ export class MCPClient {
   // Log errors to the error tracking system - only log final failures
   private logError(error: any, context: {
     operation: string;
+    provider?: 'claude' | 'gpt' | 'grok' | 'gemini'; // ← Add provider parameter
     attempt: number;
     maxAttempts: number;
     sessionId?: string;
     participantId?: string;
     isFinalFailure?: boolean;
   }): void {
-    // Only log final failures or single attempts to avoid spam
     if (!context.isFinalFailure && context.attempt < context.maxAttempts) {
       return;
     }
@@ -103,7 +103,7 @@ export class MCPClient {
       const apiError: APIError = {
         id: `mcp-client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         timestamp: new Date(),
-        provider: 'claude', // Default to claude since it's the most common
+        provider: context.provider || 'claude', // ← Use provided provider or default to claude
         operation: context.operation,
         attempt: context.attempt,
         maxAttempts: context.maxAttempts,
@@ -1051,7 +1051,7 @@ export class MCPClient {
       console.error('Failed to call Grok via MCP:', error)
       
       // Sync any errors that occurred during the call
-      this.syncErrorsWithStore(sessionId)
+      this.syncErrorsWithStore(sessionId, 'grok')
       
       throw error
     }
@@ -1059,7 +1059,6 @@ export class MCPClient {
 
   async callGeminiViaMCP(message: string, systemPrompt?: string, model?: string, sessionId?: string, participantId?: string): Promise<any> {
     try {
-      // Extract context for proper error tracking
       const context = {
         sessionId: sessionId || this.getCurrentSessionContext().sessionId,
         participantId
@@ -1072,7 +1071,7 @@ export class MCPClient {
         sessionId: context.sessionId,
         participantId: context.participantId
       })
-      
+
       if (result.success) {
         console.log(`✅ Gemini API called via MCP (with retry support)`)
         return result
@@ -1082,8 +1081,8 @@ export class MCPClient {
     } catch (error) {
       console.error('Failed to call Gemini via MCP:', error)
       
-      // Sync any errors that occurred during the call
-      this.syncErrorsWithStore(sessionId)
+      // FIX: Pass correct provider context to error sync
+      this.syncErrorsWithStore(sessionId, 'gemini') // ← Add provider parameter
       
       throw error
     }
@@ -1121,39 +1120,21 @@ export class MCPClient {
   }
 
   // Helper method to sync errors with store - enhanced with better error handling
-  private syncErrorsWithStore(sessionId?: string): void {
+  private async syncErrorsWithStore(sessionId?: string, provider?: string): Promise<void> {
     try {
-      // Get errors from MCP server
-      this.getAPIErrors(sessionId)
-        .then((result) => {
-          if (result.success && result.errors) {
-            const store = useChatStore.getState();
-            
-            // Add new errors to store
-            result.errors.forEach((error: any) => {
-              // Check if error already exists in store
-              const existingError = store.apiErrors.find(e => e.id === error.id);
-              if (!existingError) {
-                store.addAPIError({
-                  id: error.id,
-                  timestamp: new Date(error.timestamp),
-                  provider: error.provider,
-                  operation: error.operation,
-                  attempt: error.attempt,
-                  maxAttempts: error.maxAttempts,
-                  error: error.error,
-                  sessionId: error.sessionId,
-                  participantId: error.participantId
-                });
-              }
-            });
+      const errors = await this.getAPIErrors(sessionId)
+      if (errors?.length > 0) {
+        const store = useChatStore.getState()
+        errors.forEach((error: APIError) => {
+          // Override provider if specified
+          if (provider) {
+            error.provider = provider as any
           }
+          store.addAPIError(error)
         })
-        .catch((error) => {
-          console.warn('Failed to sync errors with store:', error);
-        });
+      }
     } catch (error) {
-      console.warn('Error during error sync:', error);
+      console.warn('Failed to sync errors with store:', error)
     }
   }
 
