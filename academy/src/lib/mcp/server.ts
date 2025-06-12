@@ -22,18 +22,35 @@ export class MCPServer {
     baseDelay: 1000, // 1 second
     maxDelay: 8000,  // 8 seconds max
     retryCondition: (error: any) => {
-      // Retry on network errors, timeouts, but not on auth/quota errors
+      // Enhanced retry logic to match the client - catches more network errors
       const errorStr = error?.message?.toLowerCase() || '';
-      return (
+      const isNetworkError = (
         errorStr.includes('network') ||
         errorStr.includes('timeout') ||
         errorStr.includes('econnreset') ||
         errorStr.includes('enotfound') ||
         errorStr.includes('socket') ||
+        errorStr.includes('fetch') ||
+        errorStr.includes('failed to fetch') ||
+        errorStr.includes('connection') ||
+        errorStr.includes('abort') ||
         error?.code === 'ECONNRESET' ||
         error?.code === 'ENOTFOUND' ||
-        error?.status >= 500 // Server errors
+        error?.code === 'ECONNREFUSED' ||
+        error?.name === 'NetworkError' ||
+        error?.name === 'TypeError' && errorStr.includes('fetch')
       );
+      
+      // Also retry on HTTP 5xx server errors
+      const isServerError = error?.status >= 500 && error?.status < 600;
+      
+      // Don't retry on 4xx errors (client errors like auth failures)
+      const isClientError = error?.status >= 400 && error?.status < 500;
+      
+      const shouldRetry = (isNetworkError || isServerError) && !isClientError;
+      
+      console.log(`🔍 MCP Server: Checking if error is retryable: "${errorStr}" (status: ${error?.status}) -> ${shouldRetry}`);
+      return shouldRetry;
     }
   };
   private initialized = false
@@ -1114,7 +1131,7 @@ export class MCPServer {
         }
 
         // Build request
-        const requestBody = {
+        const requestBody: any = {  // <- ADD ': any' type annotation
           model: model,
           max_tokens: Math.min(maxTokens, 4000),
           temperature: Math.max(0, Math.min(1, temperature)),
@@ -1122,7 +1139,7 @@ export class MCPServer {
         };
 
         if (systemPrompt) {
-          requestBody.system = systemPrompt;
+          requestBody.system = systemPrompt;  // <- NOW THIS WORKS
         }
 
         console.log('🤖 Calling Claude API:', { 

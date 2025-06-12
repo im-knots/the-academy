@@ -1,4 +1,4 @@
-// src/lib/mcp/client.ts - Fixed with Retry Logic and Error Tracking
+// src/lib/mcp/client.ts - Fixed with Proper Retry Logic and Error Tracking
 import { JSONRPCRequest, JSONRPCResponse, APIError, RetryConfig } from './types'
 import { useChatStore } from '@/lib/stores/chatStore'
 
@@ -24,17 +24,25 @@ export class MCPClient {
         errorStr.includes('socket') ||
         errorStr.includes('fetch') ||
         errorStr.includes('failed to fetch') ||
+        errorStr.includes('connection') ||
+        errorStr.includes('abort') ||
         error?.code === 'ECONNRESET' ||
         error?.code === 'ENOTFOUND' ||
+        error?.code === 'ECONNREFUSED' ||
         error?.name === 'NetworkError' ||
         error?.name === 'TypeError' && errorStr.includes('fetch')
       );
       
       // Also retry on HTTP 5xx server errors
-      const isServerError = error?.status >= 500;
+      const isServerError = error?.status >= 500 && error?.status < 600;
       
-      console.log(`🔍 MCP Client: Checking if error is retryable: ${errorStr} -> ${isNetworkError || isServerError}`);
-      return isNetworkError || isServerError;
+      // Don't retry on 4xx errors (client errors like auth failures)
+      const isClientError = error?.status >= 400 && error?.status < 500;
+      
+      const shouldRetry = (isNetworkError || isServerError) && !isClientError;
+      
+      console.log(`🔍 MCP Client: Checking if error is retryable: "${errorStr}" (status: ${error?.status}) -> ${shouldRetry}`);
+      return shouldRetry;
     }
   };
 
@@ -54,14 +62,36 @@ export class MCPClient {
     return this.requestId++
   }
 
-  // Log errors to the error tracking system
+  // Enhanced method to get current session context
+  private getCurrentSessionContext(): { sessionId?: string; participantId?: string } {
+    try {
+      const store = useChatStore.getState();
+      const currentSession = store.currentSession;
+      
+      return {
+        sessionId: currentSession?.id,
+        participantId: undefined // Will be set by specific operations if needed
+      };
+    } catch (error) {
+      console.warn('⚠️ MCP Client: Failed to get session context:', error);
+      return {};
+    }
+  }
+
+  // Log errors to the error tracking system - only log final failures
   private logError(error: any, context: {
     operation: string;
     attempt: number;
     maxAttempts: number;
     sessionId?: string;
     participantId?: string;
+    isFinalFailure?: boolean;
   }): void {
+    // Only log final failures or single attempts to avoid spam
+    if (!context.isFinalFailure && context.attempt < context.maxAttempts) {
+      return;
+    }
+
     try {
       const store = useChatStore.getState();
       const apiError: APIError = {
@@ -83,7 +113,7 @@ export class MCPClient {
     }
   }
 
-  // Retry logic with exponential backoff
+  // Retry logic with exponential backoff - enhanced with better context handling
   private async retryWithBackoff<T>(
     operation: () => Promise<T>,
     context: {
@@ -94,43 +124,53 @@ export class MCPClient {
     config: Partial<RetryConfig> = {}
   ): Promise<T> {
     const finalConfig = { ...this.defaultRetryConfig, ...config };
+    const sessionContext = this.getCurrentSessionContext();
+    const fullContext = {
+      ...sessionContext,
+      ...context
+    };
+    
     let lastError: any;
 
     for (let attempt = 1; attempt <= finalConfig.maxRetries + 1; attempt++) {
       try {
         if (attempt > 1) {
-          console.log(`🔄 MCP Client: Retry attempt ${attempt}/${finalConfig.maxRetries + 1} for ${context.operationName}`);
+          console.log(`🔄 MCP Client: Retry attempt ${attempt}/${finalConfig.maxRetries + 1} for ${fullContext.operationName}`);
         }
         return await operation();
       } catch (error) {
         lastError = error;
-        console.error(`❌ MCP Client: Attempt ${attempt} failed for ${context.operationName}:`, error);
+        console.error(`❌ MCP Client: Attempt ${attempt} failed for ${fullContext.operationName}:`, error);
 
-        // Log error for export
+        const isLastAttempt = attempt >= finalConfig.maxRetries + 1;
+        const isRetryable = finalConfig.retryCondition?.(error);
+
+        // Log error for export (only final failures)
         this.logError(error, {
-          operation: context.operationName,
+          operation: fullContext.operationName,
           attempt,
           maxAttempts: finalConfig.maxRetries + 1,
-          sessionId: context.sessionId,
-          participantId: context.participantId
+          sessionId: fullContext.sessionId,
+          participantId: fullContext.participantId,
+          isFinalFailure: isLastAttempt || !isRetryable
         });
 
         // Check if we should retry
-        if (attempt <= finalConfig.maxRetries && finalConfig.retryCondition?.(error)) {
+        if (!isLastAttempt && isRetryable) {
           const delay = Math.min(
             finalConfig.baseDelay * Math.pow(2, attempt - 1),
             finalConfig.maxDelay
           );
-          console.log(`⏳ MCP Client: Retrying ${context.operationName} in ${delay}ms...`);
+          console.log(`⏳ MCP Client: Retrying ${fullContext.operationName} in ${delay}ms...`);
           await new Promise(resolve => setTimeout(resolve, delay));
           continue;
         }
 
         // No more retries or not retryable
-        if (attempt > finalConfig.maxRetries) {
-          console.error(`💥 MCP Client: ${context.operationName} failed after ${finalConfig.maxRetries + 1} attempts`);
+        if (isLastAttempt) {
+          console.error(`💥 MCP Client: ${fullContext.operationName} failed after ${finalConfig.maxRetries + 1} attempts`);
         } else {
-          console.error(`💥 MCP Client: ${context.operationName} error not retryable:`, error);
+          console.error(`💥 MCP Client: ${fullContext.operationName} error not retryable:`, error);
         }
         break;
       }
@@ -196,12 +236,34 @@ export class MCPClient {
     return jsonResponse.result
   }
 
-  // Public sendRequest with retry logic
   async sendRequest(method: string, params?: any, abortSignal?: AbortSignal): Promise<any> {
+    // Only skip retry if signal is ALREADY aborted
+    if (abortSignal?.aborted) {
+      throw new Error('Request was aborted')
+    }
+
+    // ALWAYS use retry logic - let retryCondition decide what's retryable
+    return this.retryWithBackoff(
+      () => this.sendRequestInternal(method, params, abortSignal),
+      { 
+        operationName: method,
+        sessionId: this.getCurrentSessionContext().sessionId
+      }
+    )
+  }
+
+  // Enhanced sendRequest that accepts additional context
+  async sendRequestWithContext(method: string, params?: any, abortSignal?: AbortSignal, additionalContext?: { sessionId?: string; participantId?: string }): Promise<any> {
     // Handle abort signals - don't retry if aborted
     if (abortSignal?.aborted) {
       throw new Error('Request was aborted')
     }
+
+    const sessionContext = this.getCurrentSessionContext();
+    const fullContext = {
+      ...sessionContext,
+      ...additionalContext
+    };
 
     // For abort signals, don't use retry logic
     if (abortSignal) {
@@ -213,11 +275,14 @@ export class MCPClient {
           throw error
         }
         
-        // Log the error even for aborted requests
+        // Log the error for aborted requests (final failure)
         this.logError(error, {
           operation: method,
           attempt: 1,
-          maxAttempts: 1
+          maxAttempts: 1,
+          sessionId: fullContext.sessionId,
+          participantId: fullContext.participantId,
+          isFinalFailure: true
         });
         
         console.error(`❌ MCP request ${method} failed:`, error)
@@ -225,10 +290,14 @@ export class MCPClient {
       }
     }
 
-    // Use retry logic for non-aborted requests
+    // Use retry logic for non-aborted requests with full context
     return this.retryWithBackoff(
       () => this.sendRequestInternal(method, params),
-      { operationName: method }
+      { 
+        operationName: method,
+        sessionId: fullContext.sessionId,
+        participantId: fullContext.participantId
+      }
     )
   }
 
@@ -283,11 +352,18 @@ export class MCPClient {
     
     console.log(`🔧 Calling MCP tool: ${name}`)
     
+    // Extract context from args if available
+    const toolContext = {
+      sessionId: args?.sessionId,
+      participantId: args?.participantId
+    };
+    
     try {
-      const result = await this.sendRequest('call_tool', {
+      // Use enhanced sendRequest that includes context
+      const result = await this.sendRequestWithContext('call_tool', {
         name,
         arguments: args
-      }, abortSignal)
+      }, abortSignal, toolContext)
       
       // Parse the result content if it's a string
       let parsedResult = result
@@ -311,7 +387,7 @@ export class MCPClient {
       console.error(`❌ MCP tool ${name} failed:`, error)
       
       // Sync any errors that occurred during the call
-      this.syncErrorsWithStore(args.sessionId)
+      this.syncErrorsWithStore(toolContext.sessionId)
       
       throw error
     }
@@ -907,11 +983,17 @@ export class MCPClient {
 
   async callClaudeViaMCP(message: string, systemPrompt?: string, sessionId?: string, participantId?: string): Promise<any> {
     try {
+      // Extract context for proper error tracking
+      const context = {
+        sessionId: sessionId || this.getCurrentSessionContext().sessionId,
+        participantId
+      };
+
       const result = await this.callTool('claude_chat', {
         message,
         systemPrompt,
-        sessionId,
-        participantId
+        sessionId: context.sessionId,
+        participantId: context.participantId
       })
       
       if (result.success) {
@@ -932,12 +1014,18 @@ export class MCPClient {
 
   async callOpenAIViaMCP(message: string, systemPrompt?: string, model?: string, sessionId?: string, participantId?: string): Promise<any> {
     try {
+      // Extract context for proper error tracking
+      const context = {
+        sessionId: sessionId || this.getCurrentSessionContext().sessionId,
+        participantId
+      };
+
       const result = await this.callTool('openai_chat', {
         message,
         systemPrompt,
         model,
-        sessionId,
-        participantId
+        sessionId: context.sessionId,
+        participantId: context.participantId
       })
       
       if (result.success) {
@@ -987,7 +1075,7 @@ export class MCPClient {
     }
   }
 
-  // Helper method to sync errors with store
+  // Helper method to sync errors with store - enhanced with better error handling
   private syncErrorsWithStore(sessionId?: string): void {
     try {
       // Get errors from MCP server
@@ -1021,6 +1109,37 @@ export class MCPClient {
         });
     } catch (error) {
       console.warn('Error during error sync:', error);
+    }
+  }
+
+  // Enhanced connection status with diagnostics
+  getConnectionStatus(): { connected: boolean; lastError?: string; errorCount: number } {
+    try {
+      const store = useChatStore.getState();
+      const errors = store.apiErrors.filter(error => error.operation.startsWith('mcp') || error.provider === 'claude');
+      
+      return {
+        connected: this.initialized,
+        errorCount: errors.length,
+        lastError: errors.length > 0 ? errors[errors.length - 1].error : undefined
+      };
+    } catch (error) {
+      return {
+        connected: false,
+        errorCount: 0,
+        lastError: 'Failed to get connection status'
+      };
+    }
+  }
+
+  // Enhanced shutdown with cleanup
+  async shutdown(): Promise<void> {
+    try {
+      console.log('🔄 MCP Client: Shutting down...')
+      this.initialized = false
+      console.log('✅ MCP Client shutdown complete')
+    } catch (error) {
+      console.error('❌ MCP Client shutdown failed:', error)
     }
   }
 }
