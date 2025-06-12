@@ -342,9 +342,8 @@ export class MCPConversationManager {
       
       console.log(`🔄 Generating response for ${participant.name} via MCP with ${context.messageHistory.length} messages`)
       
-      // Determine which MCP tool to use based on participant type
-      const toolName = participant.type === 'claude' ? 'claude_chat' : 'openai_chat'
-      
+      const toolName = participant.type === 'claude' ? 'claude_chat' : participant.type === 'gemini' ? 'gemini_chat' : participant.type === 'grok' ? 'grok_chat' : 'openai_chat';
+
       // Prepare messages for the AI API
       const messages = context.messageHistory.map(msg => ({
         role: msg.role,
@@ -356,14 +355,15 @@ export class MCPConversationManager {
 
       // Prepare tool arguments
       const toolArgs = {
-        messages: participant.type === 'gpt' && systemPrompt 
-          ? [{ role: 'system', content: systemPrompt }, ...messages]
-          : messages,
+        messages:
+          (['gpt', 'grok', 'gemini'].includes(participant.type) && systemPrompt)
+            ? [{ role: 'system', content: systemPrompt }, ...messages]
+            : messages,
         temperature: context.settings.temperature,
         maxTokens: context.settings.maxTokens,
         model: context.settings.model,
         ...(participant.type === 'claude' && systemPrompt && { systemPrompt })
-      }
+      };
 
       console.log(`🌐 Calling MCP tool ${toolName} for ${participant.name}`)
 

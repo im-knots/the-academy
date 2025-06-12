@@ -326,9 +326,6 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
                         <span className="font-medium text-gray-900 dark:text-gray-100">
                           {analysisCount}
                         </span>
-                        <span className="text-xs text-green-600" title="Real-time via MCP">
-                          ⚡
-                        </span>
                       </div>
                     </div>
                     <div className="flex items-center justify-between">
