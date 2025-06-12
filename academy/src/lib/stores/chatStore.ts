@@ -1,7 +1,7 @@
 // src/lib/stores/chatStore.ts - Analysis Snapshot Fix
 import { create } from 'zustand'
 import { devtools, persist } from 'zustand/middleware'
-import { Message, ChatSession, Participant, ModeratorAction, AnalysisSnapshot } from '@/types/chat'
+import { Message, ChatSession, Participant, ModeratorAction, AnalysisSnapshot, APIError } from '@/types/chat'
 
 interface SessionTemplate {
   id: string
@@ -15,6 +15,10 @@ interface ChatState {
   // Session state
   currentSession: ChatSession | null
   sessions: ChatSession[]
+  
+  // Error tracking
+  apiErrors: APIError[]
+
   
   // Hydration state
   hasHydrated: boolean
@@ -83,8 +87,17 @@ interface ChatState {
 
   // Internal helper
   ensureCurrentSession: () => void
-}
 
+  addAPIError: (error: APIError) => void;
+  clearAPIErrors: () => void;
+  getSessionErrors: (sessionId: string) => APIError[];
+  getErrorStats: () => {
+    total: number;
+    byProvider: Record<string, number>;
+    bySession: Record<string, number>;
+    recent: APIError[];
+  };
+}
 // Default participants for templates
 const getDefaultParticipants = () => [
   {
@@ -133,6 +146,7 @@ export const useChatStore = create<ChatState>()(
         showParticipantPanel: true,
         showModeratorPanel: true,
         selectedMessageId: null,
+        apiErrors: [],
 
         // Helper function to ensure we always have a current session
         ensureCurrentSession: () => {
@@ -144,6 +158,47 @@ export const useChatStore = create<ChatState>()(
             )[0]
             set({ currentSession: mostRecentSession })
           }
+        },
+
+        // Error management methods
+        addAPIError: (error: APIError) => {
+          set((state) => ({
+            apiErrors: [...state.apiErrors, error]
+          }));
+          console.log(`🚨 API Error logged: ${error.provider} ${error.operation} (attempt ${error.attempt}/${error.maxAttempts})`);
+        },
+
+        clearAPIErrors: () => {
+          set({ apiErrors: [] });
+          console.log('🧹 API errors cleared');
+        },
+
+        getSessionErrors: (sessionId: string) => {
+          return get().apiErrors.filter(error => error.sessionId === sessionId);
+        },
+
+        getErrorStats: () => {
+          const errors = get().apiErrors;
+          const byProvider: Record<string, number> = {};
+          const bySession: Record<string, number> = {};
+          
+          errors.forEach(error => {
+            byProvider[error.provider] = (byProvider[error.provider] || 0) + 1;
+            if (error.sessionId) {
+              bySession[error.sessionId] = (bySession[error.sessionId] || 0) + 1;
+            }
+          });
+
+          // Get recent errors (last 24 hours)
+          const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+          const recent = errors.filter(error => error.timestamp > oneDayAgo);
+
+          return {
+            total: errors.length,
+            byProvider,
+            bySession,
+            recent
+          };
         },
 
         // Session actions
@@ -592,11 +647,12 @@ export const useChatStore = create<ChatState>()(
         exportSession: (sessionId: string) => {
           const session = get().getSessionById(sessionId)
           if (!session) return null
-          
+          const sessionErrors = get().getSessionErrors(sessionId);
           return {
             ...session,
+            errors: sessionErrors, 
             exportedAt: new Date(),
-            exportVersion: '1.0'
+            exportVersion: '1.1'
           }
         },
 
@@ -623,6 +679,16 @@ export const useChatStore = create<ChatState>()(
               metadata: message.metadata
             })
           })
+          
+          // Import errors if they exist
+          if (sessionData.errors && Array.isArray(sessionData.errors)) {
+            sessionData.errors.forEach((error: APIError) => {
+              get().addAPIError({
+                ...error,
+                sessionId: sessionId // Update to new session ID
+              });
+            });
+          }
 
           // Add analysis history if it exists
           if (sessionData.analysisHistory) {
@@ -646,7 +712,8 @@ export const useChatStore = create<ChatState>()(
         // Only persist sessions, not UI state
         partialize: (state) => ({ 
           sessions: state.sessions,
-          currentSession: state.currentSession
+          currentSession: state.currentSession,
+          apiErrors: state.apiErrors.slice(-50)
         }),
         // Rehydrate dates correctly and ensure current session
         onRehydrateStorage: () => (state) => {
@@ -672,6 +739,14 @@ export const useChatStore = create<ChatState>()(
                 timestamp: new Date(analysis.timestamp)
               }))
             }))
+
+            if (state.apiErrors) {
+              state.apiErrors = state.apiErrors.map(error => ({
+                ...error,
+                timestamp: new Date(error.timestamp)
+              }))
+              console.log(`🚨 Rehydrated ${state.apiErrors.length} API errors`)
+            }
             
             if (state.currentSession) {
               state.currentSession = {

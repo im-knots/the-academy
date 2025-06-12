@@ -62,3 +62,30 @@ export interface AIProvider {
   isAvailable(): boolean
 }
 
+export interface APIError {
+  id: string;
+  timestamp: Date;
+  provider: 'claude' | 'openai';
+  operation: string;
+  attempt: number;
+  maxAttempts: number;
+  error: string;
+  sessionId?: string;
+  participantId?: string;
+}
+
+export interface RetryConfig {
+  maxRetries: number;
+  baseDelay: number;
+  maxDelay: number;
+  retryCondition?: (error: any) => boolean;
+}
+
+export interface ExportOptions {
+  format: 'json' | 'csv' | 'markdown';
+  includeMetadata: boolean;
+  includeParticipantInfo: boolean;
+  includeSystemPrompts: boolean;
+  includeAnalysisHistory: boolean;
+  includeErrors: boolean;
+}

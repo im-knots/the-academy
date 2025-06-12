@@ -2,7 +2,7 @@
 import { JSONRPCRequest, JSONRPCResponse, JSONRPCError } from './types'
 import { useChatStore } from '@/lib/stores/chatStore'
 import { mcpAnalysisHandler } from './analysis-handler'
-import { Participant } from '@/types/chat'
+import { Participant, APIError, RetryConfig } from '@/types/chat'
 
 // Store reference for server-side access
 let mcpStoreReference: any = null
@@ -16,6 +16,26 @@ export function getMCPStoreReference(): any {
 }
 
 export class MCPServer {
+  private errors: APIError[] = [];
+  private defaultRetryConfig: RetryConfig = {
+    maxRetries: 3,
+    baseDelay: 1000, // 1 second
+    maxDelay: 8000,  // 8 seconds max
+    retryCondition: (error: any) => {
+      // Retry on network errors, timeouts, but not on auth/quota errors
+      const errorStr = error?.message?.toLowerCase() || '';
+      return (
+        errorStr.includes('network') ||
+        errorStr.includes('timeout') ||
+        errorStr.includes('econnreset') ||
+        errorStr.includes('enotfound') ||
+        errorStr.includes('socket') ||
+        error?.code === 'ECONNRESET' ||
+        error?.code === 'ENOTFOUND' ||
+        error?.status >= 500 // Server errors
+      );
+    }
+  };
   private initialized = false
   private store: any = null
 
@@ -26,7 +46,7 @@ export class MCPServer {
     this.updateStoreReference()
     
     this.initialized = true
-    console.log('✅ MCP Server initialized with complete Phase 1-6 tools and direct API calls')
+    console.log('✅ MCP Server initialized with tools')
   }
 
   private updateStoreReference(): void {
@@ -46,6 +66,65 @@ export class MCPServer {
         message: 'Server not initialized'
       }
     }
+  }
+
+  private async retryWithBackoff<T>(
+    operation: () => Promise<T>,
+    config: Partial<RetryConfig> = {},
+    context: {
+      provider: 'claude' | 'openai';
+      operationName: string;
+      sessionId?: string;
+      participantId?: string;
+    }
+  ): Promise<T> {
+    const finalConfig = { ...this.defaultRetryConfig, ...config };
+    let lastError: any;
+
+    for (let attempt = 1; attempt <= finalConfig.maxRetries + 1; attempt++) {
+      try {
+        console.log(`🔄 ${context.provider.toUpperCase()} API attempt ${attempt}/${finalConfig.maxRetries + 1} for ${context.operationName}`);
+        return await operation();
+      } catch (error) {
+        lastError = error;
+        console.error(`❌ ${context.provider.toUpperCase()} API attempt ${attempt} failed:`, error);
+
+        // Log error for export
+        const apiError: APIError = {
+          id: `${context.provider}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          timestamp: new Date(),
+          provider: context.provider,
+          operation: context.operationName,
+          attempt,
+          maxAttempts: finalConfig.maxRetries + 1,
+          error: error instanceof Error ? error.message : String(error),
+          sessionId: context.sessionId,
+          participantId: context.participantId
+        };
+        this.errors.push(apiError);
+
+        // Check if we should retry
+        if (attempt <= finalConfig.maxRetries && finalConfig.retryCondition?.(error)) {
+          const delay = Math.min(
+            finalConfig.baseDelay * Math.pow(2, attempt - 1),
+            finalConfig.maxDelay
+          );
+          console.log(`⏳ Retrying ${context.provider.toUpperCase()} API in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+
+        // No more retries or not retryable
+        if (attempt > finalConfig.maxRetries) {
+          console.error(`💥 ${context.provider.toUpperCase()} API failed after ${finalConfig.maxRetries + 1} attempts`);
+        } else {
+          console.error(`💥 ${context.provider.toUpperCase()} API error not retryable:`, error);
+        }
+        break;
+      }
+    }
+
+    throw lastError;
   }
 
   async handleRequest(request: JSONRPCRequest): Promise<JSONRPCResponse> {
@@ -289,6 +368,28 @@ export class MCPServer {
           type: 'object',
           properties: {},
           additionalProperties: false
+        }
+      },
+      {
+        name: 'get_api_errors',
+        description: 'Get API errors from the server',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            sessionId: { type: 'string', description: 'Optional session ID to filter errors' }
+          },
+          required: []
+        }
+      },
+      {
+        name: 'clear_api_errors', 
+        description: 'Clear API errors from the server',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            sessionId: { type: 'string', description: 'Optional session ID to clear specific session errors' }
+          },
+          required: []
         }
       },
 
@@ -779,7 +880,12 @@ export class MCPServer {
         case 'debug_store':
           result = await this.toolDebugStore()
           break
-          
+        case 'get_api_errors':
+          result = await this.toolGetAPIErrors(args)
+          break
+        case 'clear_api_errors':
+          result = await this.toolClearAPIErrors(args)
+          break
         // PHASE 1: Session Management Tools (Complete)
         case 'create_session':
           result = await this.toolCreateSession(args)
@@ -948,138 +1054,130 @@ export class MCPServer {
       temperature = 0.7,
       maxTokens = 2000,
       model = 'claude-3-5-sonnet-20241022'
-    } = args
+    } = args;
     
-    console.log('🔧 Using direct Claude API call')
+    console.log('🔧 Using direct Claude API call with retry logic');
     
-    // Process messages
-    let processedMessages: any[]
-    
-    if (messages && Array.isArray(messages)) {
-      processedMessages = messages
-    } else if (message && typeof message === 'string') {
-      processedMessages = [{ role: 'user', content: message }]
-    } else {
-      throw new Error('No valid message or messages provided to Claude API')
-    }
-    
-    if (!processedMessages || processedMessages.length === 0) {
-      throw new Error('Empty messages provided to Claude API')
-    }
-    
-    const apiKey = process.env.ANTHROPIC_API_KEY
-    if (!apiKey) {
-      throw new Error('Anthropic API key not configured')
-    }
-    
-    try {
-      // Filter out empty messages and ensure proper format
-      const validMessages = processedMessages.filter(msg => 
-        msg && msg.content && typeof msg.content === 'string' && msg.content.trim()
-      )
+    return this.retryWithBackoff(
+      async () => {
+        // Process messages
+        let processedMessages: any[];
+        
+        if (messages && Array.isArray(messages)) {
+          processedMessages = messages;
+        } else if (message && typeof message === 'string') {
+          processedMessages = [{ role: 'user', content: message }];
+        } else {
+          throw new Error('No valid message or messages provided to Claude API');
+        }
+        
+        if (!processedMessages || processedMessages.length === 0) {
+          throw new Error('Empty messages provided to Claude API');
+        }
+        
+        const apiKey = process.env.ANTHROPIC_API_KEY;
+        if (!apiKey) {
+          throw new Error('Anthropic API key not configured');
+        }
+        
+        // Filter out empty messages and ensure proper format
+        const validMessages = processedMessages.filter(msg => 
+          msg && msg.content && typeof msg.content === 'string' && msg.content.trim()
+        );
 
-      if (validMessages.length === 0) {
-        throw new Error('No valid messages provided')
-      }
-
-      // Transform messages to Claude format
-      const claudeMessages = validMessages.map((msg: any) => {
-        let role = msg.role
-        let content = msg.content
-
-        if (role === 'system') {
-          role = 'user'
-          content = `[System Context] ${content}`
+        if (validMessages.length === 0) {
+          throw new Error('No valid messages provided');
         }
 
-        return {
-          role: role === 'user' ? 'user' : 'assistant',
-          content: content.trim()
-        }
-      })
+        // Transform messages to Claude format
+        const claudeMessages = validMessages.map((msg: any) => {
+          let role = msg.role;
+          let content = msg.content;
 
-      // Ensure conversation starts with user message
-      if (claudeMessages.length > 0 && claudeMessages[0].role !== 'user') {
-        claudeMessages.unshift({
-          role: 'user',
-          content: 'Please respond to the following conversation:'
-        })
-      }
-
-      // Ensure alternating pattern
-      const alternatingMessages = []
-      let expectedRole = 'user'
-
-      for (const msg of claudeMessages) {
-        if (msg.role === expectedRole) {
-          alternatingMessages.push(msg)
-          expectedRole = expectedRole === 'user' ? 'assistant' : 'user'
-        } else if (alternatingMessages.length > 0) {
-          const lastMsg = alternatingMessages[alternatingMessages.length - 1]
-          if (lastMsg.role === msg.role) {
-            lastMsg.content += '\n\n' + msg.content
-          } else {
-            alternatingMessages.push(msg)
-            expectedRole = expectedRole === 'user' ? 'assistant' : 'user'
+          if (role === 'system') {
+            role = 'user';
+            content = `[System Context] ${content}`;
           }
+
+          return {
+            role: role === 'user' ? 'user' : 'assistant',
+            content: content.trim()
+          };
+        });
+
+        // Ensure conversation starts with user message
+        if (claudeMessages.length > 0 && claudeMessages[0].role !== 'user') {
+          claudeMessages.unshift({
+            role: 'user',
+            content: 'Please respond to the following conversation:'
+          });
         }
-      }
 
-      const requestBody = {
-        model: model,
-        max_tokens: Math.min(maxTokens, 4000),
-        temperature: Math.max(0, Math.min(1, temperature)),
-        system: systemPrompt || 'You are a thoughtful AI participating in a research dialogue.',
-        messages: alternatingMessages
-      }
+        // Build request
+        const requestBody = {
+          model: model,
+          max_tokens: Math.min(maxTokens, 4000),
+          temperature: Math.max(0, Math.min(1, temperature)),
+          messages: claudeMessages
+        };
 
-      console.log('🤖 Calling Claude directly:', { 
-        model, 
-        messageCount: alternatingMessages.length,
-        temperature,
-        maxTokens: requestBody.max_tokens,
-        hasSystemPrompt: !!systemPrompt
-      })
+        if (systemPrompt) {
+          requestBody.system = systemPrompt;
+        }
 
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify(requestBody)
-      })
+        console.log('🤖 Calling Claude API:', { 
+          model, 
+          messageCount: claudeMessages.length,
+          temperature,
+          maxTokens: requestBody.max_tokens
+        });
 
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`Claude API error: ${response.status} - ${errorText}`)
-      }
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01'
+          },
+          body: JSON.stringify(requestBody)
+        });
 
-      const data = await response.json()
-      
-      if (!data.content || !Array.isArray(data.content) || data.content.length === 0) {
-        throw new Error('Invalid response format from Claude')
-      }
+        if (!response.ok) {
+          const errorText = await response.text();
+          const error = new Error(`Claude API error: ${response.status} - ${errorText}`);
+          (error as any).status = response.status;
+          throw error;
+        }
 
-      const content = data.content[0]?.text
-      if (!content) {
-        throw new Error('No text content in Claude response')
-      }
-      
-      return {
-        success: true,
+        const data = await response.json();
+        
+        if (!data.content || !Array.isArray(data.content) || data.content.length === 0) {
+          throw new Error('Invalid response format from Claude');
+        }
+
+        const content = data.content[0]?.text;
+        if (!content) {
+          throw new Error('No content in Claude response');
+        }
+        
+        return {
+          success: true,
+          provider: 'claude',
+          model: data.model,
+          content: content,
+          response: content,
+          usage: data.usage,
+          message: 'Claude API call completed successfully'
+        };
+      },
+      {}, // Use default retry config
+      {
         provider: 'claude',
-        content: content,
-        response: content,
-        usage: data.usage,
-        model: data.model,
-        message: 'Claude API call completed successfully'
+        operationName: 'claude_chat',
+        sessionId,
+        participantId
       }
-    } catch (error) {
-      console.error('Claude direct API call failed:', error)
-      throw new Error(`Claude API call failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    }
+    );
   }
 
   private async callOpenAIAPIDirect(args: any): Promise<any> {
@@ -1092,97 +1190,105 @@ export class MCPServer {
       participantId,
       temperature = 0.7,
       maxTokens = 2000
-    } = args
+    } = args;
     
-    console.log('🔧 Using direct OpenAI API call')
+    console.log('🔧 Using direct OpenAI API call with retry logic');
     
-    // Handle both parameter formats
-    let processedMessages: any[]
-    
-    if (messages && Array.isArray(messages)) {
-      processedMessages = messages
-    } else if (message && typeof message === 'string') {
-      processedMessages = [{ role: 'user', content: message }]
-      
-      // Add system prompt if provided
-      if (systemPrompt) {
-        processedMessages.unshift({ role: 'system', content: systemPrompt })
-      }
-    } else {
-      throw new Error('No valid message or messages provided to OpenAI API')
-    }
-    
-    if (!processedMessages || processedMessages.length === 0) {
-      throw new Error('Empty messages provided to OpenAI API')
-    }
-    
-    const apiKey = process.env.OPENAI_API_KEY
-    if (!apiKey) {
-      throw new Error('OpenAI API key not configured')
-    }
-    
-    try {
-      // Filter out empty messages and ensure proper format
-      const validMessages = processedMessages.filter(msg => 
-        msg && msg.content && typeof msg.content === 'string' && msg.content.trim()
-      )
+    return this.retryWithBackoff(
+      async () => {
+        // Handle both parameter formats
+        let processedMessages: any[];
+        
+        if (messages && Array.isArray(messages)) {
+          processedMessages = messages;
+        } else if (message && typeof message === 'string') {
+          processedMessages = [{ role: 'user', content: message }];
+          
+          // Add system prompt if provided
+          if (systemPrompt) {
+            processedMessages.unshift({ role: 'system', content: systemPrompt });
+          }
+        } else {
+          throw new Error('No valid message or messages provided to OpenAI API');
+        }
+        
+        if (!processedMessages || processedMessages.length === 0) {
+          throw new Error('Empty messages provided to OpenAI API');
+        }
+        
+        const apiKey = process.env.OPENAI_API_KEY;
+        if (!apiKey) {
+          throw new Error('OpenAI API key not configured');
+        }
+        
+        // Filter out empty messages and ensure proper format
+        const validMessages = processedMessages.filter(msg => 
+          msg && msg.content && typeof msg.content === 'string' && msg.content.trim()
+        );
 
-      if (validMessages.length === 0) {
-        throw new Error('No valid messages provided')
-      }
+        if (validMessages.length === 0) {
+          throw new Error('No valid messages provided');
+        }
 
-      const requestBody = {
-        model: model,
-        messages: validMessages,
-        temperature: Math.max(0, Math.min(2, temperature)),
-        max_tokens: Math.min(maxTokens, 4000)
-      }
+        const requestBody = {
+          model: model,
+          messages: validMessages,
+          temperature: Math.max(0, Math.min(2, temperature)),
+          max_tokens: Math.min(maxTokens, 4000)
+        };
 
-      console.log('🤖 Calling OpenAI directly:', { 
-        model, 
-        messageCount: validMessages.length,
-        temperature,
-        maxTokens: requestBody.max_tokens
-      })
+        console.log('🤖 Calling OpenAI API:', { 
+          model, 
+          messageCount: validMessages.length,
+          temperature,
+          maxTokens: requestBody.max_tokens
+        });
 
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify(requestBody)
-      })
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          },
+          body: JSON.stringify(requestBody)
+        });
 
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`OpenAI API error: ${response.status} - ${errorText}`)
-      }
+        if (!response.ok) {
+          const errorText = await response.text();
+          const error = new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+          (error as any).status = response.status;
+          throw error;
+        }
 
-      const data = await response.json()
-      
-      if (!data.choices || !Array.isArray(data.choices) || data.choices.length === 0) {
-        throw new Error('Invalid response format from OpenAI')
-      }
+        const data = await response.json();
+        
+        if (!data.choices || !Array.isArray(data.choices) || data.choices.length === 0) {
+          throw new Error('Invalid response format from OpenAI');
+        }
 
-      const content = data.choices[0]?.message?.content
-      if (!content) {
-        throw new Error('No content in OpenAI response')
-      }
-      
-      return {
-        success: true,
+        const content = data.choices[0]?.message?.content;
+        if (!content) {
+          throw new Error('No content in OpenAI response');
+        }
+        
+        return {
+          success: true,
+          provider: 'openai',
+          model: data.model,
+          content: content,
+          response: content,
+          usage: data.usage,
+          message: 'OpenAI API call completed successfully'
+        };
+      },
+      {}, // Use default retry config
+      {
         provider: 'openai',
-        model: data.model,
-        content: content,
-        response: content,
-        usage: data.usage,
-        message: 'OpenAI API call completed successfully'
+        operationName: 'openai_chat',
+        sessionId,
+        participantId
       }
-    } catch (error) {
-      console.error('OpenAI direct API call failed:', error)
-      throw new Error(`OpenAI API call failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    }
+    );
   }
 
   // ========================================
@@ -1227,6 +1333,59 @@ export class MCPServer {
           null
       },
       timestamp: new Date().toISOString()
+    }
+  }
+
+  private async toolGetAPIErrors(args: any): Promise<any> {
+    try {
+      const { sessionId } = args;
+      
+      let errors = this.getAPIErrors();
+      
+      if (sessionId) {
+        errors = errors.filter(error => error.sessionId === sessionId);
+      }
+      
+      return {
+        success: true,
+        errors: errors,
+        count: errors.length,
+        sessionId: sessionId || null,
+        message: `Retrieved ${errors.length} API errors`
+      };
+    } catch (error) {
+      console.error('Get API errors failed:', error);
+      throw new Error(`Failed to get API errors: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  private async toolClearAPIErrors(args: any): Promise<any> {
+    try {
+      const { sessionId } = args;
+      
+      const beforeCount = this.getAPIErrors().length;
+      
+      if (sessionId) {
+        // Clear only session-specific errors
+        this.errors = this.errors.filter(error => error.sessionId !== sessionId);
+      } else {
+        // Clear all errors
+        this.clearAPIErrors();
+      }
+      
+      const afterCount = this.getAPIErrors().length;
+      const clearedCount = beforeCount - afterCount;
+      
+      return {
+        success: true,
+        clearedCount: clearedCount,
+        remainingCount: afterCount,
+        sessionId: sessionId || null,
+        message: `Cleared ${clearedCount} API errors`
+      };
+    } catch (error) {
+      console.error('Clear API errors failed:', error);
+      throw new Error(`Failed to clear API errors: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -2681,5 +2840,17 @@ private async toolSendMessage(args: any): Promise<any> {
         message: 'Prompts not implemented yet'
       }
     }
+  }
+
+  getAPIErrors(): APIError[] {
+    return [...this.errors];
+  }
+
+  clearAPIErrors(): void {
+    this.errors = [];
+  }
+
+  getSessionErrors(sessionId: string): APIError[] {
+    return this.errors.filter(error => error.sessionId === sessionId);
   }
 }

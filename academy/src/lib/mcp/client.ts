@@ -106,6 +106,43 @@ export class MCPClient {
     }
   }
 
+  // Helper method to sync errors with store
+  private syncErrorsWithStore(sessionId?: string): void {
+    try {
+      // Get errors from MCP server
+      this.getAPIErrors(sessionId)
+        .then((result) => {
+          if (result.success && result.errors) {
+            const store = useChatStore.getState();
+            
+            // Add new errors to store
+            result.errors.forEach((error: any) => {
+              // Check if error already exists in store
+              const existingError = store.apiErrors.find(e => e.id === error.id);
+              if (!existingError) {
+                store.addAPIError({
+                  id: error.id,
+                  timestamp: new Date(error.timestamp),
+                  provider: error.provider,
+                  operation: error.operation,
+                  attempt: error.attempt,
+                  maxAttempts: error.maxAttempts,
+                  error: error.error,
+                  sessionId: error.sessionId,
+                  participantId: error.participantId
+                });
+              }
+            });
+          }
+        })
+        .catch((error) => {
+          console.warn('Failed to sync errors with store:', error);
+        });
+    } catch (error) {
+      console.warn('Error during error sync:', error);
+    }
+  }
+
   // Resource methods
   async listResources(): Promise<any[]> {
     if (!this.initialized) {
@@ -205,6 +242,43 @@ export class MCPClient {
       arguments: args
     })
     return result
+  }
+
+  // ========================================
+  // ERROR MANAGEMENT METHODS (NEW)
+  // ========================================
+
+  async getAPIErrors(sessionId?: string): Promise<any> {
+    const result = await this.callTool('get_api_errors', { sessionId })
+    
+    if (result.success) {
+      console.log(`✅ API errors retrieved via MCP`)
+      return result
+    } else {
+      throw new Error('Failed to get API errors via MCP')
+    }
+  }
+
+  async clearAPIErrors(sessionId?: string): Promise<any> {
+    const result = await this.callTool('clear_api_errors', { sessionId })
+    
+    if (result.success) {
+      console.log(`✅ API errors cleared via MCP`)
+      // Also clear from local store
+      if (sessionId) {
+        // Clear session-specific errors
+        const store = useChatStore.getState()
+        const remainingErrors = store.apiErrors.filter(e => e.sessionId !== sessionId)
+        store.clearAPIErrors()
+        remainingErrors.forEach(error => store.addAPIError(error))
+      } else {
+        // Clear all errors
+        useChatStore.getState().clearAPIErrors()
+      }
+      return result
+    } else {
+      throw new Error('Failed to clear API errors via MCP')
+    }
   }
 
   // ========================================
@@ -707,35 +781,53 @@ export class MCPClient {
   // ========================================
 
   async callClaudeViaMCP(message: string, systemPrompt?: string, sessionId?: string, participantId?: string): Promise<any> {
-    const result = await this.callTool('claude_chat', {
-      message,
-      systemPrompt,
-      sessionId,
-      participantId
-    })
-    
-    if (result.success) {
-      console.log(`✅ Claude API called via MCP (direct)`)
-      return result
-    } else {
-      throw new Error('Failed to call Claude API via MCP')
+    try {
+      const result = await this.callTool('claude_chat', {
+        message,
+        systemPrompt,
+        sessionId,
+        participantId
+      })
+      
+      if (result.success) {
+        console.log(`✅ Claude API called via MCP (with retry support)`)
+        return result
+      } else {
+        throw new Error('Failed to call Claude API via MCP')
+      }
+    } catch (error) {
+      console.error('Failed to call Claude via MCP:', error)
+      
+      // Sync any errors that occurred during the call
+      this.syncErrorsWithStore(sessionId)
+      
+      throw error
     }
   }
 
   async callOpenAIViaMCP(message: string, systemPrompt?: string, model?: string, sessionId?: string, participantId?: string): Promise<any> {
-    const result = await this.callTool('openai_chat', {
-      message,
-      systemPrompt,
-      model,
-      sessionId,
-      participantId
-    })
-    
-    if (result.success) {
-      console.log(`✅ OpenAI API called via MCP (direct)`)
-      return result
-    } else {
-      throw new Error('Failed to call OpenAI API via MCP')
+    try {
+      const result = await this.callTool('openai_chat', {
+        message,
+        systemPrompt,
+        model,
+        sessionId,
+        participantId
+      })
+      
+      if (result.success) {
+        console.log(`✅ OpenAI API called via MCP (with retry support)`)
+        return result
+      } else {
+        throw new Error('Failed to call OpenAI API via MCP')
+      }
+    } catch (error) {
+      console.error('Failed to call OpenAI via MCP:', error)
+      
+      // Sync any errors that occurred during the call
+      this.syncErrorsWithStore(sessionId)
+      
+      throw error
     }
   }
 
