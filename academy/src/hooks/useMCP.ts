@@ -1,4 +1,4 @@
-// src/hooks/useMCP.ts - Complete Fixed Version with State Synchronization
+// src/hooks/useMCP.ts - Complete Fixed Version with Error Tracking Added
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
@@ -29,6 +29,10 @@ interface MCPHookMethods {
   // Prompt methods
   listPrompts: () => Promise<any[]>
   getPrompt: (name: string, args?: any) => Promise<any>
+  
+  // Error tracking methods (NEW FEATURE)
+  getAPIErrors: (sessionId?: string) => Promise<any>
+  clearAPIErrors: (sessionId?: string) => Promise<any>
   
   // PHASE 1: Session Management Methods (Complete)
   createSessionViaMCP: (name: string, description?: string, template?: string, participants?: any[]) => Promise<any>
@@ -359,6 +363,48 @@ export function useMCP(): MCPHook {
   const getPrompt = useCallback(async (name: string, args?: any) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
     return await clientRef.current.getPrompt(name, args)
+  }, [])
+
+  // ========================================
+  // ERROR TRACKING METHODS (NEW FEATURE)
+  // ========================================
+
+  const getAPIErrors = useCallback(async (sessionId?: string) => {
+    if (!clientRef.current) throw new Error('MCP client not initialized')
+    
+    console.log(`🔍 useMCP: Getting API errors${sessionId ? ` for session ${sessionId}` : ''}`)
+    
+    try {
+      const result = await clientRef.current.getAPIErrors(sessionId)
+      return result
+    } catch (error) {
+      console.error('Failed to get API errors via MCP:', error)
+      setState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Failed to get API errors',
+        lastUpdate: new Date()
+      }))
+      throw error
+    }
+  }, [])
+
+  const clearAPIErrors = useCallback(async (sessionId?: string) => {
+    if (!clientRef.current) throw new Error('MCP client not initialized')
+    
+    console.log(`🧹 useMCP: Clearing API errors${sessionId ? ` for session ${sessionId}` : ''}`)
+    
+    try {
+      const result = await clientRef.current.clearAPIErrors(sessionId)
+      return result
+    } catch (error) {
+      console.error('Failed to clear API errors via MCP:', error)
+      setState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Failed to clear API errors',
+        lastUpdate: new Date()
+      }))
+      throw error
+    }
   }, [])
 
   // ========================================
@@ -1243,6 +1289,10 @@ export function useMCP(): MCPHook {
     // Prompt methods
     listPrompts,
     getPrompt,
+
+    // Error tracking methods (NEW FEATURE)
+    getAPIErrors,
+    clearAPIErrors,
     
     // PHASE 1: Session Management Methods
     createSessionViaMCP,
@@ -1388,6 +1438,21 @@ export function useSessionMCP() {
     return await mcp.exportSessionViaMCP(currentSession.id, format, options)
   }, [mcp, currentSession])
 
+  // Error tracking methods for current session (NEW FEATURE)
+  const getSessionErrors = useCallback(async () => {
+    if (!currentSession) {
+      throw new Error('No current session available')
+    }
+    return await mcp.getAPIErrors(currentSession.id)
+  }, [mcp, currentSession])
+
+  const clearSessionErrors = useCallback(async () => {
+    if (!currentSession) {
+      throw new Error('No current session available')
+    }
+    return await mcp.clearAPIErrors(currentSession.id)
+  }, [mcp, currentSession])
+
   return {
     analyzeConversation,
     saveAnalysisSnapshot,
@@ -1399,6 +1464,8 @@ export function useSessionMCP() {
     stopConversation,
     addParticipant,
     exportSession,
+    getSessionErrors,
+    clearSessionErrors,
     currentSession
   }
 }

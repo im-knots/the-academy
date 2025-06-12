@@ -1,5 +1,5 @@
-// src/lib/mcp/client.ts - Updated to work with Direct API Server
-import { JSONRPCRequest, JSONRPCResponse } from './types'
+// src/lib/mcp/client.ts - Fixed with Retry Logic and Error Tracking
+import { JSONRPCRequest, JSONRPCResponse, APIError, RetryConfig } from './types'
 import { useChatStore } from '@/lib/stores/chatStore'
 
 export class MCPClient {
@@ -7,6 +7,36 @@ export class MCPClient {
   private baseUrl: string
   private initialized = false
   private requestId = 1
+
+  // Retry configuration for network errors
+  private defaultRetryConfig: RetryConfig = {
+    maxRetries: 3,
+    baseDelay: 1000, // 1 second
+    maxDelay: 8000,  // 8 seconds max
+    retryCondition: (error: any) => {
+      // Retry on network errors, timeouts, but not on auth/quota errors
+      const errorStr = error?.message?.toLowerCase() || '';
+      const isNetworkError = (
+        errorStr.includes('network') ||
+        errorStr.includes('timeout') ||
+        errorStr.includes('econnreset') ||
+        errorStr.includes('enotfound') ||
+        errorStr.includes('socket') ||
+        errorStr.includes('fetch') ||
+        errorStr.includes('failed to fetch') ||
+        error?.code === 'ECONNRESET' ||
+        error?.code === 'ENOTFOUND' ||
+        error?.name === 'NetworkError' ||
+        error?.name === 'TypeError' && errorStr.includes('fetch')
+      );
+      
+      // Also retry on HTTP 5xx server errors
+      const isServerError = error?.status >= 500;
+      
+      console.log(`🔍 MCP Client: Checking if error is retryable: ${errorStr} -> ${isNetworkError || isServerError}`);
+      return isNetworkError || isServerError;
+    }
+  };
 
   private constructor(baseUrl: string = '/api/mcp') {
     this.baseUrl = baseUrl
@@ -24,22 +54,110 @@ export class MCPClient {
     return this.requestId++
   }
 
+  // Log errors to the error tracking system
+  private logError(error: any, context: {
+    operation: string;
+    attempt: number;
+    maxAttempts: number;
+    sessionId?: string;
+    participantId?: string;
+  }): void {
+    try {
+      const store = useChatStore.getState();
+      const apiError: APIError = {
+        id: `mcp-client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        timestamp: new Date(),
+        provider: 'claude', // Default to claude since it's the most common
+        operation: context.operation,
+        attempt: context.attempt,
+        maxAttempts: context.maxAttempts,
+        error: error instanceof Error ? error.message : String(error),
+        sessionId: context.sessionId,
+        participantId: context.participantId
+      };
+      
+      store.addAPIError(apiError);
+      console.log(`🚨 MCP Client: Error logged for export:`, apiError);
+    } catch (logError) {
+      console.warn('⚠️ MCP Client: Failed to log error:', logError);
+    }
+  }
+
+  // Retry logic with exponential backoff
+  private async retryWithBackoff<T>(
+    operation: () => Promise<T>,
+    context: {
+      operationName: string;
+      sessionId?: string;
+      participantId?: string;
+    },
+    config: Partial<RetryConfig> = {}
+  ): Promise<T> {
+    const finalConfig = { ...this.defaultRetryConfig, ...config };
+    let lastError: any;
+
+    for (let attempt = 1; attempt <= finalConfig.maxRetries + 1; attempt++) {
+      try {
+        if (attempt > 1) {
+          console.log(`🔄 MCP Client: Retry attempt ${attempt}/${finalConfig.maxRetries + 1} for ${context.operationName}`);
+        }
+        return await operation();
+      } catch (error) {
+        lastError = error;
+        console.error(`❌ MCP Client: Attempt ${attempt} failed for ${context.operationName}:`, error);
+
+        // Log error for export
+        this.logError(error, {
+          operation: context.operationName,
+          attempt,
+          maxAttempts: finalConfig.maxRetries + 1,
+          sessionId: context.sessionId,
+          participantId: context.participantId
+        });
+
+        // Check if we should retry
+        if (attempt <= finalConfig.maxRetries && finalConfig.retryCondition?.(error)) {
+          const delay = Math.min(
+            finalConfig.baseDelay * Math.pow(2, attempt - 1),
+            finalConfig.maxDelay
+          );
+          console.log(`⏳ MCP Client: Retrying ${context.operationName} in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+
+        // No more retries or not retryable
+        if (attempt > finalConfig.maxRetries) {
+          console.error(`💥 MCP Client: ${context.operationName} failed after ${finalConfig.maxRetries + 1} attempts`);
+        } else {
+          console.error(`💥 MCP Client: ${context.operationName} error not retryable:`, error);
+        }
+        break;
+      }
+    }
+
+    throw lastError;
+  }
+
   async initialize(): Promise<void> {
     if (this.initialized) return
 
     try {
-      const response = await this.sendRequest('initialize', {
-        protocolVersion: '2024-11-05',
-        capabilities: {
-          resources: { subscribe: true },
-          tools: { listChanged: true },
-          prompts: { listChanged: true }
-        },
-        clientInfo: {
-          name: 'academy-mcp-client',
-          version: '1.0.0'
-        }
-      })
+      const response = await this.retryWithBackoff(
+        () => this.sendRequestInternal('initialize', {
+          protocolVersion: '2024-11-05',
+          capabilities: {
+            resources: { subscribe: true },
+            tools: { listChanged: true },
+            prompts: { listChanged: true }
+          },
+          clientInfo: {
+            name: 'academy-mcp-client',
+            version: '1.0.0'
+          }
+        }),
+        { operationName: 'initialize' }
+      )
 
       console.log('✅ MCP Client initialized with direct API support:', response)
       this.initialized = true
@@ -49,7 +167,8 @@ export class MCPClient {
     }
   }
 
-  async sendRequest(method: string, params?: any, abortSignal?: AbortSignal): Promise<any> {
+  // Internal sendRequest without retry (used by retryWithBackoff)
+  private async sendRequestInternal(method: string, params?: any, abortSignal?: AbortSignal): Promise<any> {
     const request: JSONRPCRequest = {
       jsonrpc: '2.0',
       id: this.generateRequestId(),
@@ -57,90 +176,60 @@ export class MCPClient {
       params
     }
 
-    try {
-      const response = await fetch(this.baseUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request),
-        signal: abortSignal
-      })
+    const response = await fetch(this.baseUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal: abortSignal
+    })
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-      }
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+    }
 
-      const jsonResponse: JSONRPCResponse = await response.json()
+    const jsonResponse: JSONRPCResponse = await response.json()
 
-      if ('error' in jsonResponse && jsonResponse.error) {
-        throw new Error(`MCP Error: ${jsonResponse.error.message || 'Unknown error'}`)
-      }
+    if ('error' in jsonResponse && jsonResponse.error) {
+      throw new Error(`MCP Error: ${jsonResponse.error.message || 'Unknown error'}`)
+    }
 
-      return jsonResponse.result
-    } catch (error) {
-      if (error instanceof Error && (error.message.includes('aborted') || error.name === 'AbortError')) {
-        console.log(`🛑 MCP request ${method} was aborted`)
+    return jsonResponse.result
+  }
+
+  // Public sendRequest with retry logic
+  async sendRequest(method: string, params?: any, abortSignal?: AbortSignal): Promise<any> {
+    // Handle abort signals - don't retry if aborted
+    if (abortSignal?.aborted) {
+      throw new Error('Request was aborted')
+    }
+
+    // For abort signals, don't use retry logic
+    if (abortSignal) {
+      try {
+        return await this.sendRequestInternal(method, params, abortSignal)
+      } catch (error) {
+        if (error instanceof Error && (error.message.includes('aborted') || error.name === 'AbortError')) {
+          console.log(`🛑 MCP request ${method} was aborted`)
+          throw error
+        }
+        
+        // Log the error even for aborted requests
+        this.logError(error, {
+          operation: method,
+          attempt: 1,
+          maxAttempts: 1
+        });
+        
+        console.error(`❌ MCP request ${method} failed:`, error)
         throw error
       }
-      
-      console.error(`❌ MCP request ${method} failed:`, error)
-      throw error
     }
-  }
 
-  isConnected(): boolean {
-    return this.initialized
-  }
-
-  disconnect(): void {
-    this.initialized = false
-    console.log('🔌 MCP Client disconnected')
-  }
-
-  // Helper method to update store reference
-  private updateStoreReference(): void {
-    try {
-      const { setMCPStoreReference } = require('./server')
-      setMCPStoreReference(useChatStore.getState())
-    } catch (error) {
-      console.warn('Could not update MCP store reference:', error)
-    }
-  }
-
-  // Helper method to sync errors with store
-  private syncErrorsWithStore(sessionId?: string): void {
-    try {
-      // Get errors from MCP server
-      this.getAPIErrors(sessionId)
-        .then((result) => {
-          if (result.success && result.errors) {
-            const store = useChatStore.getState();
-            
-            // Add new errors to store
-            result.errors.forEach((error: any) => {
-              // Check if error already exists in store
-              const existingError = store.apiErrors.find(e => e.id === error.id);
-              if (!existingError) {
-                store.addAPIError({
-                  id: error.id,
-                  timestamp: new Date(error.timestamp),
-                  provider: error.provider,
-                  operation: error.operation,
-                  attempt: error.attempt,
-                  maxAttempts: error.maxAttempts,
-                  error: error.error,
-                  sessionId: error.sessionId,
-                  participantId: error.participantId
-                });
-              }
-            });
-          }
-        })
-        .catch((error) => {
-          console.warn('Failed to sync errors with store:', error);
-        });
-    } catch (error) {
-      console.warn('Error during error sync:', error);
-    }
+    // Use retry logic for non-aborted requests
+    return this.retryWithBackoff(
+      () => this.sendRequestInternal(method, params),
+      { operationName: method }
+    )
   }
 
   // Resource methods
@@ -220,6 +309,10 @@ export class MCPClient {
       }
       
       console.error(`❌ MCP tool ${name} failed:`, error)
+      
+      // Sync any errors that occurred during the call
+      this.syncErrorsWithStore(args.sessionId)
+      
       throw error
     }
   }
@@ -286,8 +379,6 @@ export class MCPClient {
   // ========================================
 
   async createSessionViaMCP(name: string, description?: string, template?: string, participants?: any[]): Promise<any> {
-    console.log(`🔧 Creating session via MCP: ${name}`)
-    
     const result = await this.callTool('create_session', {
       name,
       description,
@@ -297,7 +388,6 @@ export class MCPClient {
     
     if (result.success) {
       console.log(`✅ Session created via MCP: ${result.sessionId}`)
-      this.updateStoreReference()
       return result
     } else {
       throw new Error('Failed to create session via MCP')
@@ -305,13 +395,10 @@ export class MCPClient {
   }
 
   async deleteSessionViaMCP(sessionId: string): Promise<any> {
-    console.log(`🗑️ Deleting session via MCP: ${sessionId}`)
-    
     const result = await this.callTool('delete_session', { sessionId })
     
     if (result.success) {
       console.log(`✅ Session deleted via MCP: ${sessionId}`)
-      this.updateStoreReference()
       return result
     } else {
       throw new Error('Failed to delete session via MCP')
@@ -319,8 +406,6 @@ export class MCPClient {
   }
 
   async updateSessionViaMCP(sessionId: string, name?: string, description?: string, metadata?: any): Promise<any> {
-    console.log(`✏️ Updating session via MCP: ${sessionId}`)
-    
     const result = await this.callTool('update_session', {
       sessionId,
       name,
@@ -330,7 +415,6 @@ export class MCPClient {
     
     if (result.success) {
       console.log(`✅ Session updated via MCP: ${sessionId}`)
-      this.updateStoreReference()
       return result
     } else {
       throw new Error('Failed to update session via MCP')
@@ -338,13 +422,10 @@ export class MCPClient {
   }
 
   async switchCurrentSessionViaMCP(sessionId: string): Promise<any> {
-    console.log(`🔄 Switching current session via MCP: ${sessionId}`)
-    
     const result = await this.callTool('switch_current_session', { sessionId })
     
     if (result.success) {
       console.log(`✅ Current session switched via MCP: ${sessionId}`)
-      this.updateStoreReference()
       return result
     } else {
       throw new Error('Failed to switch current session via MCP')
@@ -352,8 +433,6 @@ export class MCPClient {
   }
 
   async duplicateSessionViaMCP(sessionId: string, newName?: string, includeMessages: boolean = false): Promise<any> {
-    console.log(`📋 Duplicating session via MCP: ${sessionId}`)
-    
     const result = await this.callTool('duplicate_session', {
       sessionId,
       newName,
@@ -361,8 +440,7 @@ export class MCPClient {
     })
     
     if (result.success) {
-      console.log(`✅ Session duplicated via MCP: ${result.sessionId}`)
-      this.updateStoreReference()
+      console.log(`✅ Session duplicated via MCP: ${sessionId} -> ${result.newSessionId}`)
       return result
     } else {
       throw new Error('Failed to duplicate session via MCP')
@@ -370,8 +448,6 @@ export class MCPClient {
   }
 
   async importSessionViaMCP(sessionData: any, name?: string): Promise<any> {
-    console.log(`📥 Importing session via MCP`)
-    
     const result = await this.callTool('import_session', {
       sessionData,
       name
@@ -379,7 +455,6 @@ export class MCPClient {
     
     if (result.success) {
       console.log(`✅ Session imported via MCP: ${result.sessionId}`)
-      this.updateStoreReference()
       return result
     } else {
       throw new Error('Failed to import session via MCP')
@@ -387,13 +462,17 @@ export class MCPClient {
   }
 
   async getSessionTemplates(): Promise<any[]> {
-    const result = await this.callTool('list_templates', {})
-    return result.templates || []
+    const result = await this.callTool('get_session_templates', {})
+    
+    if (result.success) {
+      console.log(`✅ Session templates retrieved via MCP: ${result.templates?.length || 0} templates`)
+      return result.templates || []
+    } else {
+      throw new Error('Failed to get session templates via MCP')
+    }
   }
 
   async createSessionFromTemplateViaMCP(templateId: string, name: string, description?: string, customizations?: any): Promise<any> {
-    console.log(`🎨 Creating session from template via MCP: ${templateId}`)
-    
     const result = await this.callTool('create_session_from_template', {
       templateId,
       name,
@@ -403,20 +482,13 @@ export class MCPClient {
     
     if (result.success) {
       console.log(`✅ Session created from template via MCP: ${result.sessionId}`)
-      this.updateStoreReference()
       return result
     } else {
       throw new Error('Failed to create session from template via MCP')
     }
   }
 
-  // ========================================
-  // PHASE 1: MESSAGE MANAGEMENT METHODS
-  // ========================================
-
   async sendMessageViaMCP(sessionId: string, content: string, participantId: string, participantName: string, participantType: any): Promise<any> {
-    console.log(`🔧 Sending message via MCP to session: ${sessionId}`)
-    
     const result = await this.callTool('send_message', {
       sessionId,
       content,
@@ -427,7 +499,6 @@ export class MCPClient {
     
     if (result.success) {
       console.log(`✅ Message sent via MCP to session: ${sessionId}`)
-      this.updateStoreReference()
       return result
     } else {
       throw new Error('Failed to send message via MCP')
@@ -439,8 +510,6 @@ export class MCPClient {
   // ========================================
 
   async addParticipantViaMCP(sessionId: string, name: string, type: any, provider?: string, model?: string, settings?: any, characteristics?: any): Promise<any> {
-    console.log(`👤 Adding participant via MCP to session: ${sessionId}`)
-    
     const result = await this.callTool('add_participant', {
       sessionId,
       name,
@@ -452,8 +521,7 @@ export class MCPClient {
     })
     
     if (result.success) {
-      console.log(`✅ Participant added via MCP: ${result.participantData?.id}`)
-      this.updateStoreReference()
+      console.log(`✅ Participant added via MCP: ${result.participantId}`)
       return result
     } else {
       throw new Error('Failed to add participant via MCP')
@@ -461,8 +529,6 @@ export class MCPClient {
   }
 
   async removeParticipantViaMCP(sessionId: string, participantId: string): Promise<any> {
-    console.log(`❌ Removing participant via MCP from session: ${sessionId}`)
-    
     const result = await this.callTool('remove_participant', {
       sessionId,
       participantId
@@ -470,7 +536,6 @@ export class MCPClient {
     
     if (result.success) {
       console.log(`✅ Participant removed via MCP: ${participantId}`)
-      this.updateStoreReference()
       return result
     } else {
       throw new Error('Failed to remove participant via MCP')
@@ -478,8 +543,6 @@ export class MCPClient {
   }
 
   async updateParticipantViaMCP(sessionId: string, participantId: string, updates: any): Promise<any> {
-    console.log(`✏️ Updating participant via MCP: ${participantId}`)
-    
     const result = await this.callTool('update_participant', {
       sessionId,
       participantId,
@@ -488,7 +551,6 @@ export class MCPClient {
     
     if (result.success) {
       console.log(`✅ Participant updated via MCP: ${participantId}`)
-      this.updateStoreReference()
       return result
     } else {
       throw new Error('Failed to update participant via MCP')
@@ -496,8 +558,6 @@ export class MCPClient {
   }
 
   async updateParticipantStatusViaMCP(sessionId: string, participantId: string, status: string): Promise<any> {
-    console.log(`🔄 Updating participant status via MCP: ${participantId} -> ${status}`)
-    
     const result = await this.callTool('update_participant_status', {
       sessionId,
       participantId,
@@ -505,8 +565,7 @@ export class MCPClient {
     })
     
     if (result.success) {
-      console.log(`✅ Participant status updated via MCP: ${participantId}`)
-      this.updateStoreReference()
+      console.log(`✅ Participant status updated via MCP: ${participantId} -> ${status}`)
       return result
     } else {
       throw new Error('Failed to update participant status via MCP')
@@ -514,8 +573,14 @@ export class MCPClient {
   }
 
   async listAvailableModels(): Promise<any> {
-    const result = await this.callTool('list_available_models', {})
-    return result.models || { claude: [], openai: [] }
+    const result = await this.callTool('get_available_models', {})
+    
+    if (result.success) {
+      console.log(`✅ Available models retrieved via MCP`)
+      return result.models || {}
+    } else {
+      throw new Error('Failed to get available models via MCP')
+    }
   }
 
   async getParticipantConfig(sessionId: string, participantId: string): Promise<any> {
@@ -523,7 +588,13 @@ export class MCPClient {
       sessionId,
       participantId
     })
-    return result.config || result
+    
+    if (result.success) {
+      console.log(`✅ Participant config retrieved via MCP: ${participantId}`)
+      return result.config
+    } else {
+      throw new Error('Failed to get participant config via MCP')
+    }
   }
 
   // ========================================
@@ -531,8 +602,6 @@ export class MCPClient {
   // ========================================
 
   async startConversationViaMCP(sessionId: string, initialPrompt?: string): Promise<any> {
-    console.log(`🚀 Starting conversation via MCP: ${sessionId}`)
-    
     const result = await this.callTool('start_conversation', {
       sessionId,
       initialPrompt
@@ -540,7 +609,6 @@ export class MCPClient {
     
     if (result.success) {
       console.log(`✅ Conversation started via MCP: ${sessionId}`)
-      this.updateStoreReference()
       return result
     } else {
       throw new Error('Failed to start conversation via MCP')
@@ -548,13 +616,10 @@ export class MCPClient {
   }
 
   async pauseConversationViaMCP(sessionId: string): Promise<any> {
-    console.log(`⏸️ Pausing conversation via MCP: ${sessionId}`)
-    
     const result = await this.callTool('pause_conversation', { sessionId })
     
     if (result.success) {
       console.log(`✅ Conversation paused via MCP: ${sessionId}`)
-      this.updateStoreReference()
       return result
     } else {
       throw new Error('Failed to pause conversation via MCP')
@@ -562,13 +627,10 @@ export class MCPClient {
   }
 
   async resumeConversationViaMCP(sessionId: string): Promise<any> {
-    console.log(`▶️ Resuming conversation via MCP: ${sessionId}`)
-    
     const result = await this.callTool('resume_conversation', { sessionId })
     
     if (result.success) {
       console.log(`✅ Conversation resumed via MCP: ${sessionId}`)
-      this.updateStoreReference()
       return result
     } else {
       throw new Error('Failed to resume conversation via MCP')
@@ -576,13 +638,10 @@ export class MCPClient {
   }
 
   async stopConversationViaMCP(sessionId: string): Promise<any> {
-    console.log(`🛑 Stopping conversation via MCP: ${sessionId}`)
-    
     const result = await this.callTool('stop_conversation', { sessionId })
     
     if (result.success) {
       console.log(`✅ Conversation stopped via MCP: ${sessionId}`)
-      this.updateStoreReference()
       return result
     } else {
       throw new Error('Failed to stop conversation via MCP')
@@ -591,27 +650,52 @@ export class MCPClient {
 
   async getConversationStatusViaMCP(sessionId: string): Promise<any> {
     const result = await this.callTool('get_conversation_status', { sessionId })
-    return result.status || {}
+    
+    if (result.success) {
+      return result.status
+    } else {
+      throw new Error('Failed to get conversation status via MCP')
+    }
   }
 
   async getConversationStatsViaMCP(sessionId: string): Promise<any> {
     const result = await this.callTool('get_conversation_stats', { sessionId })
-    return result.stats || {}
+    
+    if (result.success) {
+      return result.stats
+    } else {
+      throw new Error('Failed to get conversation stats via MCP')
+    }
   }
 
-  // ========================================
-  // PHASE 3: MESSAGE CONTROL METHODS
-  // ========================================
-
-  async updateMessageViaMCP(sessionId: string, messageId: string, content: string): Promise<any> {
-    const result = await this.callTool('update_message', {
+  async injectPromptViaMCP(sessionId: string, prompt: string, participantId?: string): Promise<any> {
+    const result = await this.callTool('inject_prompt', {
       sessionId,
-      messageId,
-      content
+      prompt,
+      participantId
     })
     
     if (result.success) {
-      this.updateStoreReference()
+      console.log(`✅ Prompt injected via MCP: ${sessionId}`)
+      return result
+    } else {
+      throw new Error('Failed to inject prompt via MCP')
+    }
+  }
+
+  // ========================================
+  // PHASE 3: MESSAGE CONTROL METHODS (COMPLETE)
+  // ========================================
+
+  async updateMessageViaMCP(sessionId: string, messageId: string, updates: any): Promise<any> {
+    const result = await this.callTool('update_message', {
+      sessionId,
+      messageId,
+      updates
+    })
+    
+    if (result.success) {
+      console.log(`✅ Message updated via MCP: ${messageId}`)
       return result
     } else {
       throw new Error('Failed to update message via MCP')
@@ -625,7 +709,7 @@ export class MCPClient {
     })
     
     if (result.success) {
-      this.updateStoreReference()
+      console.log(`✅ Message deleted via MCP: ${messageId}`)
       return result
     } else {
       throw new Error('Failed to delete message via MCP')
@@ -636,7 +720,7 @@ export class MCPClient {
     const result = await this.callTool('clear_messages', { sessionId })
     
     if (result.success) {
-      this.updateStoreReference()
+      console.log(`✅ Messages cleared via MCP: ${sessionId}`)
       return result
     } else {
       throw new Error('Failed to clear messages via MCP')
@@ -650,29 +734,32 @@ export class MCPClient {
     })
     
     if (result.success) {
-      this.updateStoreReference()
+      console.log(`✅ Moderator prompt injected via MCP: ${sessionId}`)
       return result
     } else {
       throw new Error('Failed to inject moderator prompt via MCP')
     }
   }
 
-  // Alias method for backward compatibility
-  async injectPromptViaMCP(sessionId: string, prompt: string): Promise<any> {
-    return this.injectModeratorPromptViaMCP(sessionId, prompt)
-  }
-
   // ========================================
-  // PHASE 5: EXPORT METHODS
+  // PHASE 5: EXPORT METHODS (COMPLETE)
   // ========================================
 
-  async exportSessionViaMCP(sessionId: string, format: 'json' | 'csv' = 'json', options: any = {}): Promise<any> {
+  async exportSessionViaMCP(sessionId: string, format: 'json' | 'csv' = 'json', options?: any): Promise<any> {
     const result = await this.callTool('export_session', {
       sessionId,
       format,
-      ...options
+      includeAnalysis: options?.includeAnalysis || false,
+      includeMetadata: options?.includeMetadata !== false,
+      includeErrors: options?.includeErrors !== false
     })
-    return result.data || result
+    
+    if (result.success) {
+      console.log(`✅ Session exported via MCP: ${sessionId} (${format.toUpperCase()})`)
+      return result
+    } else {
+      throw new Error('Failed to export session via MCP')
+    }
   }
 
   async exportAnalysisTimelineViaMCP(sessionId: string, format: 'json' | 'csv' = 'json'): Promise<any> {
@@ -680,7 +767,13 @@ export class MCPClient {
       sessionId,
       format
     })
-    return result.data || result
+    
+    if (result.success) {
+      console.log(`✅ Analysis timeline exported via MCP: ${sessionId}`)
+      return result
+    } else {
+      throw new Error('Failed to export analysis timeline via MCP')
+    }
   }
 
   async getExportPreviewViaMCP(sessionId: string, format: 'json' | 'csv' = 'json'): Promise<any> {
@@ -688,41 +781,73 @@ export class MCPClient {
       sessionId,
       format
     })
-    return result.preview || result
+    
+    if (result.success) {
+      return result.preview
+    } else {
+      throw new Error('Failed to get export preview via MCP')
+    }
   }
 
   // ========================================
-  // PHASE 6: LIVE ANALYSIS METHODS
+  // PHASE 6: LIVE ANALYSIS METHODS (COMPLETE)
   // ========================================
 
-  async triggerLiveAnalysisViaMCP(sessionId: string, analysisType: string = 'full'): Promise<any> {
+  async triggerLiveAnalysisViaMCP(sessionId: string, analysisType?: string): Promise<any> {
     const result = await this.callTool('trigger_live_analysis', {
       sessionId,
       analysisType
     })
-    return result.analysis || result
+    
+    if (result.success) {
+      console.log(`✅ Live analysis triggered via MCP: ${sessionId}`)
+      return result
+    } else {
+      throw new Error('Failed to trigger live analysis via MCP')
+    }
   }
 
-  async setAnalysisProviderViaMCP(provider: string): Promise<any> {
-    const result = await this.callTool('set_analysis_provider', { provider })
-    return result
+  async setAnalysisProviderViaMCP(provider: string, settings?: any): Promise<any> {
+    const result = await this.callTool('set_analysis_provider', {
+      provider,
+      settings
+    })
+    
+    if (result.success) {
+      console.log(`✅ Analysis provider set via MCP: ${provider}`)
+      return result
+    } else {
+      throw new Error('Failed to set analysis provider via MCP')
+    }
   }
 
-  async getAnalysisProvidersViaMCP(): Promise<any[]> {
+  async getAnalysisProvidersViaMCP(): Promise<any> {
     const result = await this.callTool('get_analysis_providers', {})
-    return result.providers || []
+    
+    if (result.success) {
+      return result.providers
+    } else {
+      throw new Error('Failed to get analysis providers via MCP')
+    }
   }
 
-  async autoAnalyzeConversationViaMCP(sessionId: string, enabled: boolean): Promise<any> {
+  async autoAnalyzeConversationViaMCP(sessionId: string, enabled: boolean, interval?: number): Promise<any> {
     const result = await this.callTool('auto_analyze_conversation', {
       sessionId,
-      enabled
+      enabled,
+      interval
     })
-    return result
+    
+    if (result.success) {
+      console.log(`✅ Auto-analysis ${enabled ? 'enabled' : 'disabled'} via MCP: ${sessionId}`)
+      return result
+    } else {
+      throw new Error('Failed to set auto-analysis via MCP')
+    }
   }
 
   // ========================================
-  // ANALYSIS MANAGEMENT METHODS
+  // ANALYSIS MANAGEMENT METHODS (COMPLETE)
   // ========================================
 
   async saveAnalysisSnapshotViaMCP(sessionId: string, analysis: any, analysisType?: string): Promise<any> {
@@ -840,6 +965,62 @@ export class MCPClient {
       return result
     } else {
       throw new Error('Failed to get store debug info via MCP')
+    }
+  }
+
+  isConnected(): boolean {
+    return this.initialized
+  }
+
+  disconnect(): void {
+    this.initialized = false
+    console.log('🔌 MCP Client disconnected')
+  }
+
+  // Helper method to update store reference
+  private updateStoreReference(): void {
+    try {
+      const { setMCPStoreReference } = require('./server')
+      setMCPStoreReference(useChatStore.getState())
+    } catch (error) {
+      console.warn('Could not update MCP store reference:', error)
+    }
+  }
+
+  // Helper method to sync errors with store
+  private syncErrorsWithStore(sessionId?: string): void {
+    try {
+      // Get errors from MCP server
+      this.getAPIErrors(sessionId)
+        .then((result) => {
+          if (result.success && result.errors) {
+            const store = useChatStore.getState();
+            
+            // Add new errors to store
+            result.errors.forEach((error: any) => {
+              // Check if error already exists in store
+              const existingError = store.apiErrors.find(e => e.id === error.id);
+              if (!existingError) {
+                store.addAPIError({
+                  id: error.id,
+                  timestamp: new Date(error.timestamp),
+                  provider: error.provider,
+                  operation: error.operation,
+                  attempt: error.attempt,
+                  maxAttempts: error.maxAttempts,
+                  error: error.error,
+                  sessionId: error.sessionId,
+                  participantId: error.participantId
+                });
+              }
+            });
+          }
+        })
+        .catch((error) => {
+          console.warn('Failed to sync errors with store:', error);
+        });
+    } catch (error) {
+      console.warn('Error during error sync:', error);
     }
   }
 }
