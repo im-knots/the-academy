@@ -17,7 +17,7 @@ interface AddParticipantProps {
 
 export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
   const { addParticipant, currentSession } = useChatStore()
-  const [selectedType, setSelectedType] = useState<'claude' | 'gpt' | grok | 'human' | null>(null)
+  const [selectedType, setSelectedType] = useState<'claude' | 'gpt' | 'grok' | 'gemini' | 'human' | null>(null)
   const [name, setName] = useState('')
   const [customSettings, setCustomSettings] = useState({
     temperature: 0.7,
@@ -33,7 +33,7 @@ export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
     claude: [
       { value: 'claude-opus-4-20250514', label: 'Claude 4 Opus'},
       { value: 'claude-sonnet-4-20250514', label: 'Claude 4 Sonnet'},
-      { value: 'claude-3-7-sonnet-20250219', lablel: 'Claude 3.7 Sonnet'},
+      { value: 'claude-3-7-sonnet-20250219', label: 'Claude 3.7 Sonnet'},
       { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet' },
       { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku' },
       { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus' },
@@ -60,7 +60,7 @@ export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
       { value: 'gemini-2.5-flash-preview-tts', label: 'Gemini 2.5 Flash Preview TTS' },
       { value: 'gemini-2.5-pro-preview-06-05', label: 'Gemini 2.5 Pro Preview' },
       { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
-      { value: 'gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash' }
+      { value: 'gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite' }
     ]
   }
 
@@ -86,15 +86,21 @@ export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
     {
       type: 'gemini' as const,
       name: 'Gemini',
-      description: 'Google\'s AI offerings',
+      description: 'Google\'s advanced AI model',
       badge: 'gemini'
+    },
+    {
+      type: 'human' as const,
+      name: 'Human',
+      description: 'Add a human participant to the conversation',
+      badge: 'human'
     }
   ]
 
   const handleAdd = () => {
     if (!selectedType) return
 
-    const participantName = name.trim() || `${selectedType === 'claude' ? 'Claude' : selectedType === 'gpt' ? 'GPT' : selectedType === 'grok' ? 'Grok'  : 'Human'} ${(currentSession?.participants.length || 0) + 1}`
+    const participantName = name.trim() || `${selectedType === 'claude' ? 'Claude' : selectedType === 'gpt' ? 'GPT' : selectedType === 'grok' ? 'Grok' : selectedType === 'gemini' ? 'Gemini' : 'Human'} ${(currentSession?.participants.length || 0) + 1}`
 
     const newParticipant: Omit<Participant, 'id' | 'joinedAt' | 'messageCount'> = {
       name: participantName,
@@ -206,7 +212,7 @@ export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder={`${selectedType === 'claude' ? 'Claude' : selectedType === 'gpt' ? 'GPT' : selectedType === 'grok' ? 'Grok'  : 'Human'} ${(currentSession?.participants.length || 0) + 1}`}
+                    placeholder={`${selectedType === 'claude' ? 'Claude' : selectedType === 'gpt' ? 'GPT' : selectedType === 'grok' ? 'Grok' : selectedType === 'gemini' ? 'Gemini' : 'Human'} ${(currentSession?.participants.length || 0) + 1}`}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>

@@ -1,4 +1,4 @@
-// src/lib/mcp/types.ts - Updated with missing JSON-RPC exports
+// src/lib/mcp/types.ts - Updated with Grok and Gemini support
 export interface MCPMessage {
   id: string
   type: 'request' | 'response' | 'notification'
@@ -12,7 +12,7 @@ export interface MCPMessage {
   }
 }
 
-// JSON-RPC 2.0 interfaces (MISSING EXPORTS - ADD THESE)
+// JSON-RPC 2.0 interfaces
 export interface JSONRPCRequest {
   jsonrpc: '2.0'
   id?: string | number | null
@@ -37,7 +37,7 @@ export interface JSONRPCError {
   data?: any
 }
 
-// Conversation context interface (previously not exported)
+// Conversation context interface
 export interface ConversationContext {
   sessionId: string
   participantId: string
@@ -57,7 +57,7 @@ export interface ConversationContext {
 }
 
 export interface AIProvider {
-  type: 'claude' | 'gpt' | 'grok' | 'human'
+  type: 'claude' | 'gpt' | 'grok' | 'gemini' | 'human'
   generateResponse(context: ConversationContext): Promise<string>
   isAvailable(): boolean
 }
@@ -65,7 +65,7 @@ export interface AIProvider {
 export interface APIError {
   id: string;
   timestamp: Date;
-  provider: 'claude' | 'openai' | grok;
+  provider: 'claude' | 'openai' | 'grok' | 'gemini';
   operation: string;
   attempt: number;
   maxAttempts: number;

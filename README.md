@@ -234,6 +234,8 @@ docker run -d \
   -p 3000:3000 \
   -e ANTHROPIC_API_KEY=your_claude_api_key_here \
   -e OPENAI_API_KEY=your_openai_api_key_here \
+  -e XAI_API_KEY=your_xai_api_key_here \
+  -e GOOGLE_AI_API_KEY=your_google_ai_api_key_here \
   -e NODE_ENV=production \
   --restart unless-stopped \
   the-academy

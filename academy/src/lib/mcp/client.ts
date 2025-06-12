@@ -1025,6 +1025,70 @@ export class MCPClient {
     }
   }
 
+  async callGrokViaMCP(message: string, systemPrompt?: string, model?: string, sessionId?: string, participantId?: string): Promise<any> {
+    try {
+      // Extract context for proper error tracking
+      const context = {
+        sessionId: sessionId || this.getCurrentSessionContext().sessionId,
+        participantId
+      };
+
+      const result = await this.callTool('grok_chat', {
+        message,
+        systemPrompt,
+        model: model || 'grok-3-latest',
+        sessionId: context.sessionId,
+        participantId: context.participantId
+      })
+      
+      if (result.success) {
+        console.log(`✅ Grok API called via MCP (with retry support)`)
+        return result
+      } else {
+        throw new Error('Failed to call Grok API via MCP')
+      }
+    } catch (error) {
+      console.error('Failed to call Grok via MCP:', error)
+      
+      // Sync any errors that occurred during the call
+      this.syncErrorsWithStore(sessionId)
+      
+      throw error
+    }
+  }
+
+  async callGeminiViaMCP(message: string, systemPrompt?: string, model?: string, sessionId?: string, participantId?: string): Promise<any> {
+    try {
+      // Extract context for proper error tracking
+      const context = {
+        sessionId: sessionId || this.getCurrentSessionContext().sessionId,
+        participantId
+      };
+
+      const result = await this.callTool('gemini_chat', {
+        message,
+        systemPrompt,
+        model: model || 'gemini-2.0-flash',
+        sessionId: context.sessionId,
+        participantId: context.participantId
+      })
+      
+      if (result.success) {
+        console.log(`✅ Gemini API called via MCP (with retry support)`)
+        return result
+      } else {
+        throw new Error('Failed to call Gemini API via MCP')
+      }
+    } catch (error) {
+      console.error('Failed to call Gemini via MCP:', error)
+      
+      // Sync any errors that occurred during the call
+      this.syncErrorsWithStore(sessionId)
+      
+      throw error
+    }
+  }
+
   // Debug Methods
   async debugStoreViaMCP(): Promise<any> {
     const result = await this.callTool('debug_store', {})

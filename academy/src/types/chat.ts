@@ -5,7 +5,7 @@ export interface Message {
   timestamp: Date
   participantId: string
   participantName: string
-  participantType: 'claude' | 'gpt' | 'human' | 'moderator'
+  participantType: 'claude' | 'gpt' | 'grok' | 'gemini' | 'human' | 'moderator'
   isThinking?: boolean
   metadata?: {
     temperature?: number
@@ -22,7 +22,7 @@ export interface AnalysisSnapshot {
   timestamp: Date
   messageCountAtAnalysis: number
   participantCountAtAnalysis: number
-  provider: 'claude' | 'gpt'
+  provider: 'claude' | 'gpt' | 'grok' | 'gemini'
   conversationPhase: string
   analysis: {
     mainTopics: string[]
@@ -84,7 +84,7 @@ export interface ConversationThread {
 export interface Participant {
   id: string
   name: string
-  type: 'claude' | 'gpt' | 'human' | 'moderator'
+  type: 'claude' | 'gpt' | 'grok' | 'gemini' | 'human' | 'moderator'
   status: 'active' | 'thinking' | 'idle' | 'error' | 'disconnected'
   systemPrompt?: string
   settings: AISettings
@@ -112,70 +112,28 @@ export interface AISettings {
 }
 
 export interface ModeratorSettings {
-  autoMode: boolean
-  interventionTriggers: string[]
-  sessionTimeout: number
-  maxMessagesPerParticipant: number
-  allowParticipantToParticipantMessages: boolean
-  moderatorPrompts: {
-    welcome: string
-    intervention: string
-    conclusion: string
-  }
+  autoModeration: boolean
+  interventionThreshold: number
+  conversationTimeout: number
+  maxRounds: number
+  pauseOnError: boolean
+  requireApproval: boolean
 }
 
-export interface WebSocketMessage {
-  type: 'message' | 'participant_joined' | 'participant_left' | 'status_update' | 'moderator_action' | 'session_update'
-  sessionId: string
-  data: any
-  timestamp: Date
-  senderId?: string
-}
-
-export interface ParticipantStatusUpdate {
-  participantId: string
-  status: Participant['status']
-  message?: string
-}
-
-export interface ModeratorAction {
-  type: 'pause' | 'resume' | 'inject_prompt' | 'end_session' | 'add_participant' | 'remove_participant'
-  data?: any
-  reason?: string
-}
-
-export interface EmergentBehavior {
-  id: string
-  sessionId: string
-  type: 'consensus_building' | 'disagreement' | 'novel_insight' | 'recursive_reasoning' | 'meta_discussion' | 'empathy_display' | 'creative_leap'
-  description: string
-  messageIds: string[]
-  participantIds: string[]
-  detectedAt: Date
-  confidence: number
-  researcherNotes?: string
-}
-
-export interface AnalysisMetrics {
-  sessionId: string
-  totalMessages: number
-  participantEngagement: Record<string, number>
-  averageResponseTime: number
-  topicDrift: number
-  conversationalDepth: number
-  emergentBehaviors: EmergentBehavior[]
-  consensusPoints: string[]
-  divergencePoints: string[]
-}
-
-export interface SessionTemplate {
+export interface SystemTemplate {
   id: string
   name: string
   description: string
-  icon?: string
-  color?: string
-  initialPrompt?: string
-  participants?: Omit<Participant, 'id' | 'joinedAt' | 'messageCount'>[]
-  settings?: Partial<ModeratorSettings>
-  tags?: string[]
+  category: 'consciousness' | 'creativity' | 'philosophy' | 'analysis' | 'custom'
+  prompt: string
+  suggestedParticipants: Array<{
+    type: 'claude' | 'gpt' | 'grok' | 'gemini' | 'human'
+    name?: string
+    settings?: Partial<AISettings>
+  }>
+  metadata: {
+    difficulty: 'beginner' | 'intermediate' | 'advanced'
+    estimatedDuration: number
+    tags: string[]
+  }
 }

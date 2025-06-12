@@ -379,6 +379,61 @@ export class MCPServer {
         }
       },
       {
+        name: 'grok_chat',
+        description: 'Direct Grok API access with exponential backoff retry',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            message: { type: 'string', description: 'Message to send to Grok' },
+            messages: { 
+              type: 'array', 
+              description: 'Array of messages for conversation context',
+              items: {
+                type: 'object',
+                properties: {
+                  role: { type: 'string', enum: ['user', 'assistant', 'system'] },
+                  content: { type: 'string' }
+                }
+              }
+            },
+            systemPrompt: { type: 'string', description: 'System prompt for context' },
+            model: { type: 'string', description: 'Grok model to use', default: 'grok-3-latest' },
+            temperature: { type: 'number', description: 'Response creativity (0-1)', default: 0.7 },
+            maxTokens: { type: 'number', description: 'Maximum response tokens', default: 2000 },
+            sessionId: { type: 'string', description: 'Session ID for error tracking' },
+            participantId: { type: 'string', description: 'Participant ID for error tracking' }
+          }
+        }
+      },
+      {
+        name: 'gemini_chat',
+        description: 'Direct Gemini API access with exponential backoff retry',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            message: { type: 'string', description: 'Message to send to Gemini' },
+            messages: { 
+              type: 'array', 
+              description: 'Array of messages for conversation context',
+              items: {
+                type: 'object',
+                properties: {
+                  role: { type: 'string', enum: ['user', 'assistant', 'system'] },
+                  content: { type: 'string' }
+                }
+              }
+            },
+            systemPrompt: { type: 'string', description: 'System prompt for context' },
+            model: { type: 'string', description: 'Gemini model to use', default: 'gemini-2.0-flash' },
+            temperature: { type: 'number', description: 'Response creativity (0-1)', default: 0.7 },
+            maxTokens: { type: 'number', description: 'Maximum response tokens', default: 2000 },
+            sessionId: { type: 'string', description: 'Session ID for error tracking' },
+            participantId: { type: 'string', description: 'Participant ID for error tracking' }
+          }
+        }
+      },
+
+      {
         name: 'debug_store',
         description: 'Get debug information about the current store state',
         inputSchema: {
@@ -894,6 +949,12 @@ export class MCPServer {
         case 'openai_chat':
           result = await this.callOpenAIAPIDirect(args)
           break
+        case 'grok_chat':
+          result = await this.callGrokAPIDirect(args)
+          break
+        case 'gemini_chat':
+          result = await this.callGeminiAPIDirect(args)
+          break
         case 'debug_store':
           result = await this.toolDebugStore()
           break
@@ -1302,6 +1363,251 @@ export class MCPServer {
       {
         provider: 'openai',
         operationName: 'openai_chat',
+        sessionId,
+        participantId
+      }
+    );
+  }
+
+  private async callGrokAPIDirect(args: any): Promise<any> {
+    const { 
+      message, 
+      messages, 
+      systemPrompt, 
+      sessionId, 
+      participantId,
+      temperature = 0.7,
+      maxTokens = 2000,
+      model = 'grok-3-latest'
+    } = args;
+    
+    console.log('🔧 Using direct Grok API call with retry logic');
+    
+    return this.retryWithBackoff(
+      async () => {
+        // Process messages
+        let processedMessages: any[];
+        
+        if (messages && Array.isArray(messages)) {
+          processedMessages = messages;
+        } else if (message && typeof message === 'string') {
+          processedMessages = [{ role: 'user', content: message }];
+        } else {
+          throw new Error('No valid message or messages provided to Grok API');
+        }
+        
+        if (!processedMessages || processedMessages.length === 0) {
+          throw new Error('Empty messages provided to Grok API');
+        }
+        
+        const apiKey = process.env.XAI_API_KEY;
+        if (!apiKey) {
+          throw new Error('xAI API key not configured');
+        }
+        
+        // Filter out empty messages and ensure proper format
+        const validMessages = processedMessages.filter(msg => 
+          msg && msg.content && typeof msg.content === 'string' && msg.content.trim()
+        );
+
+        if (validMessages.length === 0) {
+          throw new Error('No valid messages provided');
+        }
+
+        // Transform messages to Grok format (similar to OpenAI format)
+        const grokMessages = validMessages.map((msg: any) => ({
+          role: msg.role,
+          content: msg.content
+        }));
+
+        // Add system prompt if provided
+        if (systemPrompt) {
+          grokMessages.unshift({
+            role: 'system',
+            content: systemPrompt
+          });
+        }
+
+        const requestBody = {
+          model,
+          messages: grokMessages,
+          temperature,
+          max_tokens: maxTokens,
+          stream: false
+        };
+
+        console.log(`🔄 Calling Grok API with model: ${model}`);
+
+        const response = await fetch('https://api.x.ai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          },
+          body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Grok API error ${response.status}: ${errorText}`);
+        }
+
+        const data = await response.json();
+        
+        if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+          throw new Error('Invalid response format from Grok API');
+        }
+
+        const content = data.choices[0].message.content;
+        if (!content) {
+          throw new Error('No content in Grok response');
+        }
+        
+        return {
+          success: true,
+          provider: 'grok',
+          model: data.model,
+          content: content,
+          response: content,
+          usage: data.usage,
+          message: 'Grok API call completed successfully'
+        };
+      },
+      {}, // Use default retry config
+      {
+        provider: 'grok' as const,
+        operationName: 'grok_chat',
+        sessionId,
+        participantId
+      }
+    );
+  }
+
+  private async callGeminiAPIDirect(args: any): Promise<any> {
+    const { 
+      message, 
+      messages, 
+      systemPrompt, 
+      sessionId, 
+      participantId,
+      temperature = 0.7,
+      maxTokens = 2000,
+      model = 'gemini-2.0-flash'
+    } = args;
+    
+    console.log('🔧 Using direct Gemini API call with retry logic');
+    
+    return this.retryWithBackoff(
+      async () => {
+        // Process messages
+        let processedMessages: any[];
+        
+        if (messages && Array.isArray(messages)) {
+          processedMessages = messages;
+        } else if (message && typeof message === 'string') {
+          processedMessages = [{ role: 'user', content: message }];
+        } else {
+          throw new Error('No valid message or messages provided to Gemini API');
+        }
+        
+        if (!processedMessages || processedMessages.length === 0) {
+          throw new Error('Empty messages provided to Gemini API');
+        }
+        
+        const apiKey = process.env.GOOGLE_AI_API_KEY;
+        if (!apiKey) {
+          throw new Error('Google AI API key not configured');
+        }
+        
+        // Filter out empty messages and ensure proper format
+        const validMessages = processedMessages.filter(msg => 
+          msg && msg.content && typeof msg.content === 'string' && msg.content.trim()
+        );
+
+        if (validMessages.length === 0) {
+          throw new Error('No valid messages provided');
+        }
+
+        // Transform messages to Gemini format
+        const geminiContents = validMessages.map((msg: any) => {
+          let role = msg.role;
+          
+          // Gemini uses 'user' and 'model' roles
+          if (role === 'assistant') {
+            role = 'model';
+          } else if (role === 'system') {
+            // Gemini doesn't have system role, so we'll prepend it to the first user message
+            role = 'user';
+          }
+
+          return {
+            role,
+            parts: [{ text: msg.content }]
+          };
+        });
+
+        // Handle system prompt by prepending to first user message
+        if (systemPrompt) {
+          const firstUserIndex = geminiContents.findIndex(c => c.role === 'user');
+          if (firstUserIndex >= 0) {
+            geminiContents[firstUserIndex].parts[0].text = `${systemPrompt}\n\n${geminiContents[firstUserIndex].parts[0].text}`;
+          } else {
+            geminiContents.unshift({
+              role: 'user',
+              parts: [{ text: systemPrompt }]
+            });
+          }
+        }
+
+        const requestBody = {
+          contents: geminiContents,
+          generationConfig: {
+            temperature,
+            maxOutputTokens: maxTokens,
+            candidateCount: 1,
+          }
+        };
+
+        console.log(`🔄 Calling Gemini API with model: ${model}`);
+
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Gemini API error ${response.status}: ${errorText}`);
+        }
+
+        const data = await response.json();
+        
+        if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+          throw new Error('Invalid response format from Gemini API');
+        }
+
+        const content = data.candidates[0].content.parts[0]?.text;
+        if (!content) {
+          throw new Error('No content in Gemini response');
+        }
+        
+        return {
+          success: true,
+          provider: 'gemini',
+          model,
+          content: content,
+          response: content,
+          usage: data.usageMetadata,
+          message: 'Gemini API call completed successfully'
+        };
+      },
+      {}, // Use default retry config
+      {
+        provider: 'gemini' as const,
+        operationName: 'gemini_chat',
         sessionId,
         participantId
       }
