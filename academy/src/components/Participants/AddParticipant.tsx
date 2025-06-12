@@ -17,7 +17,7 @@ interface AddParticipantProps {
 
 export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
   const { addParticipant, currentSession } = useChatStore()
-  const [selectedType, setSelectedType] = useState<'claude' | 'gpt' | 'human' | null>(null)
+  const [selectedType, setSelectedType] = useState<'claude' | 'gpt' | grok | 'human' | null>(null)
   const [name, setName] = useState('')
   const [customSettings, setCustomSettings] = useState({
     temperature: 0.7,
@@ -31,6 +31,9 @@ export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
   
   const modelOptions = {
     claude: [
+      { value: 'claude-opus-4-20250514', label: 'Claude 4 Opus'},
+      { value: 'claude-sonnet-4-20250514', label: 'Claude 4 Sonnet'},
+      { value: 'claude-3-7-sonnet-20250219', lablel: 'Claude 3.7 Sonnet'},
       { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet' },
       { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku' },
       { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus' },
@@ -38,11 +41,19 @@ export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
       { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku' }
     ],
     gpt: [
+      { value: 'gpt-4.1-2025-04-14', label: 'GPT-4.1' },
       { value: 'gpt-4o', label: 'GPT-4o' },
       { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
       { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
       { value: 'gpt-4', label: 'GPT-4' },
       { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' }
+    ],
+    grok: [
+      { value: 'grok-3-latest', label: 'Grok 3' },
+      { value: 'grok-3-fast-latest', label: 'Grok 3 Fast' },
+      { value: 'grok-3-mini-latest', label: 'Grok 3 Mini' },
+      { value: 'grok-3-mini-fast-latest', label: 'Grok 3 Mini Fast' },
+      { value: 'grok-2-latest', label: 'Grok 2' }
     ]
   }
 
@@ -55,8 +66,14 @@ export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
     },
     {
       type: 'gpt' as const,
-      name: 'GPT',
+      name: 'ChatGPT',
       description: 'OpenAI\'s conversational AI model',
+      badge: 'gpt'
+    },
+    {
+      type: 'grok' as const,
+      name: 'Grok',
+      description: 'xAI\'s large language AI model',
       badge: 'gpt'
     }
   ]
@@ -64,7 +81,7 @@ export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
   const handleAdd = () => {
     if (!selectedType) return
 
-    const participantName = name.trim() || `${selectedType === 'claude' ? 'Claude' : selectedType === 'gpt' ? 'GPT' : 'Human'} ${(currentSession?.participants.length || 0) + 1}`
+    const participantName = name.trim() || `${selectedType === 'claude' ? 'Claude' : selectedType === 'gpt' ? 'GPT' : selectedType === 'grok' ? 'Grok'  : 'Human'} ${(currentSession?.participants.length || 0) + 1}`
 
     const newParticipant: Omit<Participant, 'id' | 'joinedAt' | 'messageCount'> = {
       name: participantName,
@@ -176,7 +193,7 @@ export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder={`${selectedType === 'claude' ? 'Claude' : selectedType === 'gpt' ? 'GPT' : 'Human'} ${(currentSession?.participants.length || 0) + 1}`}
+                    placeholder={`${selectedType === 'claude' ? 'Claude' : selectedType === 'gpt' ? 'GPT' : selectedType === 'grok' ? 'Grok'  : 'Human'} ${(currentSession?.participants.length || 0) + 1}`}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
