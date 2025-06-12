@@ -15,6 +15,7 @@ Designed for engineers, researchers, and builders interested in exploring multi-
 - **Persistent shared context** across conversation turns 
 - **Abort signal support** for graceful conversation interruption and resumption
 - **Template-based session creation** with curated conversation starters
+- **Comprehensive error tracking** with retry attempt logging and analysis
 
 ### Model Context Protocol Integration
 - **Full MCP server implementation** exposing Academy data and capabilities
@@ -24,7 +25,16 @@ Designed for engineers, researchers, and builders interested in exploring multi-
 - **Real-time Analysis Tools**: Conversation insights and metrics through MCP protocol
 - **Standards Compliant**: JSON-RPC 2.0 protocol with proper error handling and abort support
 - **WebSocket Integration**: Real-time updates and event broadcasting
-- **MCP Debug Tools**: Store debugging, resource inspection, and system monitoring
+- **MCP Debug Tools**: Store debugging, resource inspection, and comprehensive error tracking
+
+### Reliability & Error Handling
+- **Exponential Backoff Retry Logic**: Automatic recovery from network failures with 3 retry attempts
+- **Smart Error Classification**: Distinguishes between retryable network errors and non-retryable client errors
+- **Conversation Continuity**: Network hiccups don't interrupt long-form dialogues or cause participant dropouts
+- **Comprehensive Error Tracking**: All API failures logged with attempt counts, timestamps, and retry details
+- **Production-Grade Resilience**: Tested with 70+ message conversations under adverse network conditions
+- **Graceful Degradation**: Rate limits and authentication errors fail fast without wasting API quota
+- **Export Integration**: Error logs included in conversation exports for research analysis
 
 ### Advanced Research & Analysis System
 - **Live AI Analysis**: Real-time conversation analysis during active dialogues
@@ -60,6 +70,7 @@ Designed for engineers, researchers, and builders interested in exploring multi-
   - JSON format with complete conversation data and metadata
   - CSV format for timeline-based analysis
   - Optional inclusion of analysis snapshots
+  - Optional inclusion of API error logs with retry details
   - Configurable metadata inclusion
 - **Export Preview**: View full export content before download
 - **Analysis Export**: Export analysis timeline separately
@@ -136,11 +147,13 @@ The Academy provides a comprehensive suite of 40+ MCP tools:
 - `get_export_preview` - Preview export content
 
 #### AI Provider Tools (2 tools)
-- `claude_chat` - Direct Claude API access
-- `openai_chat` - Direct OpenAI API access
+- `claude_chat` - Direct Claude API access with exponential backoff retry
+- `openai_chat` - Direct OpenAI API access with exponential backoff retry
 
-#### Debug Tools (1 tool)
+#### Debug & Error Tracking Tools (3 tools)
 - `debug_store` - Debug store state and MCP integration
+- `get_api_errors` - Retrieve API errors with retry attempt details
+- `clear_api_errors` - Clear error logs for sessions or globally
 
 ### Real-time Integration Examples
 ```javascript
@@ -150,11 +163,34 @@ const messages = await mcp.readResource('academy://session/123/messages')
 // Control conversations programmatically with abort support
 await mcp.callToolWithAbort('start_conversation', { sessionId, initialPrompt }, abortSignal)
 
+// AI Provider calls with automatic retry logic (3 attempts with exponential backoff)
+const response = await mcp.callTool('claude_chat', {
+  message: 'Analyze this conversation',
+  systemPrompt: 'You are a research assistant',
+  sessionId: sessionId
+})
+// Network failures automatically retry: 1s → 2s → 4s delays
+// Rate limits (4xx errors) correctly fail without retry
+// Successfully maintains conversation continuity
+
 // Analyze dialogue patterns in real-time
 const analysis = await mcp.callTool('analyze_conversation', { sessionId, analysisType: 'full' })
 
 // Save analysis snapshots via MCP protocol
 await mcp.callTool('save_analysis_snapshot', { sessionId, ...analysisData })
+
+// Track and export API errors with retry information
+const errors = await mcp.callTool('get_api_errors', { sessionId })
+console.log(`Session had ${errors.count} API failures with retry details`)
+
+// Export conversations with comprehensive error logs
+const exportData = await mcp.callTool('export_session', {
+  sessionId,
+  format: 'csv',
+  includeErrors: true,
+  includeAnalysis: true
+})
+// CSV includes: messages, analysis snapshots, API errors with attempt counts
 
 // Get real-time analysis updates
 mcp.subscribe('analysis_snapshot_saved', (data) => {

@@ -14,6 +14,14 @@ export class MCPClient {
     baseDelay: 1000, // 1 second
     maxDelay: 8000,  // 8 seconds max
     retryCondition: (error: any) => {
+      // Never retry if request was aborted by user
+      if (error?.name === 'AbortError' || 
+          error?.message?.includes('aborted') || 
+          error?.message?.includes('Request was aborted')) {
+        console.log(`🛑 MCP Client: Request was aborted by user - no retry`);
+        return false;
+      }
+
       // Retry on network errors, timeouts, but not on auth/quota errors
       const errorStr = error?.message?.toLowerCase() || '';
       const isNetworkError = (
@@ -25,7 +33,6 @@ export class MCPClient {
         errorStr.includes('fetch') ||
         errorStr.includes('failed to fetch') ||
         errorStr.includes('connection') ||
-        errorStr.includes('abort') ||
         error?.code === 'ECONNRESET' ||
         error?.code === 'ENOTFOUND' ||
         error?.code === 'ECONNREFUSED' ||
@@ -45,7 +52,6 @@ export class MCPClient {
       return shouldRetry;
     }
   };
-
   private constructor(baseUrl: string = '/api/mcp') {
     this.baseUrl = baseUrl
   }
@@ -254,7 +260,7 @@ export class MCPClient {
 
   // Enhanced sendRequest that accepts additional context
   async sendRequestWithContext(method: string, params?: any, abortSignal?: AbortSignal, additionalContext?: { sessionId?: string; participantId?: string }): Promise<any> {
-    // Handle abort signals - don't retry if aborted
+    // Only skip retry if signal is ALREADY aborted
     if (abortSignal?.aborted) {
       throw new Error('Request was aborted')
     }
@@ -265,34 +271,9 @@ export class MCPClient {
       ...additionalContext
     };
 
-    // For abort signals, don't use retry logic
-    if (abortSignal) {
-      try {
-        return await this.sendRequestInternal(method, params, abortSignal)
-      } catch (error) {
-        if (error instanceof Error && (error.message.includes('aborted') || error.name === 'AbortError')) {
-          console.log(`🛑 MCP request ${method} was aborted`)
-          throw error
-        }
-        
-        // Log the error for aborted requests (final failure)
-        this.logError(error, {
-          operation: method,
-          attempt: 1,
-          maxAttempts: 1,
-          sessionId: fullContext.sessionId,
-          participantId: fullContext.participantId,
-          isFinalFailure: true
-        });
-        
-        console.error(`❌ MCP request ${method} failed:`, error)
-        throw error
-      }
-    }
-
-    // Use retry logic for non-aborted requests with full context
+    // Use retry logic for ALL requests, let retryCondition handle abort detection
     return this.retryWithBackoff(
-      () => this.sendRequestInternal(method, params),
+      () => this.sendRequestInternal(method, params, abortSignal),
       { 
         operationName: method,
         sessionId: fullContext.sessionId,
