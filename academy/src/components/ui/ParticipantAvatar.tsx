@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { Settings, User } from 'lucide-react'
 
 interface ParticipantAvatarProps {
-  participantType: 'claude' | 'gpt' | 'human' | 'moderator'
+  participantType: 'claude' | 'gpt' | 'grok' | 'gemini' | 'human' | 'moderator'
   size?: 'sm' | 'md' | 'lg'
   className?: string
 }
@@ -62,6 +62,54 @@ export function ParticipantAvatar({
               <Image
                 src="/icons/openai-icon.png"
                 alt="OpenAI GPT"
+                width={iconSizes[size].width}
+                height={iconSizes[size].height}
+                className="object-contain"
+                onError={(e) => {
+                  // Fallback to text-based avatar if image fails
+                  e.currentTarget.style.display = 'none'
+                  const parent = e.currentTarget.parentElement
+                  if (parent) {
+                    parent.innerHTML = '<span class="font-bold text-white text-xs">AI</span>'
+                    parent.className += ' bg-gradient-to-br from-emerald-400 to-teal-500'
+                  }
+                }}
+              />
+            </div>
+          </div>
+        )
+
+      case 'grok':
+        return (
+          <div className={`${sizeClasses[size]} rounded-full bg-white flex items-center justify-center border-2 border-green-200 shadow-sm ${className}`}>
+            <div className="flex items-center justify-center w-full h-full">
+              <Image
+                src="/icons/xai-icon.png"
+                alt="xAI Grok"
+                width={iconSizes[size].width}
+                height={iconSizes[size].height}
+                className="object-contain"
+                onError={(e) => {
+                  // Fallback to text-based avatar if image fails
+                  e.currentTarget.style.display = 'none'
+                  const parent = e.currentTarget.parentElement
+                  if (parent) {
+                    parent.innerHTML = '<span class="font-bold text-white text-xs">AI</span>'
+                    parent.className += ' bg-gradient-to-br from-emerald-400 to-teal-500'
+                  }
+                }}
+              />
+            </div>
+          </div>
+        )
+
+      case 'gemini':
+        return (
+          <div className={`${sizeClasses[size]} rounded-full bg-white flex items-center justify-center border-2 border-green-200 shadow-sm ${className}`}>
+            <div className="flex items-center justify-center w-full h-full">
+              <Image
+                src="/icons/google-gemini-icon.png"
+                alt="Google Gemini"
                 width={iconSizes[size].width}
                 height={iconSizes[size].height}
                 className="object-contain"

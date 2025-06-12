@@ -14,13 +14,14 @@ const badgeVariants = cva(
         outline: "text-foreground",
         claude: "border-transparent bg-gradient-to-r from-orange-100 to-amber-100 text-orange-800 shadow hover:from-orange-200 hover:to-amber-200",
         gpt: "border-transparent bg-gradient-to-r from-emerald-100 to-teal-100 text-emerald-800 shadow hover:from-emerald-200 hover:to-teal-200",
+        grok: "border-transparent bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-800 shadow hover:from-indigo-200 hover:to-purple-200",
+        gemini: "border-transparent bg-gradient-to-r from-sky-100 to-blue-100 text-sky-800 shadow hover:from-sky-200 hover:to-blue-200",
         active: "border-transparent bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 shadow animate-pulse",
         thinking: "border-transparent bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-800 shadow",
         error: "border-transparent bg-gradient-to-r from-red-100 to-rose-100 text-red-800 shadow",
         moderator: "border-transparent bg-gradient-to-r from-purple-100 to-violet-100 text-purple-800 shadow",
         idle: "border-transparent bg-gray-100 text-gray-600 shadow",
         disconnected: "border-transparent bg-red-50 text-red-600 shadow",
-        human: "border-transparent bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-800 shadow",
         completed: "border-transparent bg-green-50 text-green-600 shadow",
         paused: "border-transparent bg-yellow-50 text-yellow-600 shadow"
       }
