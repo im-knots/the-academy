@@ -89,7 +89,7 @@ export class MCPServer {
     operation: () => Promise<T>,
     config: Partial<RetryConfig> = {},
     context: {
-      provider: 'claude' | 'openai';
+      provider: 'claude' | 'openai' | 'grok' | 'gemini';
       operationName: string;
       sessionId?: string;
       participantId?: string;
