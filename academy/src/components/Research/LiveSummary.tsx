@@ -1,4 +1,4 @@
-// src/components/Research/LiveSummary.tsx - Fixed Header and Added Analysis Details
+// src/components/Research/LiveSummary.tsx - Fixed Header and Added Analysis Details + Message Window
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
@@ -12,7 +12,8 @@ import {
   Brain, Loader2, RefreshCw, MessageSquare, TrendingUp, 
   Users, Lightbulb, Target, Clock, Eye, EyeOff, Sparkles,
   ArrowRight, Hash, Zap, Settings, ChevronDown, Bot,
-  Save, CheckCircle2, BookmarkPlus, History, Database
+  Save, CheckCircle2, BookmarkPlus, History, Database,
+  Layers
 } from 'lucide-react'
 
 interface AnalysisProvider {
@@ -40,6 +41,7 @@ interface SummaryData {
   lastUpdated: Date
   messageCount: number
   analysisProvider: string
+  messageWindow: number // Track which window size was used
 }
 
 interface LiveSummaryProps {
@@ -61,6 +63,15 @@ const ANALYSIS_PROVIDERS: AnalysisProvider[] = [
   }
 ]
 
+// Preset window sizes with descriptions
+const WINDOW_PRESETS = [
+  { size: 0, label: 'All', description: 'Analyze entire conversation' },
+  { size: 10, label: '10', description: 'Recent context (10 messages)' },
+  { size: 20, label: '20', description: 'Extended context (20 messages)' },
+  { size: 50, label: '50', description: 'Deep context (50 messages)' },
+  { size: 100, label: '100', description: 'Full context (100 messages)' }
+]
+
 export function LiveSummary({ className = '' }: LiveSummaryProps) {
   const { currentSession, addAnalysisSnapshot } = useChatStore()
   const mcp = useMCP()
@@ -69,7 +80,9 @@ export function LiveSummary({ className = '' }: LiveSummaryProps) {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [isExpanded, setIsExpanded] = useState(true)
   const [showProviderSelect, setShowProviderSelect] = useState(false)
+  const [showWindowSelect, setShowWindowSelect] = useState(false)
   const [selectedProvider, setSelectedProvider] = useState<'claude' | 'gpt'>('claude')
+  const [messageWindow, setMessageWindow] = useState<number>(0) // 0 means all messages
   const [error, setError] = useState<string | null>(null)
   const [lastAnalyzedMessageCount, setLastAnalyzedMessageCount] = useState(0)
   const [lastAnalyzedSessionId, setLastAnalyzedSessionId] = useState<string | null>(null)
@@ -195,7 +208,14 @@ export function LiveSummary({ className = '' }: LiveSummaryProps) {
 
     console.log(`📊 LiveSummary: Building analysis prompt for session ${currentSessionData.id} with ${currentSessionData.messages.length} messages`)
 
-    const conversationHistory = currentSessionData.messages
+    // Apply message window filtering
+    let messagesToAnalyze = currentSessionData.messages
+    if (messageWindow > 0 && messageWindow < currentSessionData.messages.length) {
+      messagesToAnalyze = currentSessionData.messages.slice(-messageWindow)
+      console.log(`📊 LiveSummary: Using message window of ${messageWindow}, analyzing ${messagesToAnalyze.length} recent messages`)
+    }
+
+    const conversationHistory = messagesToAnalyze
       .map((msg: any, index: number) => 
         `[${index + 1}] ${msg.participantName} (${msg.participantType}): ${msg.content}`
       )
@@ -208,7 +228,11 @@ export function LiveSummary({ className = '' }: LiveSummaryProps) {
       )
       .join('\n')
 
-    console.log(`📊 LiveSummary: Analysis will cover ${currentSessionData.messages.length} messages from ${currentSessionData.participants.length} participants`)
+    const windowInfo = messageWindow > 0 
+      ? `\nAnalysis Window: Last ${messageWindow} messages (out of ${currentSessionData.messages.length} total)`
+      : `\nAnalysis Window: Complete conversation (${currentSessionData.messages.length} messages)`
+
+    console.log(`📊 LiveSummary: Analysis will cover ${messagesToAnalyze.length} messages from ${currentSessionData.participants.length} participants`)
 
     return `You are a research assistant analyzing an AI-to-AI philosophical dialogue. Please provide a comprehensive analysis of this conversation.
 
@@ -216,7 +240,7 @@ export function LiveSummary({ className = '' }: LiveSummaryProps) {
 Title: ${currentSessionData.name}
 Description: ${currentSessionData.description || 'AI consciousness research dialogue'}
 Session ID: ${currentSessionData.id}
-Message Count: ${currentSessionData.messages.length}
+Message Count: ${messagesToAnalyze.length}${windowInfo}
 
 **Participants:**
 ${participantProfiles}
@@ -334,7 +358,8 @@ Return only the JSON object, no additional text.`
             philosophicalDepth: analysisData.philosophicalDepth || 'moderate',
             lastUpdated: new Date(),
             messageCount: freshSession.messages.length,
-            analysisProvider: selectedProvider
+            analysisProvider: selectedProvider,
+            messageWindow: messageWindow
           }
           
           setSummary(summaryData)
@@ -391,6 +416,7 @@ Return only the JSON object, no additional text.`
         participantCountAtAnalysis: currentSession.participants.length,
         provider: selectedProvider,
         conversationPhase: dataToSave.conversationPhase,
+        messageWindow: dataToSave.messageWindow, // Include window size in saved data
         analysis: {
           mainTopics: dataToSave.mainTopics,
           keyInsights: dataToSave.keyInsights,
@@ -460,6 +486,12 @@ Return only the JSON object, no additional text.`
       case 'surface': return 'bg-yellow-100 text-yellow-800 border-yellow-200'
       default: return 'bg-gray-100 text-gray-800 border-gray-200'
     }
+  }
+
+  const getWindowDescription = (windowSize: number, totalMessages: number) => {
+    if (windowSize === 0) return 'All messages'
+    if (windowSize >= totalMessages) return `All ${totalMessages} messages`
+    return `Last ${windowSize} of ${totalMessages} messages`
   }
 
   if (!currentSession || currentSession.messages.length < 4) {
@@ -547,6 +579,50 @@ Return only the JSON object, no additional text.`
             )}
           </CardTitle>
           <div className="flex items-center gap-2">
+            {/* Message Window Selection */}
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowWindowSelect(!showWindowSelect)}
+                className="h-6 px-2 text-xs"
+                disabled={isAnalyzing}
+              >
+                <Layers className="h-3 w-3 mr-1" />
+                {messageWindow === 0 ? 'All' : messageWindow}
+                <ChevronDown className="h-3 w-3 ml-1" />
+              </Button>
+              
+              {showWindowSelect && (
+                <div className="absolute right-0 top-10 w-64 max-w-[calc(100vw-2rem)] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-50 p-3 transform -translate-x-2">
+                  <div className="mb-2">
+                    <h4 className="text-xs font-medium text-gray-900 dark:text-gray-100 mb-1">Message Window</h4>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Choose how many messages to analyze</p>
+                  </div>
+                  {WINDOW_PRESETS.map((preset) => (
+                    <button
+                      key={preset.size}
+                      onClick={() => {
+                        setMessageWindow(preset.size)
+                        setShowWindowSelect(false)
+                      }}
+                      className={`w-full text-left p-2 rounded text-xs transition-colors ${
+                        messageWindow === preset.size
+                          ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-900 dark:text-indigo-100'
+                          : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-medium">{preset.label}</span>
+                        <span className="text-gray-500 dark:text-gray-400">messages</span>
+                      </div>
+                      <p className="text-gray-600 dark:text-gray-400">{preset.description}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Provider Selection */}
             <div className="relative">
               <Button
@@ -605,6 +681,7 @@ Return only the JSON object, no additional text.`
               className="h-6 px-2 text-xs"
               title={isAnalyzing ? "Analyzing..." : "Run Analysis"}
             >
+              <RefreshCw className="h-3 w-3" />
             </Button>
             
             <Button
@@ -623,6 +700,14 @@ Return only the JSON object, no additional text.`
         <CardContent className="space-y-4 max-h-150 overflow-y-auto">
           {summary && (
             <>
+              {/* Message Window Info */}
+              <div className="p-2 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-700 rounded-lg">
+                <div className="flex items-center gap-2 text-xs text-indigo-800 dark:text-indigo-200">
+                  <Layers className="h-3 w-3" />
+                  <span>Analyzing: {getWindowDescription(summary.messageWindow, currentSession.messages.length)}</span>
+                </div>
+              </div>
+
               {/* Last Saved Indicator */}
               {lastSaved && (
                 <div className="p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg">
@@ -686,7 +771,7 @@ Return only the JSON object, no additional text.`
                     <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">Participant Dynamics</span>
                   </div>
                   <div className="space-y-2">
-                    {Object.entries(summary.participantDynamics).slice(0, 2).map(([participantName, dynamics]) => (
+                    {Object.entries(summary.participantDynamics).slice(0, 4).map(([participantName, dynamics]) => (
                       <div key={participantName} className="text-xs bg-white/30 dark:bg-black/10 p-2 rounded">
                         <div className="font-medium text-indigo-800 dark:text-indigo-200 mb-1">{participantName}</div>
                         <div className="text-indigo-700 dark:text-indigo-300">
