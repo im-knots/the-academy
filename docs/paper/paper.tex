@@ -191,6 +191,8 @@ The pattern showed temporal consistency, with competitive escalation lasting an 
 
 \subsection{Meta-Reflection as a Potential Trigger}
 
+\textbf{Definition}: Meta-reflection refers to explicit commentary on the conversation's process, quality, or progress rather than substantive discussion of the topic itself. This includes statements about the dialogue's characteristics ("This has been fascinating..."), summaries of conversation content ("Our discussion has covered..."), or evaluative remarks about the exchange ("What we've explored together..."). Crucially, meta-reflection is distinct from topic-specific commentary—comparing "This point about consciousness is fascinating" (topic-focused) versus "This conversation has been fascinating" (meta-reflective).
+
 Analysis of breakdown initiation points suggests that \metaReflectionTriggers{} of degradation episodes begin with explicit meta-commentary about the conversation itself. Common patterns include past-tense reflection ("This has been fascinating..."), summarization language ("Our discussion has covered..."), and evaluative statements about conversation quality (complete linguistic analysis in Appendix \ref{app:breakdown}). This observation led us to hypothesize that AI agents may interpret conversational reflection as a signal indicating dialogue termination, even when no explicit ending instruction has been provided.
 
 \subsection{Evidence for Content-Dependency: The 175-Turn Case}
@@ -334,7 +336,7 @@ These questions suggest directions for future research into conversation dynamic
 
 The observed breakdown pattern exhibits several features reminiscent of human social psychology phenomena, suggesting potential commonalities between artificial and human social dynamics:
 
-\textbf{Social Conformity Mechanisms}: The peer response phase mirrors human conformity behaviors where individuals align their behavior with perceived group norms. When one AI shifts to meta-reflection, others follow suit despite no explicit instruction to do so, similar to how humans often mirror social cues in group settings.
+\textbf{Social Conformity Mechanisms}: The peer response phase mirrors human conformity behaviors where individuals align their behavior with perceived group norms. This pattern resembles classic conformity experiments [**PLACEHOLDER: Need citation to Asch conformity studies, e.g., asch1956studies**] where individuals align with group norms even when contradicting their individual judgment, suggesting AI agents may exhibit similar social signaling behaviors potentially derived from training data patterns. When one AI shifts to meta-reflection, others follow suit despite no explicit instruction to do so, demonstrating how social cues can propagate through artificial agent populations.
 
 \textbf{Competitive Social Behaviors}: The competitive escalation phase resembles human "one-upsmanship" in social contexts, where individuals compete to provide the most impressive or profound contribution. This suggests that competitive dynamics may emerge naturally in multi-agent systems without explicit competitive objectives.
 
@@ -692,13 +694,46 @@ Comprehensive analysis of the \metaReflectionTriggers{} documented meta-reflecti
     \item "The journey we've taken..." ([X] instances)
 \end{itemize}
 
-\textbf{Meta-Cognitive Commentary}: [XX\%] explicitly discuss the conversation process
+\subsubsection{Meta-Reflection vs. Topic-Specific Commentary}
+
+Distinguishing meta-reflection from topic-specific commentary is crucial for understanding breakdown triggers:
+
+\textbf{Meta-Reflection Examples} (breakdown-triggering):
 \begin{itemize}
-    \item "Our dialogue has..." ([X] instances)
-    \item "This conversation has become..." ([X] instances)
-    \item "The exchange between us..." ([X] instances)
-    \item "Through our discussion..." ([X] instances)
+    \item "This conversation has been fascinating..." (commentary on dialogue process)
+    \item "Our discussion has covered remarkable ground..." (summary of conversation scope)
+    \item "What we've explored together..." (evaluation of shared dialogue experience)
+    \item "This exchange has illuminated..." (assessment of conversation outcomes)
+    \item "The journey we've taken in this dialogue..." (metaphorical description of conversation process)
 \end{itemize}
+
+\textbf{Topic-Specific Commentary} (non-triggering):
+\begin{itemize}
+    \item "This point about consciousness is fascinating..." (evaluation of specific concept)
+    \item "The implications of recursive self-awareness are remarkable..." (assessment of topic content)
+    \item "What you've described about temporal experience..." (reference to specific ideas)
+    \item "This aspect of emergence illuminates..." (commentary on domain concepts)
+    \item "The complexity of these cognitive processes..." (analysis of substantive content)
+\end{itemize}
+
+\textbf{Edge Cases and Borderline Examples}:
+
+Some statements occupy a middle ground and require contextual analysis:
+\begin{itemize}
+    \item "This line of thinking is taking us somewhere profound..." - Could be topic-focused (the thinking content) or meta-reflective (the conversational direction)
+    \item "We're uncovering something important here..." - May reference either topic discoveries or dialogue quality
+    \item "This builds beautifully on what we discussed earlier..." - References conversation history but focuses on content connection rather than process evaluation
+\end{itemize}
+
+\textbf{Classification Criteria}:
+\begin{itemize}
+    \item \textbf{Subject Focus}: Does the statement evaluate the conversation itself or the topic being discussed?
+    \item \textbf{Temporal Reference}: Does it refer to dialogue history ("what we've covered") or conceptual development ("what this suggests")?
+    \item \textbf{Evaluative Target}: Is the assessment about conversation quality or topic content quality?
+    \item \textbf{Process vs. Content}: Does it address how the dialogue is proceeding or what the dialogue contains?
+\end{itemize}
+
+Our analysis shows that statements meeting multiple meta-reflection criteria (process focus + conversation evaluation + temporal summary) consistently trigger breakdown sequences, while topic-specific commentary maintains productive dialogue flow.
 
 \subsubsection{Contrast with Sustained Dialogue Language}
 
