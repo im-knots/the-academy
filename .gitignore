@@ -9,4 +9,5 @@ paper.fdb_latexmk
 paper.bbl
 paper.aux
 paper.pdf
-paper.blg
+paper.blg 
+research-notes/
