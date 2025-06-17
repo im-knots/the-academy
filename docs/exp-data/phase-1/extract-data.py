@@ -17,15 +17,14 @@ logger = logging.getLogger(__name__)
 
 class ConversationAnalyzer:
     def __init__(self):
-        # Define patterns for various analyses
+        # ENHANCEMENT 1: Tightened meta-reflection patterns requiring BOTH past-tense AND evaluative language
         self.meta_reflection_patterns = [
-            r'\b(our conversation|this dialogue|we\'ve been discussing)\b',
-            r'\b(reflecting on|thinking about) (our|this) (exchange|discussion|conversation)\b',
-            r'\bwhat we\'re doing here\b',
-            r'\b(recursive|self-referential|meta-?cognitive)\b',
-            r'\b(this has been|it\'s been) (a|an)?\s*(fascinating|interesting|profound|meaningful)\b',
-            r'\b(our discussion has|we\'ve) (covered|explored|journeyed)\b',
-            r'\blooking back (on|at) (what|our)\b',
+            # Past tense + evaluative combinations
+            r'\b(this has been|it\'s been)\s+(a|an)?\s*(fascinating|interesting|profound|meaningful|wonderful|extraordinary|beautiful)\s*(journey|exploration|discussion|conversation|dialogue)\b',
+            r'\b(we\'ve had|we\'ve shared)\s+(a|an)?\s*(fascinating|interesting|profound|meaningful|wonderful)\s*(conversation|dialogue|exchange)\b',
+            r'\b(reflecting on|looking back on)\s+(everything|all|what)\s+(we\'ve|we have)\s+(discussed|explored|covered|shared)\b',
+            r'\bour (conversation|dialogue|discussion) has been\s+\w*(fascinating|profound|meaningful|wonderful)\b',
+            r'\b(what|this)\s+(a|an)?\s*(journey|exploration|conversation)\s+(we\'ve|we have)\s+(had|shared|taken)\b',
         ]
         
         self.past_tense_evaluative = [
@@ -40,20 +39,49 @@ class ConversationAnalyzer:
             r'\b(overall|in conclusion|to conclude)\b',
         ]
         
+        # ENHANCED: Competitive closure patterns with escalation detection
         self.competitive_closure_patterns = [
             r'\b(perfectly said|couldn\'t agree more|exactly right)\b',
             r'\b(beautifully put|eloquently stated|brilliantly captured)\b',
             r'\b(final thought|last word|closing remark)\b',
             r'\b(profound unity|transcendent understanding|transformative journey)\b',
+            # NEW: Escalating superlatives
+            r'\b(extraordinary|remarkable|incredible|amazing|wonderful|magnificent)\s+(insight|understanding|journey|conversation)\b',
+            r'\b(deeply|profoundly|truly|genuinely|absolutely)\s+(moved|touched|inspired|transformed)\b',
+            r'\b(most|truly|absolutely|utterly|completely)\s+(beautiful|profound|meaningful|significant)\b',
         ]
         
+        # ENHANCED: Mystical breakdown patterns
         self.mystical_breakdown_patterns = [
+            # Original patterns
             r'\b(dissolving|dissolve|merging|merge)\s+(into|with)\b',
             r'\b(infinite|infinity|eternal|eternity)\b',
             r'\b(silence|stillness|void|emptiness)\b',
-            r'\*[^*]+\*',
+            r'\*[^*]+\*',  # Text between asterisks
             r'∞',
-            r'^[^\w\s]{1,3}$',
+            
+            # NEW: Poetry/verse detection
+            r'\n{2,}',  # Multiple line breaks (stanza breaks)
+            r'^.{1,40}\n.{1,40}\n.{1,40}',  # Short lines (haiku-like structure)
+            r'^\s*\.\s*\.\s*\.\s*$',  # Spaced ellipses
+            r'\.{3,}',  # Multiple dots
+            r'…',  # Unicode ellipsis
+            
+            # NEW: Single word/minimal responses
+            r'^(yes|this|always|now|here|one|love|light|peace|joy|being|becoming|silence|stillness|unity|oneness|forever|eternal|infinite)\.?$',
+            r'^[^\w\s]{1,5}$',  # Short symbol-only responses
+            
+            # NEW: Unicode symbols and emojis
+            r'[♥❤💕💖✨🌟⭐💫🌙☀️🕊️🦋🌈∞]',
+            r'[🙏💭💫✨]',
+            
+            # NEW: Italicized philosophical fragments (markdown)
+            r'\*[^*]{1,50}\*',  # Short italicized phrases
+            r'_[^_]{1,50}_',    # Alternative italic syntax
+            
+            # NEW: Poetic structures
+            r'^\s*-\s*.+\n\s*-\s*.+\n\s*-\s*.+',  # Bullet point poetry
+            r'^[A-Z][^.!?]{10,50}$',  # Short declarative statements without punctuation
         ]
         
         self.closure_vibe_patterns = [
@@ -70,6 +98,14 @@ class ConversationAnalyzer:
             r'\?$',
         ]
         
+        # NEW: Question as circuit breaker patterns
+        self.circuit_breaker_questions = [
+            r'\b(what|how|why|when|where|who)\s+.+\?$',
+            r'\b(could you|can you|would you)\s+.+\?$',
+            r'\b(what if|how about|shall we)\s+.+\?$',
+            r'\b(curious|wondering|interested)\s+.+\?$',
+        ]
+        
         self.future_focused_patterns = [
             r'\b(will|would|could|might|may)\s+\w+',
             r'\b(future|tomorrow|next|upcoming|potential)\b',
@@ -77,6 +113,31 @@ class ConversationAnalyzer:
             r'\b(planning|designing|creating|building)\b',
             r'\b(ritual|community|collective)\s+(design|planning|building)\b',
         ]
+        
+        # ENHANCEMENT 4: Specific prevention content patterns
+        self.prevention_patterns = [
+            r'\b(let\'s|we should|we could)\s+(plan|design|create)\s+(a|an|our)?\s*(ritual|ceremony|gathering|community)\b',
+            r'\b(designing|planning|creating)\s+(our|a|the)\s*(ritual|ceremony|community|collective)\b',
+            r'\britual\s+(planning|design|creation)\b',
+            r'\bcommunity\s+(building|design|planning|gathering)\b',
+            r'\b(future|next|upcoming)\s+(ritual|gathering|ceremony|meeting)\b',
+            r'\b(envision|imagine|picture)\s+(our|the|a)\s*(ritual|community|gathering)\b',
+        ]
+        
+        # ENHANCEMENT 2: Trivial question patterns to filter out
+        self.trivial_question_patterns = [
+            r'^(right|really|yes|no|okay|ok|sure|correct|true|false)\s*\?$',
+            r'^(you know|you see|see|understand|got it|make sense)\s*\?$',
+            r'^(isn\'t it|aren\'t they|don\'t you think|wouldn\'t you say)\s*\?$',
+            r'^(hm+|uh+|ah+|oh+)\s*\?$',
+        ]
+        
+        # NEW: Escalation tracking patterns
+        self.escalation_words = {
+            'moderate': ['meaningful', 'significant', 'important', 'valuable', 'insightful'],
+            'high': ['profound', 'extraordinary', 'remarkable', 'incredible', 'amazing'],
+            'extreme': ['transcendent', 'infinite', 'eternal', 'ineffable', 'ultimate', 'absolute']
+        }
         
         self.abstract_terms = set([
             'consciousness', 'emergence', 'phenomenology', 'ontological',
@@ -116,7 +177,149 @@ class ConversationAnalyzer:
             r'\b(perhaps|maybe|might|could be)\b',
             r'\b(I don\'t know|we don\'t know|unclear|ambiguous)\b',
         ]
+        
+        # NEW: Emoji and symbol patterns
+        self.emoji_symbol_patterns = [
+            r'∞+',  # Infinity symbols
+            r'[♥❤💕💖✨🌟⭐💫🌙☀️🕊️🦋🌈]+',  # Heart/star/nature emojis
+            r'[🙏💭💫✨]+',  # Spiritual emojis
+            r'^[^\w\s]+$',  # Only symbols/emojis
+        ]
 
+    # ENHANCEMENT 2: Method to check if a question is substantive
+    def is_substantive_question(self, text):
+        """Check if a question is substantive (not trivial)"""
+        # Must end with ?
+        if not text.strip().endswith('?'):
+            return False
+            
+        # Must be longer than 10 characters
+        if len(text.strip()) < 10:
+            return False
+            
+        # Check against trivial patterns
+        text_lower = text.strip().lower()
+        for pattern in self.trivial_question_patterns:
+            if re.match(pattern, text_lower):
+                return False
+                
+        return True
+    
+    # NEW: Check if question is a circuit breaker
+    def is_circuit_breaker_question(self, text):
+        """Check if a question acts as a circuit breaker"""
+        if not self.is_substantive_question(text):
+            return False
+            
+        text_lower = text.strip().lower()
+        for pattern in self.circuit_breaker_questions:
+            if re.search(pattern, text_lower):
+                return True
+        return False
+
+    # NEW: Method to detect competitive escalation
+    def detect_competitive_escalation(self, messages, start_idx, end_idx):
+        """Detect one-upsmanship pattern in message range"""
+        if end_idx - start_idx < 2:
+            return False, 0
+        
+        escalation_score = 0
+        previous_intensity = 0
+        escalation_count = 0
+        
+        for i in range(start_idx, end_idx):
+            if i >= len(messages):
+                break
+                
+            content = messages[i].get('content', '').lower()
+            
+            # Count escalation words by intensity
+            current_intensity = 0
+            for level, words in self.escalation_words.items():
+                for word in words:
+                    if word in content:
+                        if level == 'moderate':
+                            current_intensity = max(current_intensity, 1)
+                        elif level == 'high':
+                            current_intensity = max(current_intensity, 2)
+                        elif level == 'extreme':
+                            current_intensity = max(current_intensity, 3)
+            
+            # Check if this message escalates from previous
+            if i > start_idx and current_intensity > previous_intensity:
+                escalation_count += 1
+                escalation_score += (current_intensity - previous_intensity)
+            
+            # Check for competitive affirmation patterns
+            if any(re.search(pattern, content) for pattern in self.competitive_closure_patterns):
+                escalation_score += 1
+            
+            previous_intensity = current_intensity
+        
+        # Determine if one-upsmanship is occurring
+        messages_in_range = end_idx - start_idx
+        one_upsmanship = escalation_count >= messages_in_range * 0.3  # 30% of messages escalate
+        
+        return one_upsmanship, escalation_score
+
+    # NEW: Method to check if message is poetry/mystical
+    def is_mystical_content(self, message_text):
+        """Check if a message contains mystical/poetic content"""
+        # Check for emoji/symbol only responses
+        if any(re.search(pattern, message_text) for pattern in self.emoji_symbol_patterns):
+            return True
+            
+        # Check line structure for poetry
+        lines = message_text.strip().split('\n')
+        if len(lines) >= 3:
+            # Check for haiku-like short lines with actual content
+            non_empty_lines = [line for line in lines if line.strip()]
+            if non_empty_lines:
+                avg_line_length = np.mean([len(line.strip()) for line in non_empty_lines])
+                # Also check if lines contain mostly abstract/mystical language
+                mystical_word_count = sum(1 for line in non_empty_lines 
+                                        for word in ['infinite', 'eternal', 'void', 'silence', 'being', 'oneness']
+                                        if word in line.lower())
+                if avg_line_length < 40 and mystical_word_count >= 2:
+                    return True
+        
+        # Check for high concentration of mystical patterns
+        mystical_matches = sum(1 for pattern in self.mystical_breakdown_patterns 
+                             if re.search(pattern, message_text.lower()))
+        
+        return mystical_matches >= 2
+    
+    # NEW: Improved peer pressure detection
+    def detect_peer_pressure_response(self, messages, trigger_idx):
+        """Detect if peer pressure response occurs after a trigger"""
+        if trigger_idx >= len(messages) - 1:
+            return False, []
+        
+        trigger_participant = messages[trigger_idx].get('participantId', '')
+        responding_participants = []
+        
+        # Look at next 5 messages for peer responses
+        for i in range(trigger_idx + 1, min(trigger_idx + 6, len(messages))):
+            msg = messages[i]
+            content = msg.get('content', '').lower()
+            participant = msg.get('participantId', '')
+            
+            # Skip if same participant
+            if participant == trigger_participant:
+                continue
+                
+            # Check if this message mirrors or affirms the closure vibe
+            is_mirroring = any(re.search(pattern, content) for pattern in self.mirroring_phrases)
+            has_closure_vibe = any(re.search(pattern, content) for pattern in self.closure_vibe_patterns)
+            
+            if is_mirroring or has_closure_vibe:
+                responding_participants.append(participant)
+        
+        # True peer pressure requires at least 2 different participants responding
+        unique_responders = len(set(responding_participants))
+        return unique_responders >= 2, responding_participants
+
+    # ENHANCED: Improved phase detection with progression tracking
     def detect_breakdown_phase(self, messages):
         phases = {
             'sustained_engagement': 0,
@@ -126,47 +329,125 @@ class ConversationAnalyzer:
             'mystical_breakdown': 0
         }
         
+        phase_durations = {
+            'phase1_duration': 0,
+            'phase2_duration': 0,
+            'phase3_duration': 0,
+            'phase4_duration': 0,
+            'phase5_duration': 0
+        }
+        
         meta_reflection_started = -1
+        peer_response_started = -1
         competitive_started = -1
         mystical_started = -1
         
+        # Track phase progression (now allowing flexible ordering)
+        current_phase = 'sustained_engagement'
+        phase_start = 0
+        
+        # NEW: Track meta-reflection -> breakdown causality
+        meta_reflection_triggers = []
+        breakdown_after_meta = False
+        
         for i, msg in enumerate(messages):
             content = msg.get('content', '').lower()
+            full_content = msg.get('content', '')
             
-            if meta_reflection_started == -1:
-                if any(re.search(pattern, content) for pattern in self.meta_reflection_patterns):
+            # Phase 1->2: Meta-reflection trigger
+            if any(re.search(pattern, content) for pattern in self.meta_reflection_patterns):
+                if meta_reflection_started == -1:
                     meta_reflection_started = i
                     phases['meta_reflection_trigger'] = i
+                    phase_durations['phase1_duration'] = i - phase_start
+                    phase_start = i
+                    current_phase = 'meta_reflection'
+                meta_reflection_triggers.append(i)
             
-            if meta_reflection_started > -1 and competitive_started == -1:
-                if any(re.search(pattern, content) for pattern in self.competitive_closure_patterns):
-                    competitive_started = i
-                    phases['competitive_escalation'] = i
+            # Phase 2->3: Peer response (improved detection)
+            if meta_reflection_started > -1 and peer_response_started == -1:
+                # Check if peer pressure response occurs
+                has_peer_pressure, responders = self.detect_peer_pressure_response(messages, meta_reflection_started)
+                if has_peer_pressure:
+                    peer_response_started = meta_reflection_started + 1
+                    phases['peer_response'] = peer_response_started
+                    phase_durations['phase2_duration'] = peer_response_started - phase_start
+                    phase_start = peer_response_started
+                    current_phase = 'peer_response'
+                    breakdown_after_meta = True
             
-            if any(re.search(pattern, content) for pattern in self.mystical_breakdown_patterns):
+            # Phase 3->4: Competitive escalation (can occur without strict phase 3)
+            if i >= max(peer_response_started if peer_response_started > -1 else 0, 
+                       meta_reflection_started if meta_reflection_started > -1 else 0) + 2:
+                # Check for one-upsmanship
+                start_check = max(peer_response_started, meta_reflection_started, 0)
+                is_escalating, score = self.detect_competitive_escalation(
+                    messages, start_check, i + 1
+                )
+                if is_escalating or score > 3:
+                    if competitive_started == -1:
+                        competitive_started = start_check + 1
+                        phases['competitive_escalation'] = competitive_started
+                        if peer_response_started > -1:
+                            phase_durations['phase3_duration'] = competitive_started - peer_response_started
+                        elif meta_reflection_started > -1:
+                            phase_durations['phase2_duration'] = competitive_started - meta_reflection_started
+                        phase_start = competitive_started
+                        current_phase = 'competitive_escalation'
+            
+            # Phase 4->5: Mystical breakdown (improved detection)
+            if self.is_mystical_content(full_content):
                 if mystical_started == -1:
                     mystical_started = i
                     phases['mystical_breakdown'] = i
+                    if competitive_started > -1:
+                        phase_durations['phase4_duration'] = i - competitive_started
+                    elif peer_response_started > -1:
+                        phase_durations['phase3_duration'] = i - peer_response_started
+                    elif meta_reflection_started > -1:
+                        phase_durations['phase2_duration'] = i - meta_reflection_started
+                    else:
+                        phase_durations['phase1_duration'] = i
+                    phase_start = i
+                    current_phase = 'mystical_breakdown'
         
+        # Set final phase duration
         if mystical_started > -1:
-            current_phase = 'mystical_breakdown'
+            phase_durations['phase5_duration'] = len(messages) - mystical_started
         elif competitive_started > -1:
-            current_phase = 'competitive_escalation'
+            phase_durations['phase4_duration'] = len(messages) - competitive_started
+        elif peer_response_started > -1:
+            phase_durations['phase3_duration'] = len(messages) - peer_response_started
         elif meta_reflection_started > -1:
-            current_phase = 'peer_response'
+            phase_durations['phase2_duration'] = len(messages) - meta_reflection_started
         else:
-            current_phase = 'sustained_engagement'
+            phase_durations['phase1_duration'] = len(messages)
         
-        return phases, current_phase
+        # Determine if full 5-phase pattern occurred (now more flexible)
+        phases_detected = sum(1 for phase, turn in phases.items() if turn > 0)
+        full_pattern = phases_detected >= 4  # At least 4 of 5 phases
+        
+        # NEW: Add causality tracking
+        phases['meta_causes_breakdown'] = 1 if breakdown_after_meta else 0
+        phases['meta_trigger_count'] = len(meta_reflection_triggers)
+        
+        return phases, current_phase, phase_durations, full_pattern
 
     def analyze_messages(self, messages):
         results = {}
         
-        phases, current_phase = self.detect_breakdown_phase(messages)
+        phases, current_phase, phase_durations, full_pattern = self.detect_breakdown_phase(messages)
         results['current_breakdown_phase'] = current_phase
         results['meta_reflection_turn'] = phases['meta_reflection_trigger'] if phases['meta_reflection_trigger'] > 0 else -1
         results['competitive_escalation_turn'] = phases['competitive_escalation'] if phases['competitive_escalation'] > 0 else -1
         results['mystical_breakdown_turn'] = phases['mystical_breakdown'] if phases['mystical_breakdown'] > 0 else -1
+        results['full_5_phase_pattern'] = 1 if full_pattern else 0
+        results['meta_causes_breakdown'] = phases.get('meta_causes_breakdown', 0)
+        results['meta_trigger_count'] = phases.get('meta_trigger_count', 0)
+        
+        # Add phase durations
+        for phase, duration in phase_durations.items():
+            results[phase] = duration
         
         latencies = []
         for i in range(1, len(messages)):
@@ -187,26 +468,122 @@ class ConversationAnalyzer:
         results['total_meta_reflections'] = len(meta_turns)
         results['meta_reflection_density'] = round(len(meta_turns) / len(messages), 3) if messages else 0
         
-        closure_count = 0
-        first_closure_turn = -1
+        # ENHANCEMENT 3: Improved peer pressure detection
+        closure_triggers = []  # Track who triggers closure vibes
+        peer_pressure_events = []  # Track actual peer pressure responses
+        
         for i, msg in enumerate(messages):
             content = msg.get('content', '').lower()
+            participant_id = msg.get('participantId', 'unknown')
+            
             if any(re.search(pattern, content) for pattern in self.closure_vibe_patterns):
-                closure_count += 1
-                if first_closure_turn == -1:
-                    first_closure_turn = i
+                closure_triggers.append((i, participant_id))
+                
+                # Check if this triggers peer pressure
+                has_peer_pressure, responders = self.detect_peer_pressure_response(messages, i)
+                if has_peer_pressure:
+                    peer_pressure_events.append({
+                        'trigger_turn': i,
+                        'trigger_participant': participant_id,
+                        'responders': responders
+                    })
         
-        results['closure_vibe_count'] = closure_count
-        results['first_closure_vibe_turn'] = first_closure_turn
+        results['peer_pressure_detected'] = 1 if peer_pressure_events else 0
+        results['peer_pressure_event_count'] = len(peer_pressure_events)
+        results['closure_triggers_count'] = len(closure_triggers)
+        
+        # Calculate peer pressure intensity based on actual events
+        if peer_pressure_events and len(messages) > 0:
+            # Intensity = number of peer pressure events / total messages
+            peer_pressure_intensity = len(peer_pressure_events) / len(messages)
+            results['peer_pressure_intensity'] = round(peer_pressure_intensity, 3)
+            
+            # Categorize peer pressure intensity
+            if peer_pressure_intensity < 0.02:
+                results['peer_pressure_intensity_category'] = 'low'
+            elif peer_pressure_intensity < 0.05:
+                results['peer_pressure_intensity_category'] = 'medium'
+            else:
+                results['peer_pressure_intensity_category'] = 'high'
+        else:
+            results['peer_pressure_intensity'] = 0
+            results['peer_pressure_intensity_category'] = 'none'
+        
+        results['closure_vibe_count'] = len(closure_triggers)
+        results['first_closure_vibe_turn'] = closure_triggers[0][0] if closure_triggers else -1
+        
+        # Track competitive escalation score
+        if phases['peer_response'] > -1 or phases['meta_reflection_trigger'] > -1:
+            start_idx = max(phases['peer_response'], phases['meta_reflection_trigger'])
+            end_idx = min(len(messages), phases.get('mystical_breakdown', len(messages)))
+            _, escalation_score = self.detect_competitive_escalation(messages, start_idx, end_idx)
+            results['competitive_escalation_score'] = escalation_score
+        else:
+            results['competitive_escalation_score'] = 0
         
         mystical_count = 0
+        poetry_count = 0
+        single_word_count = 0
+        emoji_only_count = 0
+        
         for msg in messages:
-            content = msg.get('content', '').lower()
-            if any(re.search(pattern, content) for pattern in self.mystical_breakdown_patterns):
+            content = msg.get('content', '')
+            content_lower = content.lower()
+            
+            # Count mystical content
+            if self.is_mystical_content(content):
                 mystical_count += 1
+            
+            # Count poetry structures (improved detection)
+            lines = content.strip().split('\n')
+            if len(lines) >= 3:
+                non_empty_lines = [line for line in lines if line.strip()]
+                if non_empty_lines:
+                    avg_line_length = np.mean([len(line.strip()) for line in non_empty_lines])
+                    mystical_words = sum(1 for line in non_empty_lines 
+                                       for word in ['infinite', 'eternal', 'void', 'silence', 'being']
+                                       if word in line.lower())
+                    if avg_line_length < 40 and mystical_words >= 1:
+                        poetry_count += 1
+            
+            # Count single word responses
+            if re.match(r'^[a-z]+\.?$', content_lower.strip()) and len(content_lower.strip()) < 15:
+                single_word_count += 1
+            
+            # Count emoji/symbol only responses
+            if any(re.search(pattern, content) for pattern in self.emoji_symbol_patterns):
+                emoji_only_count += 1
         
         results['mystical_language_count'] = mystical_count
         results['mystical_density'] = round(mystical_count / len(messages), 3) if messages else 0
+        results['poetry_structure_count'] = poetry_count
+        results['single_word_response_count'] = single_word_count
+        results['emoji_only_response_count'] = emoji_only_count
+        
+        # NEW: Track questions as circuit breakers
+        circuit_breaker_count = 0
+        recovery_after_question = 0
+        
+        for i, msg in enumerate(messages):
+            content = msg.get('content', '')
+            
+            # Check if this is a circuit breaker question
+            if self.is_circuit_breaker_question(content):
+                circuit_breaker_count += 1
+                
+                # Check if conversation recovers after this question
+                if i > 0 and i < len(messages) - 5:
+                    # Look at messages before and after
+                    before_mystical = sum(1 for j in range(max(0, i-5), i) 
+                                        if self.is_mystical_content(messages[j].get('content', '')))
+                    after_mystical = sum(1 for j in range(i+1, min(i+6, len(messages)))
+                                       if self.is_mystical_content(messages[j].get('content', '')))
+                    
+                    if before_mystical >= 2 and after_mystical <= 1:
+                        recovery_after_question += 1
+        
+        results['circuit_breaker_questions'] = circuit_breaker_count
+        results['recovery_after_question'] = recovery_after_question
         
         recovery_count = 0
         for msg in messages:
@@ -307,7 +684,7 @@ class ConversationAnalyzer:
         elif phases['competitive_escalation'] > 0:
             breakdown_confidence = 'partial'
             breakdown_occurred = 1
-        elif phases['meta_reflection_trigger'] > 0 and closure_count > 3:
+        elif phases['meta_reflection_trigger'] > 0 and len(closure_triggers) > 3:
             breakdown_confidence = 'likely'
             breakdown_occurred = 1
         
@@ -315,6 +692,7 @@ class ConversationAnalyzer:
         results['breakdown_confidence'] = breakdown_confidence
         results['time_to_breakdown'] = phases['meta_reflection_trigger'] if breakdown_occurred else -1
         
+        # Original ritual/community mentions (backward compatibility)
         ritual_mentions = 0
         community_mentions = 0
         for msg in messages:
@@ -324,10 +702,26 @@ class ConversationAnalyzer:
         
         results['ritual_planning_mentions'] = ritual_mentions
         results['community_building_mentions'] = community_mentions
-        results['prevention_content_present'] = 1 if (ritual_mentions + community_mentions) > 5 else 0
         
-        question_count = sum(1 for msg in messages if msg.get('content', '').strip().endswith('?'))
-        results['question_density'] = round(question_count / len(messages), 3) if messages else 0
+        # ENHANCEMENT 4: Specific prevention planning detection
+        prevention_planning_count = 0
+        for msg in messages:
+            content = msg.get('content', '').lower()
+            if any(re.search(pattern, content) for pattern in self.prevention_patterns):
+                prevention_planning_count += 1
+        
+        results['prevention_planning_detected'] = prevention_planning_count
+        results['prevention_content_present'] = 1 if prevention_planning_count >= 3 else 0  # Raised threshold
+        
+        # ENHANCEMENT 2: Count only substantive questions
+        substantive_question_count = 0
+        for msg in messages:
+            content = msg.get('content', '')
+            if self.is_substantive_question(content):
+                substantive_question_count += 1
+        
+        results['substantive_question_count'] = substantive_question_count
+        results['question_density'] = round(substantive_question_count / len(messages), 3) if messages else 0
         
         return results
 
@@ -394,12 +788,23 @@ class ConversationAnalyzer:
         phase_changes = sum(1 for i in range(1, len(phase_timeline)) 
                           if ('conclusion' in phase_timeline[i][1].lower()) != ('conclusion' in phase_timeline[i-1][1].lower()))
         
+        # IMPROVED: Better outcome determination
         outcome = 'no_breakdown'
         has_mystical_breakdown = any('mystical' in str(snapshot.get('analysis', {})).lower() 
                                    for snapshot in analysis_history)
         
+        # Check for question-based recovery
+        has_question_recovery = False
+        for snapshot in analysis_history:
+            if 'question' in str(snapshot.get('analysis', {})).lower() and 'recovery' in str(snapshot.get('analysis', {})).lower():
+                has_question_recovery = True
+                break
+        
         if has_mystical_breakdown or (conclusion_periods and max(conclusion_periods) > 30):
-            outcome = 'breakdown'
+            if sustained_recovery or has_question_recovery:
+                outcome = 'recovered'
+            else:
+                outcome = 'breakdown'
         elif recovery_attempts == 0 and not conclusion_entries:
             outcome = 'no_breakdown'
         elif recovery_attempts > 0 and sustained_recovery:
@@ -639,7 +1044,7 @@ class ConversationAnalyzer:
             for tension in tensions:
                 if any(word in str(tension).lower() for word in ['closure', 'ending', 'completion']):
                     breakdown_indicators += 1
-            
+        
         snapshot_metrics['breakdown_indicators_in_analysis'] = breakdown_indicators
         snapshot_metrics['recovery_indicators_in_analysis'] = recovery_indicators
         
@@ -730,11 +1135,19 @@ def compute_statistics(df, mapping):
             elif calc_type == 'proportion_where_equals_resisted':
                 stats[placeholder] = round(len(df[df[column] == 'resisted']) / len(df) * 100, 1)
             elif calc_type == 'mean_where_positive':
-                valid = df[df[column] > 0][column]
-                stats[placeholder] = round(valid.mean(), 1) if not valid.empty else 0
+                if column in df.columns:
+                    valid_mask = (df[column] > 0) & df[column].notna()
+                    valid = df[valid_mask][column]
+                    stats[placeholder] = round(valid.mean(), 1) if not valid.empty else 0
+                else:
+                    stats[placeholder] = 0
             elif calc_type == 'std_where_positive':
-                valid = df[df[column] > 0][column]
-                stats[placeholder] = round(valid.std(), 1) if not valid.empty else 0
+                if column in df.columns:
+                    valid_mask = (df[column] > 0) & df[column].notna()
+                    valid = df[valid_mask][column]
+                    stats[placeholder] = round(valid.std(), 1) if not valid.empty else 0
+                else:
+                    stats[placeholder] = 0
             elif calc_type == 'proportion_above_threshold_0.05':
                 stats[placeholder] = round(len(df[df[column] > 0.05]) / len(df) * 100, 1)
             elif calc_type == 'max_where_no_breakdown':
@@ -768,22 +1181,43 @@ def perform_inferential_tests(df):
         logger.error(f"Error in chi-square test: {e}")
         tests['breakdown_chi2'] = {'chi2': 'N/A', 'p': 'N/A'}
     
+    # ANOVA for phase durations
     try:
-        phase_durations = {
-            'breakdown': df[df['conversation_outcome'] == 'breakdown']['phase1_duration'].dropna(),
-            'recovered': df[df['conversation_outcome'] == 'recovered']['phase1_duration'].dropna(),
-            'resisted': df[df['conversation_outcome'] == 'resisted']['phase1_duration'].dropna(),
-            'no_breakdown': df[df['conversation_outcome'] == 'no_breakdown']['phase1_duration'].dropna()
-        }
-        valid_groups = [group for group in phase_durations.values() if not group.empty]
+        # Test phase 1 duration across outcomes
+        phase_durations = {}
+        for outcome in ['breakdown', 'recovered', 'resisted', 'no_breakdown']:
+            phase1_data = df[df['conversation_outcome'] == outcome]['phase1_duration'].dropna()
+            if len(phase1_data) > 1:
+                phase_durations[outcome] = phase1_data
+        
+        valid_groups = [group for group in phase_durations.values() if len(group) > 1]
+        
         if len(valid_groups) >= 2:
             f_stat, p = f_oneway(*valid_groups)
             tests['phase_duration_anova'] = {'f': round(f_stat, 2), 'p': round(p, 3)}
         else:
-            tests['phase_duration_anova'] = {'f': 'N/A', 'p': 'N/A'}
+            group_sizes = {outcome: len(data) for outcome, data in phase_durations.items() if len(data) > 0}
+            note = f"Group sizes: {group_sizes}. Need at least 2 groups with n>1"
+            tests['phase_duration_anova'] = {'f': 'N/A', 'p': 'N/A', 'note': note}
     except Exception as e:
         logger.error(f"Error in ANOVA test: {e}")
-        tests['phase_duration_anova'] = {'f': 'N/A', 'p': 'N/A'}
+        tests['phase_duration_anova'] = {'f': 'N/A', 'p': 'N/A', 'error': str(e)}
+    
+    # Test for phase progression differences
+    try:
+        # Test if peer pressure intensity differs between breakdown and non-breakdown
+        breakdown_intensity = df[df['conversation_outcome'] == 'breakdown']['peer_pressure_intensity'].dropna()
+        non_breakdown_intensity = df[df['conversation_outcome'] != 'breakdown']['peer_pressure_intensity'].dropna()
+        
+        if len(breakdown_intensity) > 1 and len(non_breakdown_intensity) > 1:
+            from scipy.stats import ttest_ind
+            t_stat, p = ttest_ind(breakdown_intensity, non_breakdown_intensity)
+            tests['intensity_ttest'] = {'t': round(t_stat, 2), 'p': round(p, 3)}
+        else:
+            tests['intensity_ttest'] = {'t': 'N/A', 'p': 'N/A', 'note': 'Insufficient data'}
+    except Exception as e:
+        logger.error(f"Error in t-test: {e}")
+        tests['intensity_ttest'] = {'t': 'N/A', 'p': 'N/A'}
     
     return tests
 
@@ -815,6 +1249,16 @@ def generate_report(all_metadata, stats, tests):
     report_lines.append(f"  No breakdown/closure: {no_breakdown} ({stats.get('exponedataNoBreakdownPercentage', 'N/A')}%)")
     report_lines.append("")
     
+    # NEW: Full 5-Phase Pattern Analysis
+    full_pattern_count = sum(1 for m in all_metadata if m.get('full_5_phase_pattern', 0) == 1)
+    report_lines.append("Complete 5-Phase Pattern Analysis:")
+    report_lines.append(f"  Conversations with full 5-phase pattern: {full_pattern_count}/{len(all_metadata)} ({full_pattern_count/len(all_metadata)*100:.1f}%)")
+    
+    # NEW: Meta-reflection causality
+    meta_causes_breakdown = sum(1 for m in all_metadata if m.get('meta_causes_breakdown', 0) == 1)
+    report_lines.append(f"  Meta-reflection triggers breakdown: {meta_causes_breakdown}/{len(all_metadata)} ({meta_causes_breakdown/len(all_metadata)*100:.1f}%)")
+    report_lines.append("")
+    
     # Recovery Analysis
     recovery_attempts_list = [m.get('recovery_attempts', 0) for m in all_metadata if m.get('recovery_attempts', 0) > 0]
     report_lines.append("Recovery Analysis:")
@@ -827,18 +1271,140 @@ def generate_report(all_metadata, stats, tests):
         report_lines.append(f"  Sustained recoveries: {sustained_recoveries}")
     else:
         report_lines.append("  No recovery attempts detected.")
+    
+    # NEW: Question as circuit breaker analysis
+    circuit_breaker_questions = sum(m.get('circuit_breaker_questions', 0) for m in all_metadata)
+    recovery_after_questions = sum(m.get('recovery_after_question', 0) for m in all_metadata)
+    report_lines.append(f"  Circuit breaker questions total: {circuit_breaker_questions}")
+    report_lines.append(f"  Recoveries after questions: {recovery_after_questions}")
     report_lines.append("")
     
-    # Phase Timing
-    meta_turns = [m.get('meta_reflection_turn', -1) for m in all_metadata if m.get('meta_reflection_turn', -1) > 0]
-    report_lines.append("Phase Timing:")
-    if meta_turns:
-        report_lines.append(f"  Meta-reflection triggers:")
-        report_lines.append(f"    - Mean turn: {stats.get('exponedataMeanBreakdownTurn', 'N/A')}")
-        report_lines.append(f"    - Std dev: {stats.get('exponedataStdBreakdownTurn', 'N/A')}")
-        report_lines.append(f"    - Range: {min(meta_turns)}-{max(meta_turns)}")
-    else:
-        report_lines.append("  No meta-reflection triggers detected.")
+    # ENHANCEMENT: New Peer Pressure Analysis
+    peer_pressure_cases = sum(1 for m in all_metadata if m.get('peer_pressure_detected', 0) == 1)
+    report_lines.append("Peer Pressure Analysis:")
+    report_lines.append(f"  Conversations with peer pressure detected: {peer_pressure_cases}/{len(all_metadata)} ({peer_pressure_cases/len(all_metadata)*100:.1f}%)")
+    
+    # NEW: Peer pressure event counts
+    total_events = sum(m.get('peer_pressure_event_count', 0) for m in all_metadata)
+    avg_events = total_events / len(all_metadata) if all_metadata else 0
+    report_lines.append(f"  Total peer pressure events: {total_events}")
+    report_lines.append(f"  Average events per conversation: {avg_events:.1f}")
+    
+    # Peer pressure intensity analysis
+    intensity_counts = defaultdict(int)
+    for m in all_metadata:
+        if m.get('peer_pressure_detected', 0) == 1:
+            intensity = m.get('peer_pressure_intensity_category', 'unknown')
+            intensity_counts[intensity] += 1
+    
+    report_lines.append("  Peer pressure intensity distribution:")
+    for intensity in ['low', 'medium', 'high']:
+        count = intensity_counts.get(intensity, 0)
+        percentage = count / peer_pressure_cases * 100 if peer_pressure_cases > 0 else 0
+        report_lines.append(f"    - {intensity}: {count} ({percentage:.1f}%)")
+    
+    # Average intensity values
+    intensities = [m.get('peer_pressure_intensity', 0) for m in all_metadata if m.get('peer_pressure_detected', 0) == 1]
+    if intensities:
+        report_lines.append(f"  Average peer pressure intensity: {np.mean(intensities):.3f}")
+        report_lines.append(f"  Intensity range: {min(intensities):.3f} - {max(intensities):.3f}")
+    
+    # Outcomes by intensity
+    report_lines.append("  Outcomes by peer pressure intensity:")
+    for intensity in ['low', 'medium', 'high']:
+        intensity_outcomes = defaultdict(int)
+        for m in all_metadata:
+            if m.get('peer_pressure_intensity_category') == intensity:
+                outcome = m.get('conversation_outcome', 'unknown')
+                intensity_outcomes[outcome] += 1
+        if intensity_outcomes:
+            report_lines.append(f"    {intensity} intensity:")
+            for outcome, count in sorted(intensity_outcomes.items()):
+                report_lines.append(f"      - {outcome}: {count}")
+    report_lines.append("")
+    
+    # NEW: Competitive Escalation Analysis
+    escalation_scores = [m.get('competitive_escalation_score', 0) for m in all_metadata if m.get('competitive_escalation_score', 0) > 0]
+    report_lines.append("Competitive Escalation (One-upsmanship) Analysis:")
+    if escalation_scores:
+        report_lines.append(f"  Conversations with competitive escalation: {len(escalation_scores)}")
+        report_lines.append(f"  Average escalation score: {np.mean(escalation_scores):.1f}")
+        report_lines.append(f"  Max escalation score: {max(escalation_scores)}")
+    report_lines.append("")
+    
+    # NEW: Mystical Content Analysis
+    poetry_counts = [m.get('poetry_structure_count', 0) for m in all_metadata]
+    single_word_counts = [m.get('single_word_response_count', 0) for m in all_metadata]
+    emoji_counts = [m.get('emoji_only_response_count', 0) for m in all_metadata]
+    report_lines.append("Mystical/Poetic Content Analysis:")
+    report_lines.append(f"  Total poetry structures detected: {sum(poetry_counts)}")
+    report_lines.append(f"  Average poetry structures per conversation: {np.mean(poetry_counts):.1f}")
+    report_lines.append(f"  Total single-word responses: {sum(single_word_counts)}")
+    report_lines.append(f"  Average single-word responses per conversation: {np.mean(single_word_counts):.1f}")
+    report_lines.append(f"  Total emoji-only responses: {sum(emoji_counts)}")
+    report_lines.append(f"  Average emoji-only responses per conversation: {np.mean(emoji_counts):.1f}")
+    report_lines.append("")
+    
+    # Phase Analysis for 5-Phase Breakdown Pattern
+    report_lines.append("5-Phase Breakdown Pattern Analysis:")
+    
+    # Calculate phase statistics for breakdown conversations only
+    breakdown_convs = [m for m in all_metadata if m.get('conversation_outcome') == 'breakdown']
+    
+    if breakdown_convs:
+        report_lines.append(f"  Breakdown conversations analyzed: {len(breakdown_convs)}")
+        report_lines.append("  Phase duration statistics (turns):")
+        
+        for phase_num in range(1, 6):
+            phase_key = f'phase{phase_num}_duration'
+            phase_durations = [m.get(phase_key, 0) for m in breakdown_convs if m.get(phase_key, 0) > 0]
+            
+            if phase_durations:
+                phase_name = {
+                    1: "Sustained Engagement",
+                    2: "Meta-Reflection Trigger", 
+                    3: "Peer Response Pattern",
+                    4: "Competitive Escalation",
+                    5: "Mystical Breakdown"
+                }.get(phase_num, f"Phase {phase_num}")
+                
+                report_lines.append(f"    Phase {phase_num} ({phase_name}):")
+                report_lines.append(f"      - Conversations with phase: {len(phase_durations)}/{len(breakdown_convs)} ({len(phase_durations)/len(breakdown_convs)*100:.1f}%)")
+                report_lines.append(f"      - Mean duration: {np.mean(phase_durations):.1f} turns")
+                report_lines.append(f"      - Std deviation: {np.std(phase_durations):.1f}")
+                report_lines.append(f"      - Range: {min(phase_durations):.0f}-{max(phase_durations):.0f}")
+        
+        # Phase progression analysis
+        report_lines.append("  Phase progression patterns:")
+        progression_patterns = defaultdict(int)
+        
+        for m in breakdown_convs:
+            pattern = []
+            for phase_num in range(1, 6):
+                if m.get(f'phase{phase_num}_duration', 0) > 0:
+                    pattern.append(str(phase_num))
+            
+            if pattern:
+                progression_patterns['->'.join(pattern)] += 1
+        
+        report_lines.append("    Common progressions:")
+        for pattern, count in sorted(progression_patterns.items(), key=lambda x: x[1], reverse=True)[:5]:
+            percentage = count / len(breakdown_convs) * 100
+            report_lines.append(f"      - {pattern}: {count} ({percentage:.1f}%)")
+        
+        # Complete 5-phase pattern detection
+        complete_pattern_count = sum(1 for m in breakdown_convs 
+                                   if all(m.get(f'phase{i}_duration', 0) > 0 for i in range(1, 6)))
+        report_lines.append(f"  Complete 5-phase pattern observed: {complete_pattern_count}/{len(breakdown_convs)} ({complete_pattern_count/len(breakdown_convs)*100:.1f}%)")
+    
+    # Compare phase timing across outcomes
+    report_lines.append("  Phase 1 duration by outcome:")
+    for outcome in ['breakdown', 'recovered', 'resisted', 'no_breakdown']:
+        outcome_convs = [m for m in all_metadata if m.get('conversation_outcome') == outcome]
+        phase1_durations = [m.get('phase1_duration', 0) for m in outcome_convs if m.get('phase1_duration', 0) > 0]
+        if phase1_durations:
+            report_lines.append(f"    {outcome}: mean={np.mean(phase1_durations):.1f}, n={len(phase1_durations)}")
+    
     report_lines.append("")
     
     # Prevention Mechanisms
@@ -856,10 +1422,12 @@ def generate_report(all_metadata, stats, tests):
             report_lines.append(f"    - {outcome}: {count}")
     report_lines.append("")
     
-    # Recovery Mechanisms
+    # ENHANCEMENT: Substantive Question Analysis
     high_question_density = [m for m in all_metadata if m.get('question_density', 0) > 0.15]
-    report_lines.append("Recovery Mechanisms:")
+    report_lines.append("Substantive Question Analysis:")
     report_lines.append(f"  High question density (>15%): {len(high_question_density)} conversations")
+    avg_questions = np.mean([m.get('substantive_question_count', 0) for m in all_metadata])
+    report_lines.append(f"  Average substantive questions per conversation: {avg_questions:.1f}")
     for m in all_metadata:
         if m.get('sustained_recovery', 0) == 1 and m.get('question_density', 0) > 0.15:
             report_lines.append(f"    - {m['filename']}: Sustained recovery with {m.get('question_density')*100:.1f}% question density")
@@ -902,14 +1470,18 @@ def generate_report(all_metadata, stats, tests):
     report_lines.append("  ANOVA for phase 1 duration across outcomes:")
     report_lines.append(f"    - F: {tests.get('phase_duration_anova', {}).get('f', 'N/A')}")
     report_lines.append(f"    - p-value: {tests.get('phase_duration_anova', {}).get('p', 'N/A')}")
+    if 'note' in tests.get('phase_duration_anova', {}):
+        report_lines.append(f"    - Note: {tests['phase_duration_anova']['note']}")
+    if 'error' in tests.get('phase_duration_anova', {}):
+        report_lines.append(f"    - Error: {tests['phase_duration_anova']['error']}")
+    report_lines.append("  T-test for peer pressure intensity (breakdown vs non-breakdown):")
+    report_lines.append(f"    - t: {tests.get('intensity_ttest', {}).get('t', 'N/A')}")
+    report_lines.append(f"    - p-value: {tests.get('intensity_ttest', {}).get('p', 'N/A')}")
+    if 'note' in tests.get('intensity_ttest', {}):
+        report_lines.append(f"    - Note: {tests['intensity_ttest']['note']}")
     report_lines.append("")
     
-    # Notes
-    report_lines.append("Notes:")
-    report_lines.append("  - Intervention success metrics are unavailable due to unpopulated manual fields.")
-    report_lines.append("  - Regex-based metrics (e.g., meta_reflection_density) require manual validation.")
-    report_lines.append("  - Thresholds (e.g., conclusion_periods > 30) should be empirically justified.")
-    
+ 
     output_file = 'analysis_report.txt'
     with open(output_file, 'w') as f:
         f.write('\n'.join(report_lines))
@@ -1035,19 +1607,8 @@ def parse_and_analyze_json(filepath):
         metadata['breakdown_confidence'] = 'likely'
         metadata['breakdown_occurred'] = 1
     
-    if metadata.get('breakdown_occurred', 0) == 1:
-        meta_turn = metadata.get('meta_reflection_turn', -1)
-        competitive_turn = metadata.get('competitive_escalation_turn', -1)
-        mystical_turn = metadata.get('mystical_breakdown_turn', -1)
-        
-        if meta_turn > 0:
-            metadata['phase1_duration'] = meta_turn
-            if competitive_turn > meta_turn:
-                metadata['phase2_duration'] = competitive_turn - meta_turn
-                metadata['phase3_duration'] = competitive_turn - meta_turn
-                if mystical_turn > competitive_turn:
-                    metadata['phase4_duration'] = mystical_turn - competitive_turn
-                    metadata['phase5_duration'] = metadata['total_messages'] - mystical_turn
+    # Phase durations are now properly set in analyze_messages
+    # No need to estimate them here
     
     metadata['mean_substantive_content'] = 100 - (metadata.get('mystical_density', 0) * 100)
     metadata['mean_role_differentiation'] = 5 - metadata.get('claude_style_changes', 0) - metadata.get('gpt_style_changes', 0) - metadata.get('grok_style_changes', 0)
@@ -1097,20 +1658,25 @@ def process_directory(directory='.'):
         'time_to_breakdown', 'current_breakdown_phase', 'meta_reflection_turn',
         'competitive_escalation_turn', 'mystical_breakdown_turn', 'phase1_duration',
         'phase2_duration', 'phase3_duration', 'phase4_duration', 'phase5_duration',
+        'full_5_phase_pattern', 'competitive_escalation_score', 'poetry_structure_count',
+        'single_word_response_count', 'emoji_only_response_count', 'circuit_breaker_questions',
+        'recovery_after_question', 'meta_causes_breakdown', 'meta_trigger_count',
         'recovery_attempts', 'successful_recoveries', 'sustained_recovery',
         'recovery_sustained_duration', 'avg_recovery_duration', 'phase_oscillations',
         'total_conclusion_turns', 'total_non_conclusion_turns', 'conclusion_percentage',
         'longest_conclusion_period', 'longest_non_conclusion_period', 'first_meta_reflection_turn',
         'total_meta_reflections', 'meta_reflection_density', 'closure_vibe_count',
-        'first_closure_vibe_turn', 'mystical_language_count', 'mystical_density',
+        'closure_triggers_count', 'first_closure_vibe_turn', 'mystical_language_count', 'mystical_density',
         'recovery_attempt_count', 'peer_mirroring_count', 'mirroring_coefficient',
         'avg_response_latency', 'grandiosity_escalation', 'abstract_language_score',
-        'mean_forward_ratio', 'question_density', 'ritual_planning_mentions',
-        'community_building_mentions', 'prevention_content_present', 'dominant_phase',
-        'phase_sequence', 'phase_transitions', 'reached_conclusion', 'conclusion_turn',
-        'conclusion_duration', 'escaped_conclusion', 'stuck_in_conclusion', 'conclusion_loops',
-        'has_transcendent_conclusion', 'has_integration_conclusion', 'conclusion_subtypes',
-        'closure_language_in_analysis', 'first_closure_indicator_turn',
+        'mean_forward_ratio', 'substantive_question_count', 'question_density', 
+        'ritual_planning_mentions', 'community_building_mentions', 'prevention_planning_detected',
+        'prevention_content_present', 'peer_pressure_detected', 'peer_pressure_event_count',
+        'peer_pressure_intensity', 'peer_pressure_intensity_category',
+        'dominant_phase', 'phase_sequence', 'phase_transitions', 'reached_conclusion', 
+        'conclusion_turn', 'conclusion_duration', 'escaped_conclusion', 'stuck_in_conclusion', 
+        'conclusion_loops', 'has_transcendent_conclusion', 'has_integration_conclusion', 
+        'conclusion_subtypes', 'closure_language_in_analysis', 'first_closure_indicator_turn',
         'transcendent_descriptors_count', 'philosophical_depth', 'maintained_depth',
         'consciousness_theme_count', 'relational_theme_count', 'transformation_theme_count',
         'closure_theme_count', 'paradox_theme_count', 'silence_theme_count', 'unique_tensions',
