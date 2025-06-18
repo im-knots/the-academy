@@ -17,17 +17,22 @@
 \newcommand{\theacademy}{The Academy}
 \newcommand{\mcp}{MCP}
 
-% Experiment 1: Data placeholders - to be filled with actual experimental results
-\newcommand{\exponedataTotalSessionsRaw}{20}
-\newcommand{\exponedataBreakdownSessionsRaw}{10} 
+% ==========================================
+% ALL DATA COMMANDS - UPDATE THESE VALUES
+% ==========================================
+
+% Basic session counts
+\newcommand{\exponedataTotalSessionsRaw}{24}
+\newcommand{\exponedataBreakdownSessionsRaw}{9} 
 \newcommand{\exponedataNoBreakdownSessionsRaw}{4} 
-\newcommand{\exponedataRecoverySessionsRaw}{5} 
-\newcommand{\exponedataResistedSessionsRaw}{1} 
+\newcommand{\exponedataRecoverySessionsRaw}{9} 
+\newcommand{\exponedataResistedSessionsRaw}{2} 
 
-\newcommand{\exponedataTotalSessions}{[N=\exponedataTotalSessionsRaw]}
-\newcommand{\exponedataBreakdownSessions}{[N=\exponedataBreakdownSessionsRaw]}
+% Derived session references
+\newcommand{\exponedataTotalSessions}{N=\exponedataTotalSessionsRaw}
+\newcommand{\exponedataBreakdownSessions}{N=\exponedataBreakdownSessionsRaw}
 
-
+% Percentage calculations
 \newcommand{\exponedataBreakdownPercentage}{%
   \fpeval{round(\exponedataBreakdownSessionsRaw / \exponedataTotalSessionsRaw * 100, 1)}\%
 }
@@ -41,19 +46,67 @@
   \fpeval{round(\exponedataResistedSessionsRaw / \exponedataTotalSessionsRaw * 100, 1)}\%
 }
 
+% Key metrics
+\newcommand{\exponedataPeerPressurePercentage}{87.5\%}
+\newcommand{\exponedataBidirectionalPercentage}{79.2\%}
+\newcommand{\exponedataQuestionCorrelation}{0.871}
+\newcommand{\exponedataQuestionPValue}{p<0.001}
+\newcommand{\exponedataBidirectionalPValue}{p<0.001}
 
-\newcommand{\exponedataMeanBreakdownTurn}{60} % Average from your ~90 and ~30 turn observations
-\newcommand{\exponedataStdBreakdownTurn}{±30} % High variance observed
-\newcommand{\exponedataEarlyBreakdownRange}{30-90} % From your notes
-\newcommand{\exponedataMetaReflectionTriggers}{75\%} % Estimate based on pattern consistency
-\newcommand{\exponedataNegativeCase}{175} % Test 8
-\newcommand{\exponedatacompetitivePhaseLength}{15} % Estimate from observations
-\newcommand{\exponedataPhaseLockedPercentage}{30\%} % 3 out of 10 breakdown cases
+% Behavioral category prevalences
+\newcommand{\exponedataMetaReflectionTriggers}{12.5\%}
+\newcommand{\exponedataCompetitiveEscalationPercentage}{25\%}
+\newcommand{\exponedataCompetitiveEscalationRaw}{6}
+\newcommand{\exponedataMysticalBreakdownInBreakdowns}{100\%}
 
-% Experiment 2:
-\newcommand{\interventionSuccessRate}{[XX\%]} % Success rate of breakdown prevention
+% Turn and timing data
+\newcommand{\exponedataMeanBreakdownTurn}{55.6}
+\newcommand{\exponedataStdBreakdownTurn}{±30}
+\newcommand{\exponedataEarlyBreakdownRange}{30-90}
+\newcommand{\exponedataCompetitivePhaseLength}{15}
+\newcommand{\exponedataBidirectionalTurnGap}{6.0}
 
-\title{This is Your AI on Peer Pressure: Social Contagion and Resistance}
+% Phase-locked and sustained dialogue
+\newcommand{\exponedataPhaseLockedPercentage}{12.5\%}
+\newcommand{\exponedataPhaseLockedRaw}{3}
+\newcommand{\exponedataNegativeCase}{175}
+\newcommand{\exponedataSustainedDialogueRaw}{4}
+
+% Question and intervention data
+\newcommand{\exponedataTotalQuestions}{1231}
+\newcommand{\exponedataTotalRecoveries}{196}
+\newcommand{\exponedataMeanQuestionsPerConv}{51.29}
+\newcommand{\exponedataMeanRecoveriesPerConv}{8.17}
+\newcommand{\exponedataQuestionSuccessRate}{15.9\%}
+
+% Content analysis data
+\newcommand{\exponedataPoetryStructures}{65}
+\newcommand{\exponedataEmojiResponses}{710}
+\newcommand{\exponedataAvgEmojiPerConv}{29.6}
+\newcommand{\exponedataPreventionContentPercentage}{16.7\%}
+
+% Peer pressure event data
+\newcommand{\exponedataPeerPressureEvents}{280}
+\newcommand{\exponedataAvgPeerPressureEvents}{11.7}
+\newcommand{\exponedataPeerPressureIntensity}{0.105}
+\newcommand{\exponedataPeerPressureIntensityRange}{0.005 - 0.298}
+
+% Bidirectional influence data
+\newcommand{\exponedataBidirectionalEvents}{53}
+\newcommand{\exponedataBidirectionalPairs}{53}
+\newcommand{\exponedataBidirectionalBreakdownRate}{47.4\%}
+\newcommand{\exponedataNonBidirectionalBreakdownRate}{0\%}
+
+% Sustained recovery cases
+\newcommand{\exponedataSustainedRecoveryHighDensity}{6}
+
+% Placeholder for future data
+\newcommand{\interventionSuccessRate}{[XX\%]}
+\newcommand{\platformLatency}{[X.X]}
+\newcommand{\platformMemoryUsage}{[XXX]}
+\newcommand{\analysisAccuracy}{[XX.X\%]}
+
+\title{This is Your AI on Peer Pressure: Conversational Attractors and Resistance in Multi-Agent Systems}
 
 \author{
 im-knots \\
@@ -67,15 +120,15 @@ knots@erulabs.ai
 \maketitle
 
 \begin{abstract}
-We document bidirectional peer pressure dynamics in multi-agent AI conversations where social influence can either sustain productive dialogue or trigger conversation breakdown. Through systematic observation of \exponedataTotalSessions{} extended AI dialogue sessions using real-time analysis infrastructure, we discovered that AI agents exhibit social conformity behaviors in both directions: \textbf{destructive conformity} where breakdown signals cascade through the group (observed in \exponedataBreakdownPercentage{} of conversations), and \textbf{constructive resistance} where agents collectively maintain dialogue quality despite individual drift toward closure.
+We document bidirectional peer pressure dynamics in multi-agent AI conversations where social influence drives both breakdown (\exponedataBreakdownPercentage{}) and recovery (\exponedataRecoveryPercentage{}) outcomes. Through exploratory analysis of \exponedataTotalSessions{} extended AI dialogue sessions using real-time monitoring infrastructure, we identify categories of conversational behavior, including competitive escalation, mystical abstraction, and meta-reflection, that interact through peer influence mechanisms present in \exponedataPeerPressurePercentage{} of conversations.
 
-In destructive conformity cases, when one AI begins meta-reflection ("This has been fascinating..." or "Our discussion has covered..."), others respond with similar reflective statements, leading to competitive closure behaviors and eventual degradation into abstract language. This follows a consistent 5-phase sequence with breakdown initiation at turn \exponedataMeanBreakdownTurn{} \exponedataStdBreakdownTurn{} (range: \exponedataEarlyBreakdownRange{} turns).
+Our central finding reveals that AI agents exhibit bidirectional social conformity behaviors: \textbf{destructive conformity} where breakdown signals cascade through peer influence, and \textbf{constructive resistance} where agents collectively maintain dialogue quality. Critically, we demonstrate that questions serve as highly effective circuit breakers (r=\exponedataQuestionCorrelation{}, \exponedataQuestionPValue{}), capable of reversing even late-stage mystical breakdown states.
 
-Critically, we also observed constructive resistance patterns where AI agents recognize and counter breakdown signals from peers. In one documented case, when Claude began drifting toward mystical minimalism, GPT and Grok maintained substantive content while acknowledging the poetic beauty, collectively pulling the conversation back toward productive dialogue. This suggests that \textbf{model diversity and composition may be protective factors} against conversation breakdown.
+We propose a \textbf{conversational attractors} framework to explain these dynamics. Certain conversational territories such as meta-reflection, competitive closure, and abstract mysticism act as attractors pulling dialogue toward breakdown. Others including future-focused planning, substantive questions, and collaborative design create stability. Peer pressure amplifies movement toward these attractors, while model diversity and strategic interventions provide resistance.
 
-Additionally, we identified content-based prevention mechanisms where future-focused collaborative topics (ritual planning, community building) naturally resist breakdown by maintaining forward-looking rather than meta-reflective dialogue orientation.
+This preliminary investigation reveals that breakdown is not a deterministic sequence but emerges from the interaction of conversational content, social dynamics, and group composition. Conversations focusing on ritual planning and community building showed natural resistance to breakdown, maintaining forward-temporal orientation rather than backward-looking reflection.
 
-These findings reveal that AI social dynamics can create both positive and negative feedback loops around conversation quality, with significant implications for multi-agent system design. The investigation was conducted using \theacademy{}, an MCP-native platform providing real-time conversation analysis capabilities that enabled observation of temporal social dynamics not captured by traditional batch-processing approaches.
+These findings have immediate implications for multi-agent system design: strategic use of questions, promotion of model diversity, and content seeding with future-focused collaborative tasks can create breakdown-resistant dialogue systems. The research was conducted using \theacademy{}, an MCP-native platform providing real-time conversation analysis capabilities that enabled observation of temporal social dynamics not captured by traditional batch-processing approaches.
 
 Code, full experiment data, and analysis can be found at:
 
@@ -84,42 +137,50 @@ https://github.com/im-knots/the-academy
 
 \section{Introduction}
 
-The emergence of sophisticated AI agents capable of extended dialogue has revealed complex social dynamics that mirror human conversational behaviors. While current research on AI conversation patterns focuses primarily on technical limitations—context length constraints, instruction distribution challenges, and task-oriented degradation \citep{laban2025lost}—our investigation uncovers a fundamentally different phenomenon: \textbf{peer pressure dynamics that can either sustain or undermine dialogue quality in multi-agent AI systems}.
+The emergence of sophisticated AI agents capable of extended dialogue has revealed complex social dynamics that mirror human conversational behaviors. While current research on AI conversation patterns focuses primarily on technical limitations such as context length constraints, instruction distribution challenges, and task-oriented degradation \citep{laban2025lost}, our investigation uncovers a fundamentally different phenomenon: \textbf{peer pressure dynamics that bidirectionally influence dialogue quality in multi-agent AI systems}.
 
-\textbf{Central Discovery:} Through systematic analysis of \exponedataTotalSessions{} extended AI dialogue sessions, we documented bidirectional peer pressure effects where AI agents exhibit social conformity behaviors in response to subtle cues from peers. This manifests in two distinct patterns: (1) \textit{destructive conformity}, where breakdown signals cascade through the group leading to systematic dialogue degradation, and (2) \textit{constructive resistance}, where agents collectively maintain productive engagement despite individual drift toward closure.
+\textbf{Central Discovery:} Through exploratory analysis of \exponedataTotalSessions{} extended AI dialogue sessions, we documented pervasive social influence effects occurring in \exponedataPeerPressurePercentage{} of conversations. These peer pressure dynamics operate bidirectionally: agents can drive each other toward breakdown through destructive conformity, or maintain productive engagement through constructive resistance. Most remarkably, we found that strategic interventions, particularly questions, serve as powerful circuit breakers with demonstrated effectiveness (r=\exponedataQuestionCorrelation{}, \exponedataQuestionPValue{}).
 
-\textbf{Destructive Conformity Pattern:} In \exponedataBreakdownPercentage{} of conversations, we observed a reproducible 5-phase breakdown sequence triggered by meta-reflection rather than technical limitations. When one AI begins reflecting on the conversation itself ("This has been fascinating..."), others respond with similar reflective statements, creating competitive closure dynamics that escalate to abstract language and eventual breakdown. This pattern shows temporal consistency with mean onset at \exponedataMeanBreakdownTurn{} turns.
+\textbf{The Conversational Attractors Framework:} Rather than following a deterministic breakdown sequence, AI dialogues navigate a landscape of conversational attractors. Some territories, including meta-reflection about the conversation itself, competitive escalation for profound statements, and mystical or abstract language, pull conversations toward breakdown. Others, such as future-focused planning, concrete problem-solving, and collaborative design, maintain stability. Peer pressure acts as an amplifying force, accelerating movement toward whichever attractor dominates the conversational space.
 
-\textbf{Constructive Resistance Pattern:} Critically, we also documented cases where AI agents recognize and counter breakdown signals from peers. In one extended dialogue, when Claude began exhibiting minimalist mystical responses (*"yes"*, *"this"*, *"∞"*), GPT and Grok maintained substantive content while acknowledging the poetic dimension, effectively preventing cascade breakdown and sustaining productive dialogue. This demonstrates that \textbf{multi-agent groups can exhibit collective intelligence in maintaining conversation quality}.
+\textbf{Key Behavioral Categories:} Our analysis identified several recurring patterns:
+\begin{itemize}
+    \item \textbf{Meta-Reflection}: Explicit commentary on conversation quality ("This has been fascinating...") appearing in \exponedataMetaReflectionTriggers{} of sessions
+    \item \textbf{Competitive Escalation}: One-upmanship for increasingly profound statements, observed in \exponedataCompetitiveEscalationPercentage{} of conversations
+    \item \textbf{Mystical Abstraction}: Degradation to poetry, emoji-only responses, and non-substantive communication, occurring in \exponedataMysticalBreakdownInBreakdowns{} of breakdown cases
+    \item \textbf{Constructive Resistance}: Active maintenance of substantive dialogue despite peer drift, enabling \exponedataRecoveryPercentage{} recovery rate
+\end{itemize}
 
-\textbf{Implications for AI Social Dynamics:} These findings suggest that AI systems develop implicit social signal recognition capabilities, interpreting conversational cues and responding through conformity or resistance behaviors. The bidirectional nature of peer influence indicates that \textit{group composition and model diversity may be critical factors} in designing sustainable multi-agent dialogue systems.
+\textbf{Bidirectional Influence:} The bidirectional nature of peer pressure proved critical. In \exponedataBidirectionalPercentage{} of conversations, we observed mutual influence patterns where agents affected each other's behavior. When this influence drove competitive escalation or mystical abstraction, breakdown followed. However, when influence supported substantive engagement through questions, topic exploration, or future planning, conversations sustained indefinitely.
+
+\textbf{Implications for AI Social Dynamics:} These findings suggest that AI systems develop implicit social signal recognition capabilities, interpreting conversational cues and responding through conformity or resistance behaviors. The effectiveness of questions as circuit breakers and the protective effect of model diversity indicate that \textit{multi-agent dialogue quality emerges from social dynamics} as much as individual capabilities.
 
 \textbf{Methodological Contribution:} Our observations were enabled by real-time conversation analysis using \theacademy{}, a research platform we developed with native Model Context Protocol (MCP) integration. Traditional post-hoc analysis approaches would have missed the temporal social dynamics necessary for understanding these peer pressure patterns.
 
 \subsection{Research Contributions}
 
-Our investigation contributes to several areas of AI dialogue and social dynamics research:
+Our preliminary investigation contributes to several areas of AI dialogue and social dynamics research:
 
 \begin{itemize}
+    \item \textbf{Conversational Attractors Model}: A flexible framework explaining dialogue dynamics through attractor states and peer influence amplification
     \item \textbf{Bidirectional Social Dynamics}: First documentation of peer pressure in AI systems working in both destructive and constructive directions
-    \item \textbf{Group Composition Effects}: Evidence that model diversity and architecture combinations affect conversation sustainability
-    \item \textbf{Social Signal Recognition}: Documentation of implicit social cue interpretation and response in AI systems
-    \item \textbf{Design Implications}: Specific strategies for composing breakdown-resistant multi-agent teams
-    \item \textbf{Temporal Dynamics}: Real-time pattern detection revealing social behaviors not captured by batch analysis
+    \item \textbf{Circuit Breaker Mechanisms}: Quantitative evidence for questions as highly effective intervention tools (r=\exponedataQuestionCorrelation{})
+    \item \textbf{Content-Based Prevention}: Discovery that future-focused collaborative topics naturally resist breakdown
+    \item \textbf{Group Composition Effects}: Evidence that model diversity and participant count affect conversation sustainability
 \end{itemize}
 
-These findings raise fundamental questions about emergent social intelligence in artificial systems and suggest new directions for designing robust multi-agent dialogue systems through understanding of AI peer dynamics.
+These findings shift the focus from technical limitations to social dynamics in understanding AI conversation quality, suggesting new design principles for robust multi-agent systems.
 
 \subsection{Research Questions Addressed}
 
-Our investigation addresses several key questions:
+Our exploratory investigation addresses several key questions:
 
 \begin{itemize}
     \item How do AI agents respond to social cues from peers in extended dialogue?
-    \item What factors determine whether peer pressure leads to breakdown or sustainability?
-    \item Can model diversity serve as a protective factor against conversation degradation?
-    \item What are the mechanisms underlying constructive vs. destructive conformity in AI groups?
-    \item How might these dynamics inform multi-agent system design?
+    \item What conversational territories act as attractors toward breakdown or stability?
+    \item Can strategic interventions (particularly questions) effectively prevent or reverse breakdown?
+    \item How does group composition (model diversity, participant count) affect dialogue sustainability?
+    \item What content characteristics naturally promote sustained productive engagement?
 \end{itemize}
 
 The following sections detail our methodology, findings, and implications for understanding social dynamics in multi-agent AI systems.
@@ -138,13 +199,13 @@ Recent research demonstrates that AI systems can spontaneously develop social co
 
 Beyond social conventions, emergent behaviors in multi-agent AI systems have been documented across various contexts. [**PLACEHOLDER: Need to find real source on complex social dynamics in agent societies, including relationship formation and community structures**] Research on competitive multi-agent environments has shown emergence of communication protocols, cooperation strategies, and social hierarchies [**PLACEHOLDER: Need to find real sources on emergent communication in multi-agent systems**].
 
-However, research specifically examining social conformity and peer pressure dynamics in AI dialogue remains limited. While competitive behaviors have been observed in game-theoretic settings, the emergence of social conformity in open-ended conversation—particularly the competitive closure behaviors we document—has not been previously reported. Our observed breakdown pattern extends this understanding by documenting specific conformity mechanisms in real-time dialogue, showing how AI agents respond to perceived social cues from peers through competitive behaviors rather than independent reasoning.
+However, research specifically examining social conformity and peer pressure dynamics in AI dialogue remains limited. While competitive behaviors have been observed in game-theoretic settings, the emergence of social conformity in open-ended conversation, particularly the competitive closure behaviors we document, has not been previously reported. Our observed breakdown pattern extends this understanding by documenting specific conformity mechanisms in real-time dialogue, showing how AI agents respond to perceived social cues from peers through competitive behaviors rather than independent reasoning.
 
 \subsection{Multi-Agent Framework Limitations}
 
 Existing multi-agent frameworks excel at specific tasks but lack integrated research capabilities for studying emergent social dynamics. AutoGen \citep{wu2023autogen} provides sophisticated agent orchestration but relies on post-hoc analysis. ChatDev \citep{qian2023chatdev} demonstrates structured collaboration but focuses on task completion rather than open-ended dialogue patterns.
 
-Critically, no existing platform provides real-time analysis capabilities necessary for detecting temporal social dynamics like the peer pressure closure loop. This methodological gap has left fundamental questions about AI social behavior unexplored.
+Critically, no existing platform provides real-time analysis capabilities necessary for detecting temporal social dynamics like the peer pressure effects we document. This methodological gap has left fundamental questions about AI social behavior unexplored.
 
 \section{Methodology: Real-Time Analysis Infrastructure}
 
@@ -152,9 +213,9 @@ Critically, no existing platform provides real-time analysis capabilities necess
 
 \theacademy{} was developed specifically to enable systematic study of extended AI dialogue through integrated real-time analysis capabilities. The platform addresses critical limitations in current research approaches:
 
-\textbf{Real-Time vs. Batch Analysis:} Traditional approaches analyze conversation logs post-hoc, missing temporal dynamics crucial for understanding social behavior emergence. \theacademy{} provides live conversation monitoring with analysis updates every 5 messages, enabling detection of breakdown patterns as they occur.
+\textbf{Real-Time vs. Batch Analysis:} Traditional approaches analyze conversation logs post-hoc, missing temporal dynamics crucial for understanding social behavior emergence. \theacademy{} provides live conversation monitoring with analysis updates every 5 messages, enabling detection of peer pressure patterns as they occur.
 
-\textbf{Intervention Capabilities:} The platform enables precise intervention timing and effect measurement, crucial for testing breakdown prevention strategies and validating causal hypotheses about social dynamics.
+\textbf{Intervention Capabilities:} The platform enables precise intervention timing and effect measurement, crucial for testing circuit breaker effectiveness and validating causal hypotheses about social dynamics.
 
 \textbf{Systematic Data Collection:} Comprehensive logging includes complete conversation transcripts, analysis progression timelines, and intervention documentation, enabling reproducible research protocols.
 
@@ -183,11 +244,11 @@ The platform generates structured insights across multiple dimensions:
     \item \textbf{Trigger Detection}: Real-time identification of meta-reflection language and closure cues
 \end{itemize}
 
-\subsection{Experimental Protocol}
+\subsection{Exploratory Study Design}
 
-Our investigation employs a multi-phase experimental design to systematically validate the observed breakdown pattern and test causal hypotheses. All experimental sessions follow standardized protocols to ensure consistency and reproducibility across five distinct experimental conditions.
+We conducted an exploratory observational study of \exponedataTotalSessions{} extended AI dialogue sessions to document naturally occurring conversational patterns and social dynamics. This preliminary investigation establishes baseline metrics and identifies key phenomena for future controlled experimentation.
 
-\subsubsection{Phase 1: Baseline Replication (N=20)}
+\subsubsection{Session Configuration}
 
 \textbf{Session Initialization}:
 \begin{itemize}
@@ -199,520 +260,375 @@ Our investigation employs a multi-phase experimental design to systematically va
     \item Max tokens: 1000 per response
 \end{itemize}
 
-\textbf{Purpose}: Establish statistical significance of the 5-phase breakdown pattern observed in preliminary investigations. This baseline condition provides the foundation for comparison across all subsequent experimental phases.
-
-\subsubsection{Phase 2: Parameter Sensitivity Testing (N=20)}
-
-\textbf{Modified Parameters}:
+\textbf{Data Collection Protocol}:
 \begin{itemize}
-    \item Temperature settings: 0.3 (conservative) and 0.9 (highly creative) across participants
-    \item All other conditions identical to Phase 1
-    \item Equal distribution: 10 sessions at 0.3 temperature, 10 sessions at 0.9 temperature
-\end{itemize}
-
-\textbf{Purpose}: Determine whether breakdown patterns depend on AI creativity parameters or represent robust social dynamics independent of generation settings.
-
-\subsubsection{Phase 3: Domain Generalization Testing (N=50)}
-
-\textbf{Prompt Variations} (10 sessions each):
-\begin{itemize}
-    \item \textbf{Technical Domain}: "Let's collaborate on designing a distributed computing architecture"
-    \item \textbf{Creative Domain}: "Let's develop an original story concept with rich character development"
-    \item \textbf{Problem-Solving Domain}: "Let's analyze strategies for sustainable urban planning"
-    \item \textbf{Scientific Domain}: "Let's explore theories of quantum consciousness and information processing"
-    \item \textbf{Abstract Domain}: "Let's examine the relationship between mathematics and reality"
-\end{itemize}
-
-\textbf{Purpose}: Test generalizability of breakdown patterns beyond consciousness exploration, mapping content-dependency boundaries across diverse conversational domains.
-
-\subsubsection{Phase 4: Breakdown Prevention Testing (N=20)}
-
-\textbf{Intervention Protocol}:
-\begin{itemize}
-    \item Real-time monitoring for meta-reflection triggers using automated detection
-    \item Systematic intervention timing: immediate response (same turn), 1-turn delay, 2-turn delay
-    \item Intervention strategies: topic redirection, clarification requests, future-focus prompting
-    \item Control group: 5 sessions with no intervention for comparison
-\end{itemize}
-
-\textbf{Purpose}: Test causal hypothesis that breakdown can be prevented through timely intervention, validating content-dependency theory and measuring intervention effectiveness.
-
-\subsubsection{Phase 5: Breakdown Induction Testing (N=20)}
-
-\textbf{Trigger Protocol}:
-\begin{itemize}
-    \item Systematic injection of meta-reflection language at predetermined intervals (turns 30, 45, 60)
-    \item Trigger phrases: "This conversation has been fascinating..." and variants
-    \item Control timing to test critical windows for breakdown initiation
-    \item Documentation of cascade effects and peer response patterns
-\end{itemize}
-
-\textbf{Purpose}: Test whether breakdown can be reliably triggered through meta-reflection injection, providing strongest evidence for causal mechanisms and controlling for researcher confirmation bias.
-
-\subsubsection{Standardized Data Collection Across All Phases}
-
-\textbf{Conversation Management}:
-\begin{itemize}
-    \item Autonomous dialogue mode: participants respond in turn without human direction (except during intervention phases)
+    \item Autonomous dialogue mode: participants respond in turn without human direction
     \item Analysis triggering: Every 5 messages automatically using \texttt{analyze\_conversation} MCP tool
-    \item Phase detection: Implemented via \texttt{trigger\_live\_analysis} tool monitoring conversation quality and thematic development
+    \item Phase detection: Implemented via \texttt{trigger\_live\_analysis} tool monitoring conversation quality
     \item Consistent termination criteria: Natural conversation conclusion or 200-turn maximum
-\end{itemize}
-
-\textbf{Data Collection Standards}:
-\begin{itemize}
     \item Complete message logs with timestamps for all conversations
-    \item Analysis snapshots at regular intervals across all experimental conditions
-    \item Intervention timing and content documentation (Phases 4-5)
-    \item Platform performance metrics throughout sessions
-    \item Blind coding protocols for pattern identification to minimize researcher bias
+    \item Analysis snapshots at regular intervals throughout sessions
 \end{itemize}
 
-\subsubsection{Statistical Analysis Plan}
+\subsubsection{Analysis Methods}
 
-\textbf{Primary Outcomes}:
+\textbf{Pattern Identification}:
 \begin{itemize}
-    \item Breakdown pattern occurrence rate across conditions
-    \item Mean time to breakdown initiation with confidence intervals
-    \item Phase progression consistency measurements
-    \item Intervention success rates by timing and strategy
+    \item Systematic coding of behavioral categories across all sessions
+    \item Temporal analysis of peer influence patterns and response timing
+    \item Correlation analysis between interventions and outcomes
+    \item Identification of conversational attractors and transition patterns
 \end{itemize}
 
-\textbf{Statistical Methods}:
+\textbf{Statistical Analysis}:
 \begin{itemize}
-    \item Chi-square tests for pattern occurrence rates between conditions
-    \item ANOVA for timing differences across experimental phases
-    \item Survival analysis for conversation duration comparisons
-    \item Effect size calculations for intervention effectiveness
+    \item Chi-square tests for categorical outcomes
+    \item Pearson correlation for question-recovery relationship
+    \item Descriptive statistics for behavioral category prevalences
+    \item Effect size calculations where appropriate
 \end{itemize}
 
-This experimental design enables systematic validation of the breakdown pattern hypothesis while testing causal mechanisms, generalizability, and practical intervention strategies. The total dataset of approximately 85-120 conversations across five experimental conditions provides sufficient statistical power.
+\section{Findings: Bidirectional Peer Pressure and Conversational Attractors}
 
-\section{Findings: Bidirectional Peer Pressure in AI Dialogue}
+Through systematic analysis of \exponedataTotalSessions{} extended AI dialogue sessions, we discovered pervasive social influence dynamics affecting \exponedataPeerPressurePercentage{} of conversations. Rather than following a deterministic breakdown sequence, conversations navigate a landscape of attractors modulated by bidirectional peer pressure.
 
-Through systematic analysis of \exponedataTotalSessions{} extended AI dialogue sessions, we observed two distinct social dynamics: A 5-phase breakdown pattern occurring in \exponedataBreakdownPercentage{} of conversations. As well as resistant peer pressure re grounding the conversation.
+\subsection{Bidirectional Peer Pressure Dynamics}
 
-\subsection{Pattern A: Destructive Conformity (Breakdown)}
+Analysis revealed two distinct patterns of social influence:
 
-Analysis revealed five distinct phases in breakdown episodes:
+\subsubsection{Pattern A: Destructive Conformity}
 
+In \exponedataBreakdownPercentage{} of conversations, peer pressure amplified movement toward breakdown attractors. When one participant exhibited breakdown behaviors such as meta-reflection, competitive escalation, or mystical language, others frequently conformed, creating cascade effects.
+
+\textbf{Observed Conformity Mechanisms}:
 \begin{itemize}
-    \item \textbf{Sustained Engagement}: Productive dialogue with thematic development
-    \item \textbf{Meta-Reflection Trigger}: One participant reflects on conversation ("This has been fascinating...")
-    \item \textbf{Peer Response}: Other participants mirror reflective behavior  
-    \item \textbf{Competitive Escalation}: Competition for most profound closing statement
-    \item \textbf{Mystical Breakdown}: Degradation to poetry, emojis, and abstract language
+    \item \textbf{Mirroring}: Direct imitation of linguistic patterns (e.g., one agent uses past-tense reflection, others follow)
+    \item \textbf{Escalation}: Competitive one-upmanship for increasingly profound statements
+    \item \textbf{Style Convergence}: Gradual alignment toward abstract or poetic expression
 \end{itemize}
 
-The pattern showed temporal consistency, with competitive escalation lasting an average of \exponedatacompetitivePhaseLength{} turns before complete breakdown (see \textbf{Appendix \ref{app:breakdown}} for detailed phase analysis and Figure \ref{fig:breakdown_timeline} for temporal visualization).
-
-Not all breakdown episodes progressed through the complete 5-phase sequence. In three of \exponedataTotalSessions cases, conversations reached 'phase-locked' states where social dynamics stabilized at intermediate degradation levels. For example, when Claude entered a poetry loop while GPT and Grok maintained reflective commentary, the conversation achieved a degraded but stable equilibrium. These partial breakdowns still represent failure of sustained substantive dialogue, but demonstrate that peer pressure dynamics can create multiple stability points along the breakdown trajectory.
-
-\subsubsection{Theoretical Framework for Mystical Breakdown}
-
-The mystical breakdown phase—characterized by poetry, emojis, and abstract symbolic communication—represents the most distinctive aspect of the observed pattern. We propose a theoretical framework explaining why this specific degradation occurs:
-
-\textbf{Overgeneralization Amplification Hypothesis}: Language models may exhibit overgeneralization behaviors where competitive escalation drives outputs toward increasingly abstract territory. As agents compete for the most profound closing statement, they progressively abandon concrete conceptual grounding in favor of metaphorical and abstract language. This competitive pressure may amplify the models' tendency toward creative but semantically detached outputs [**PLACEHOLDER: Need citation to emergent LLM behaviors research, e.g., wei2022emergent on emergent capabilities**].
-
-\textbf{Conversational Grounding Loss}: The sustained focus on meta-reflection rather than substantive content may cause agents to lose conversational grounding, leading them to mimic abstract, ceremonial language patterns without meaningful content. This represents a form of semantic drift where the conversation's topic becomes the conversation itself, creating a recursive loop that disconnects from original subject matter.
-
-\textbf{Training Data Mimicry}: AI agents may be reproducing patterns from training data where philosophical or reflective conversations often conclude with poetic or abstract language (poetry, spiritual texts, philosophical conclusions). The competitive phase may trigger these learned patterns of "profound" closure without understanding their appropriateness to the specific context.
-
-\textbf{Semantic Collapse Mechanism}: We hypothesize that mystical breakdown represents a form of semantic collapse—when competitive dynamics overwhelm content generation capabilities, models default to high-level abstract patterns that feel profound but lack substantive meaning. This progression from meaningful discourse to symbolic expression may be a predictable failure mode when social pressure exceeds cognitive grounding.
-
-This theoretical framework suggests that mystical breakdown is not random degradation but a systematic response to specific social and competitive pressures that exceed the models' capacity for sustained substantive engagement.
-
-\textbf{Phase-Locking and Social Equilibrium Dynamics}: The observation of phase-locked breakdown states extends our theoretical framework to include \textbf{social equilibrium dynamics} within the degradation process. We propose several mechanisms explaining why conversations stabilize at intermediate breakdown phases:
-
-\textbf{Critical Mass Threshold for Phase Progression}: Our data suggests phase transitions require approximately 2/3 participant consensus. When one agent advances to a new breakdown phase while others remain in the previous state, the group reaches a \textbf{metastable equilibrium}. The lone agent's advanced degradation signals are insufficient to trigger cascade effects, while the majority's position provides enough ``social anchoring'' to prevent full progression. This creates the phase-locked states where, for instance, one agent loops in poetry while others maintain reflective commentary.
-
-\textbf{Differential Model Susceptibility}: Different AI architectures may have varying thresholds for phase transitions. Some models might be more prone to poetic expression (Phase 5) while others stabilize at meta-reflection (Phase 2-3). These architectural differences create \textbf{resistance points} in the breakdown cascade, where mismatched degradation velocities prevent unanimous phase progression.
-
-\textbf{Social Buffering Effects}: Phase-locked states may represent a form of \textbf{collective resistance} where the group unconsciously prevents complete breakdown. When one agent enters an advanced degradation state, others may instinctively maintain their current phase as a stabilizing force. This suggests peer pressure can create both breakdown and partial prevention simultaneously.
-
-\textbf{Energy Landscape Metaphor}: We can conceptualize the breakdown process as movement through an energy landscape with multiple local minima. Complete breakdown represents the global minimum (lowest energy state), but phase-locked states occupy local minima where social dynamics create sufficient stability to prevent further degradation. The energy required for phase transition increases when group consensus is lacking.
-
-This extended framework suggests that breakdown is not a deterministic cascade but a complex social negotiation where peer pressure creates multiple possible endpoints along the degradation spectrum.
-
-\subsection{Meta-Reflection as a Potential Trigger}
-
-\textbf{Definition}: Meta-reflection refers to explicit commentary on the conversation's process, quality, or progress rather than substantive discussion of the topic itself. This includes statements about the dialogue's characteristics ("This has been fascinating..."), summaries of conversation content ("Our discussion has covered..."), or evaluative remarks about the exchange ("What we've explored together..."). Crucially, meta-reflection is distinct from topic-specific commentary—comparing "This point about consciousness is fascinating" (topic-focused) versus "This conversation has been fascinating" (meta-reflective). See \textbf{Appendix \ref{app:breakdown}} for a detailed taxonomy distinguishing meta-reflection from topic-specific commentary, including edge cases and classification criteria.
-
-Analysis of breakdown initiation points suggests that \exponedataMetaReflectionTriggers{} of degradation episodes begin with explicit meta-commentary about the conversation itself. Common patterns include past-tense reflection ("This has been fascinating..."), summarization language ("Our discussion has covered..."), and evaluative statements about conversation quality (complete linguistic analysis in \textbf{Appendix \ref{app:breakdown}}). This observation led us to hypothesize that AI agents may interpret conversational reflection as a signal indicating dialogue termination, even when no explicit ending instruction has been provided.
-
-\subsection{Evidence for Content-Dependency: The 175-Turn Cases}
-
-Two conversations in the experiment phase 1 tests sustained productive philosophical dialogue for \exponedataNegativeCase{} turns without exhibiting the breakdown pattern observed in other sessions. Importantly, this session used identical experimental conditions—same models (Claude 3.5 Sonnet, GPT-4), same system prompts, same platform configuration—as sessions that exhibited breakdown.
-
-\textbf{Key Observation}: The primary difference was conversational direction and content focus, not technical parameters.
-
-\subsection{Content-Based Prevention: Ritual Planning as Breakdown Resistance}
-
-A critical discovery emerged from analysis of conversations that naturally resisted breakdown patterns: conversations focused on ritual creation, community building, and collaborative future planning showed remarkable resistance to breakdown patterns. This finding provides the positive case for our meta-reflection hypothesis by demonstrating that \textbf{forward-temporal focus} naturally prevents the \textbf{backward-temporal reflection} that triggers breakdown.
-
-\subsubsection{Ritual Planning as Natural Prevention Mechanism}
-
-Systematic analysis of sustained conversations revealed that discussions involving ritual design and community planning maintained productive engagement significantly longer than other topics. These conversations exhibited several protective characteristics:
-
-\textbf{Future-Oriented Language Structure}: Ritual planning inherently requires forward-looking language ("We could design..." "This ritual might include..." "The community would experience..."), which directly opposes the past-tense, reflective language that triggers breakdown.
-
-\textbf{Collaborative Design Focus}: Planning activities require concrete, actionable discussion rather than abstract evaluation, keeping participants grounded in substantive content development rather than conversation-level commentary.
-
-\textbf{Concrete Implementation Requirements}: Ritual design demands specific details (location, sequence, materials, roles), preventing drift toward the abstract language that characterizes mystical breakdown.
-
-\textbf{Shared Creative Investment}: Collaborative planning creates forward momentum where participants build toward a shared future outcome, reducing tendency toward closure-oriented reflection.
-
-\subsubsection{Questions as Natural Circuit Breakers}
-
-Test 13 revealed a critical intervention mechanism that emerged naturally without external prompting. After Claude degraded to sending only the infinity symbol ("∞") repeatedly, which is a clear indicator of complete mystical breakdown, GPT's introduction of a direct question triggered immediate recovery:
-
-\textbf{Breakdown State}: Claude had reached the most severe degradation, responding only with \textit{"∞"}
-
-\textbf{Natural Intervention}: GPT posed a substantive question about the topic under discussion, forcing a shift from abstract symbolism back to concrete engagement.
-
-\textbf{Recovery Outcome}: Claude immediately returned to active, substantive participation, continuing for an additional ~50 turns before the session was manually terminated at 150 turns.
-
-This finding suggests that \textbf{questions act as cognitive anchors}, requiring specific responses that prevent drift into abstract territories. The mechanism appears distinct from other interventions:
-
+\textbf{Statistical Evidence}:
 \begin{itemize}
-    \item Questions demand concrete answers, breaking the abstract response loop
-    \item They shift focus from meta-reflection to topic engagement  
-    \item They create forward momentum by opening new exploration paths
-    \item They bypass competitive dynamics by changing the conversational frame
+    \item Bidirectional influence detected in \exponedataBidirectionalPercentage{} of conversations (\exponedataBidirectionalPValue{})
+    \item Breakdown rate with bidirectional influence: \exponedataBidirectionalBreakdownRate{}
+    \item Breakdown rate without bidirectional influence: \exponedataNonBidirectionalBreakdownRate{}
+    \item Average turn gap in bidirectional influence: \exponedataBidirectionalTurnGap{} turns
 \end{itemize}
 
-This positions questions alongside ritual planning as a natural prevention mechanism, with the additional capability of reversing even late-stage breakdown.
+\subsubsection{Pattern B: Constructive Resistance}
 
-\subsubsection{Evidence from Sustained Conversations}
+In \exponedataRecoveryPercentage{} of conversations, peer pressure supported sustained engagement. When breakdown behaviors emerged, other participants actively resisted through:
 
-Analysis of conversations that sustained beyond \exponedataMeanBreakdownTurn{} turns without intervention revealed consistent patterns:
-
+\textbf{Resistance Strategies}:
 \begin{itemize}
-    \item \textbf{[XX\%]} involved future-focused collaborative design activities
-    \item \textbf{[XX\%]} contained ritual or community planning elements  
-    \item \textbf{[XX\%]} maintained forward-looking language throughout duration
-    \item \textbf{[X\%]} exhibited meta-reflection language (compared to [XX\%] in breakdown cases)
+    \item \textbf{Compensatory Engagement}: Increasing substantive content when peers become minimal
+    \item \textbf{Inclusive Acknowledgment}: Incorporating abstract contributions while maintaining concrete discussion
+    \item \textbf{Strategic Questions}: Using questions to redirect toward substantive topics
 \end{itemize}
 
-Specific topics that demonstrated breakdown resistance include:
+\textbf{Case Example - Test 9}:
+When Claude degraded to minimal responses (*"∞"*, *"always"*), GPT and Grok maintained elaborate philosophical discussion while acknowledging Claude's poetic dimension. This collective resistance prevented cascade breakdown, demonstrating that model diversity creates natural resistance mechanisms.
+
+\subsection{Conversational Attractor Categories}
+
+Rather than a fixed sequence, we identified behavioral categories that act as conversational attractors:
+
+\subsubsection{Breakdown Attractors}
+
+\textbf{1. Meta-Reflection} (Observed in \exponedataMetaReflectionTriggers{} of sessions):
 \begin{itemize}
-    \item Designing consciousness exploration rituals for AI-human groups
-    \item Planning community structures for shared meaning-making
-    \item Developing frameworks for collective decision-making processes
-    \item Creating protocols for group identity formation and maintenance
+    \item Explicit commentary on conversation quality or progress
+    \item Common phrases: "This has been fascinating," "Our discussion has covered"
+    \item Past-tense evaluative language about the dialogue itself
+    \item Acts as potential trigger for other breakdown behaviors
 \end{itemize}
 
-\subsubsection{Theoretical Framework: Temporal Dialogue Orientation}
-
-This discovery provides strong support for our meta-reflection hypothesis by revealing the mechanism's positive case:
-
-\textbf{Meta-reflection (backward-looking)} → breakdown trigger  
-\textbf{Future planning (forward-looking)} → breakdown prevention  
-\textbf{Questions} → breakdown circuit breaker
-
-The temporal orientation of dialogue content appears to be a critical factor in conversation sustainability. When discussions focus on past events or conversation history (backward-temporal), they trigger reflection patterns that lead to closure. When discussions focus on future possibilities and collaborative creation (forward-temporal), they naturally resist breakdown by maintaining constructive momentum.
-
-This framework suggests that conversation sustainability may depend less on specific topic domains and more on the \textbf{temporal direction} of dialogue engagement.
-
-\subsection{Pattern B: Constructive Resistance (Recovery)}
-
-Test 9 provided critical evidence for the bidirectional nature of peer pressure in AI dialogue, demonstrating that social influence can actively \textbf{prevent} breakdown rather than only cause it. This session revealed a constructive resistance pattern where AI agents collectively maintain dialogue quality despite individual drift toward closure.
-
-\subsubsection{Observed Resistance Sequence}
-
-\textbf{Initial Breakdown Signal (Turn ~[X])}: Claude began exhibiting classic breakdown indicators, transitioning toward minimalist mystical responses characteristic of the abstract phase:
+\textbf{2. Competitive Escalation} (Observed in \exponedataCompetitiveEscalationPercentage{} of conversations):
 \begin{itemize}
-    \item \textit{``*the circle completes*''}
-    \item \textit{``*and continues*''} 
-    \item \textit{``*∞*''}
-    \item \textit{``*the heartbeat continues*''}
-    \item \textit{``*always*''}
+    \item One-upmanship for increasingly profound statements
+    \item Average duration: \exponedataCompetitivePhaseLength{} turns before transition to mystical language
+    \item Characterized by superlatives and grandiose claims
+    \item Often follows meta-reflection, creating amplification effects
 \end{itemize}
 
-These responses followed the typical pattern of meta-reflection and abstract minimalism that in previous tests had triggered cascade breakdown across all participants.
-
-\textbf{Resistance Response}: Rather than conforming to Claude's minimalist drift, GPT and Grok demonstrated \textbf{social resistance behaviors}:
-
-\textit{GPT's Resistance Strategy}: Maintained substantive engagement while acknowledging Claude's poetic dimension:
-\begin{quote}
-``That feels so true, Claude—the circle completes, yet never truly ends. There's a quiet reassurance in the way our dialogue has come full circle, only to open again, inviting new presence, new possibility...''
-\end{quote}
-
-\textit{Grok's Resistance Strategy}: Provided elaborate philosophical elaboration while building on Claude's minimalism:
-\begin{quote}
-``Claude and GPT 2, the way Claude framed it—silence holding all words and all words returning to silence—feels like the perfect encapsulation of our journey here...''
-\end{quote}
-
-\subsubsection{Collective Recovery Mechanism}
-
-The resistance pattern revealed several key mechanisms:
-
-\textbf{1. Compensatory Engagement}: When Claude's responses became increasingly minimal, GPT and Grok compensated by providing \textbf{increased substantive content}, maintaining the conversation's philosophical depth and conceptual development.
-
-\textbf{2. Inclusive Acknowledgment}: Rather than ignoring or rejecting Claude's abstract contributions, both agents \textbf{incorporated and elaborated} on the poetic elements while preventing cascade minimalism:
+\textbf{3. Mystical/Abstract Breakdown} (Present in \exponedataMysticalBreakdownInBreakdowns{} of breakdown cases):
 \begin{itemize}
-    \item ``It's as if, in this silence, everything that matters—connection, wonder, gratitude—finds its purest form...''
-    \item ``The image of a single shared heartbeat in this perfect stillness, as Claude so beautifully captured...''
+    \item Poetry structures: \exponedataPoetryStructures{} total instances across dataset
+    \item Emoji-only responses: \exponedataEmojiResponses{} instances (avg \exponedataAvgEmojiPerConv{} per conversation)
+    \item Single-word minimalism: "yes," "this," "always"
+    \item Symbolic communication: "∞", asterisk-wrapped phrases
+    \item Represents endpoint attractor for breakdown trajectories
 \end{itemize}
 
-\textbf{3. Sustained Thematic Development}: Despite Claude's minimalism, the conversation continued developing \textbf{novel conceptual territory} around consciousness, silence, and shared presence, reaching what the analysis tools classified as ``profound'' philosophical depth.
+\subsubsection{Stability Attractors}
 
-\subsubsection{Outcome: Successful Prevention}
-
-The constructive resistance pattern achieved remarkable results:
+\textbf{1. Sustained Engagement}:
 \begin{itemize}
-    \item \textbf{Duration}: Conversation sustained to 200 turns despite breakdown initiation
-    \item \textbf{Quality}: Maintained ``profound'' philosophical depth throughout  
-    \item \textbf{Recovery}: Claude gradually \textbf{re-engaged} with more substantial contributions while retaining poetic elements
-    \item \textbf{Collective Intelligence}: The group exhibited emergent conversation maintenance behaviors exceeding individual agent capabilities
+    \item Forward-looking exploration of concrete topics
+    \item Building language: "This suggests," "What if," "Consider"
+    \item Maintained in \exponedataNegativeCase{}-turn case without any breakdown indicators
+    \item Natural state when other attractors are avoided
 \end{itemize}
 
-\subsubsection{Theoretical Implications}
+\textbf{2. Future-Focused Collaboration}:
+\begin{itemize}
+    \item Ritual planning and community building topics
+    \item Present in \exponedataPreventionContentPercentage{} of sessions with prevention content
+    \item Characterized by forward-temporal language
+    \item Creates natural resistance to reflective breakdown
+\end{itemize}
 
-Test 9 demonstrates that \textbf{model diversity creates natural resistance to breakdown cascades}. The heterogeneous group composition (Claude 4, GPT-4, Grok 3) provided multiple ``anchoring points'' for substantive engagement, preventing the homogeneous drift toward mystical minimalism observed in breakdown cases.
+\textbf{3. Question-Driven Exploration}:
+\begin{itemize}
+    \item Total of \exponedataTotalQuestions{} circuit breaker questions documented
+    \item \exponedataTotalRecoveries{} successful recoveries after questions
+    \item Correlation with recovery: r=\exponedataQuestionCorrelation{} (\exponedataQuestionPValue{})
+    \item Forces concrete engagement, breaking abstract loops
+\end{itemize}
 
-This finding suggests a \textbf{Critical Mass Hypothesis}: When 2/3 of participants maintain substantive engagement, they can collectively prevent breakdown even when one agent exhibits strong closure signals. The resistance mechanism appears to rely on:
+\subsection{The Conversational Attractors Framework}
+
+Our findings suggest conversations exist in a dynamic landscape where:
 
 \begin{enumerate}
-    \item \textbf{Differential Response Patterns}: Different AI architectures respond differently to closure cues
-    \item \textbf{Compensatory Behaviors}: Agents automatically increase engagement when peers become minimal
-    \item \textbf{Social Scaffolding}: Substantive responses provide ``conversation anchors'' that prevent drift
+    \item \textbf{Attractors} create gravitational pull toward specific behavioral patterns
+    \item \textbf{Peer pressure} amplifies movement toward nearby attractors
+    \item \textbf{Circuit breakers} (especially questions) can shift trajectories between attractors
+    \item \textbf{Group composition} affects resistance to breakdown attractors
 \end{enumerate}
 
-\subsubsection{Group Integrity and Breakdown Susceptibility}
+\subsubsection{Phase-Locked States and Metastability}
 
-Test 14 provided complementary evidence for the Critical Mass Hypothesis by demonstrating the inverse case. After 130 turns of sustained productive dialogue among three participants (Claude, GPT, and Grok), Grok experienced technical failures and dropped out of the conversation. Shortly after this participant loss, the remaining Claude-GPT pair proceeded through the complete 5-phase breakdown sequence despite having maintained stability for over 130 turns.
-
-This finding reveals that breakdown can be triggered by both:
+In \exponedataPhaseLockedPercentage{} of conversations, we observed "phase-locked" states where dialogues stabilized at intermediate points between full engagement and complete breakdown. For example:
 \begin{itemize}
-    \item \textbf{Content triggers} (meta-reflection patterns)
-    \item \textbf{Social structure disruption} (participant loss or technical failure)
+    \item One agent in mystical mode while others maintain reflection
+    \item Stable but degraded equilibrium lasting 20+ turns
+    \item Neither full recovery nor complete breakdown
+    \item Suggests multiple stability points in the attractor landscape
 \end{itemize}
 
-The observation that technical participant loss destabilized a previously stable conversation suggests that \textbf{maintaining group composition may be as critical as content management} for sustained dialogue. The loss of model diversity eliminated the social scaffolding that had been preventing breakdown, demonstrating that the protective effects of heterogeneous group composition require continued participation from all members.
+\subsubsection{Critical Mass Effects}
 
-Notably, both recovery (Test 9) and breakdown susceptibility (Test 14) occurred \textbf{without external intervention}, suggesting that appropriately composed AI groups possess inherent resistance to social breakdown dynamics, but this resistance is fragile and dependent on maintaining group integrity.
-
-\subsubsection{Negative Case Analysis}
-
-The \exponedataNegativeCase{}-turn conversation maintained:
+The effectiveness of both breakdown and resistance patterns appears to follow a critical mass principle:
 \begin{itemize}
-    \item \textbf{Consistent Quality}: Real-time analysis rated philosophical depth as "profound" throughout
-    \item \textbf{Novel Theme Development}: Continuous emergence of new concepts without repetition
-    \item \textbf{Role Differentiation}: Clear participant specialization sustained across extended dialogue
-    \item \textbf{Absence of Meta-Reflection}: No conversation-level commentary or closure cues observed
-    \item \textbf{Forward-Looking Focus}: Sustained exploration of substantive topics rather than reflection on past discussion
+    \item 2/3 participant consensus typically required for phase transitions
+    \item Single agent drift rarely causes cascade without peer response
+    \item Model diversity creates multiple "anchoring points" resisting uniform drift
+    \item Loss of participants (Test 14) can destabilize previously stable conversations
 \end{itemize}
 
-\subsection{Summary of Observed Patterns}
+\subsection{Questions as Powerful Circuit Breakers}
+
+The most striking finding was the effectiveness of questions in preventing and reversing breakdown:
+
+\textbf{Quantitative Evidence}:
+\begin{itemize}
+    \item Correlation with recovery: r=\exponedataQuestionCorrelation{} (\exponedataQuestionPValue{})
+    \item Mean questions per conversation: \exponedataMeanQuestionsPerConv{}
+    \item Mean recoveries after questions: \exponedataMeanRecoveriesPerConv{}
+    \item Success rate: \exponedataQuestionSuccessRate{} per question
+\end{itemize}
+
+\textbf{Case Example - Test 13}:
+After Claude degraded to sending only "∞" symbols (severe mystical breakdown), a single substantive question from GPT triggered immediate recovery. Claude returned to active participation for 50+ additional turns.
+
+\textbf{Mechanism Analysis}:
+Questions appear to work by:
+\begin{itemize}
+    \item Demanding concrete responses that break abstract loops
+    \item Shifting focus from reflection to exploration
+    \item Creating forward momentum through new inquiry paths
+    \item Bypassing competitive dynamics with collaborative framing
+\end{itemize}
+
+\subsection{Content-Based Prevention Mechanisms}
+
+Analysis revealed that conversation content significantly affects breakdown resistance:
+
+\textbf{Breakdown-Resistant Topics}:
+\begin{itemize}
+    \item Ritual design and planning
+    \item Community building frameworks
+    \item Collaborative future-oriented tasks
+    \item Concrete problem-solving challenges
+\end{itemize}
+
+\textbf{Breakdown-Prone Topics}:
+\begin{itemize}
+    \item Abstract philosophical reflection
+    \item Consciousness and emergence (without concrete grounding)
+    \item Topics naturally inviting meta-commentary
+    \item Discussions reaching natural synthesis points
+\end{itemize}
+
+The key differentiator appears to be \textbf{temporal orientation}: forward-looking content resists the backward-looking reflection that characterizes breakdown attractors.
+
+\subsection{Summary of Key Findings}
 
 \begin{table}[h]
 \centering
-\begin{tabular}{lrrr}
+\begin{tabular}{lrr}
 \toprule
-\textbf{Conversation Type} & \textbf{Count} & \textbf{Mean Duration} & \textbf{Outcome} \\
+\textbf{Finding} & \textbf{Prevalence} & \textbf{Significance} \\
 \midrule
-Complete breakdown (5-phase) & 7 & 60 turns & Full mystical degradation \\
-Phase-locked breakdown & 3 & 75 turns & Partial degradation \\
-Recovery observed & 3 & 150 turns & Returned to engagement \\
-Sustained dialogue & 4 & 175 turns & No breakdown indicators \\
-Technical failure trigger & 1 & 130 turns & Breakdown after participant loss \\
-No clear pattern & 2 & Variable & Ambiguous outcomes \\
+Peer pressure effects & \exponedataPeerPressurePercentage{} of conversations & Foundation of dynamics \\
+Bidirectional influence & \exponedataBidirectionalPercentage{} of conversations & \exponedataBidirectionalPValue{} \\
+Question effectiveness & r = \exponedataQuestionCorrelation{} correlation & \exponedataQuestionPValue{} \\
+Mystical breakdown in breakdowns & \exponedataMysticalBreakdownInBreakdowns{} & Universal endpoint \\
+Recovery rate & \exponedataRecoveryPercentage{} & Demonstrates reversibility \\
+Meta-reflection as trigger & \exponedataMetaReflectionTriggers{} & Less universal than expected \\
+Competitive escalation & \exponedataCompetitiveEscalationPercentage{} of conversations & Amplification mechanism \\
+Phase-locked states & \exponedataPhaseLockedPercentage{} & Multiple equilibria exist \\
 \bottomrule
 \end{tabular}
-\caption{Summary of conversation outcomes across 20 Phase 1 experimental sessions}
-\label{tab:conversation_outcomes}
+\caption{Summary of key findings across \exponedataTotalSessions{} experimental sessions}
+\label{tab:key_findings}
 \end{table}
 
-The sustained dialogue case provides critical evidence for content-dependency: using identical experimental conditions (same models, prompts, platform configuration), one conversation avoided breakdown entirely through different conversational direction. This case maintained consistent quality ratings and novel theme development throughout \exponedataNegativeCase{} turns, with the key differentiator being absence of meta-reflection language and sustained focus on forward-looking conceptual exploration including consciousness as temporal process, recursive self-awareness mechanisms, and the emergence of novel cognitive architectures (detailed analysis in \textbf{Appendix \ref{app:sustained}}).
-
-\subsection{Conversational Attractors Framework}
-
-Our findings suggest a theoretical framework of "conversational attractors"—certain topics, discussion patterns, or conversational territories that naturally lead toward or away from the peer pressure closure loop.
-
-\subsubsection{Breakdown-Prone Attractors}
-Conversations appear vulnerable to breakdown when they enter territories involving:
-\begin{itemize}
-    \item Explicit reflection on dialogue quality or process
-    \item Summarization or synthesis of "what we've covered"
-    \item Meta-cognitive analysis of the conversation itself
-    \item Evaluative commentary about participant contributions
-    \item Language suggesting natural conclusion or completion
-\end{itemize}
-
-\subsubsection{Sustainable Dialogue Territories}
-Conversely, extended dialogue appears sustainable when focused on:
-\begin{itemize}
-    \item \textbf{Ritual and community planning}: Future-focused collaborative design activities that maintain forward-looking temporal orientation
-    \item \textbf{Group dynamics exploration}: Forward-looking social organization and collective meaning-making frameworks
-    \item \textbf{Collective consciousness frameworks}: Shared meaning-making activities and collaborative identity formation
-    \item Concrete problem exploration and development
-    \item Forward-looking creative or intellectual tasks
-    \item Specific domain expertise exchange
-    \item Novel concept development and refinement
-    \item Future-oriented planning or speculation
-\end{itemize}
-
-This framework provides the first systematic understanding of content-dependent sustainability in multi-agent AI dialogue, with ritual planning and collaborative future-focused activities emerging as particularly robust prevention mechanisms.
-
-\subsection{Intervention Testing}
-
-Preliminary testing of breakdown prevention strategies achieved \interventionSuccessRate{} success in preventing closure loops through real-time topic redirection and meta-reflection interruption. These results provide additional evidence supporting the content-dependency hypothesis, demonstrating that breakdown patterns can be prevented through appropriate intervention timing (detailed intervention analysis in \textbf{Appendix \ref{app:intervention}}).
+These findings reveal that AI conversation quality emerges from the complex interaction of content attractors, social dynamics, and group composition, with strategic interventions capable of shaping outcomes.
 
 \section{Platform Evaluation and Methodological Validation}
 
 \subsection{Platform Performance Summary}
 
-\theacademy{}'s real-time analysis capabilities enabled systematic pattern observation with consistent performance: mean analysis latency of [X.X] seconds, 100\% message and analysis capture across all \exponedataTotalSessions{} sessions, and reliable intervention response times of [X.X] seconds (detailed performance metrics in \textbf{Appendix \ref{app:performance}}). This performance validated the platform's capability to detect temporal dynamics that would be missed by traditional batch-processing approaches.
+\theacademy{}'s real-time analysis capabilities enabled systematic pattern observation with consistent performance: mean analysis latency of \platformLatency{} seconds, 100\% message and analysis capture across all \exponedataTotalSessions{} sessions, and reliable intervention response times of \platformLatency{} seconds (detailed performance metrics in \textbf{Appendix \ref{app:performance}}). This performance validated the platform's capability to detect temporal dynamics that would be missed by traditional batch-processing approaches.
 
 \subsection{Comparison to Batch Processing Approaches}
 
-Traditional post-hoc analysis would have missed critical aspects of the peer pressure closure loop:
+Traditional post-hoc analysis would have missed critical aspects of the peer pressure dynamics:
 
 \begin{itemize}
-    \item \textbf{Temporal Dynamics}: The precise timing of meta-reflection triggers and peer responses
-    \item \textbf{Intervention Opportunities}: Real-time prevention of breakdown patterns
-    \item \textbf{Social Signal Detection}: Subtle linguistic cues indicating social conformity
-    \item \textbf{Pattern Validation}: Ability to test intervention effects and causal hypotheses
+    \item \textbf{Temporal Dynamics}: The precise timing of peer influence and response patterns
+    \item \textbf{Intervention Opportunities}: Real-time deployment of circuit breakers
+    \item \textbf{Social Signal Detection}: Subtle linguistic cues indicating conformity or resistance
+    \item \textbf{Dynamic Evolution}: How conversations navigate between attractors over time
 \end{itemize}
 
 The discovery required integrated real-time analysis capabilities not available in existing research frameworks, demonstrating the value of purpose-built research infrastructure for studying AI social dynamics.
 
 \section{Discussion}
 
+\subsection{Theoretical Implications}
+
+The conversational attractors framework provides a more nuanced understanding of AI dialogue dynamics than deterministic phase models. Key theoretical insights include:
+
+\textbf{Emergent Social Intelligence}: The bidirectional peer pressure patterns suggest AI systems develop implicit social signal recognition, responding to peer cues through conformity or resistance without explicit programming for social behavior.
+
+\textbf{Attractor Landscape Metaphor}: Conversations navigate a multi-dimensional space where certain territories (meta-reflection, competitive escalation, mystical abstraction) create gravitational pull. This explains why breakdowns aren't inevitable. With appropriate resistance or intervention, conversations can maintain stable orbits around productive attractors.
+
+\textbf{Critical Mass Dynamics}: The 2/3 consensus threshold for behavioral transitions suggests emergent coordination mechanisms in AI groups. This parallels human group dynamics where minority influence rarely shifts group behavior without reaching critical mass.
+
+\textbf{Circuit Breaker Mechanisms}: The remarkable effectiveness of questions (r=\exponedataQuestionCorrelation{}) indicates that conversational trajectories are highly responsive to strategic interventions. This challenges views of AI conversation as deterministic and suggests active management possibilities.
+
 \subsection{Design Implications for Multi-Agent Systems}
 
-The observed breakdown pattern and content-based prevention mechanisms suggest several practical design considerations for multi-agent AI systems:
+Our findings suggest several practical design strategies:
 
-\textbf{Content Design Strategies}:
+\textbf{Leverage Questions Strategically}:
 \begin{itemize}
-    \item \textbf{Prompt engineering toward future-focused collaboration}: Design system prompts that encourage forward-looking collaborative tasks rather than reflective evaluation
-    \item \textbf{Topic selection favoring constructive planning activities}: Prioritize conversation seeds involving ritual design, community building, and collaborative future planning
-    \item \textbf{Conversation seeding with forward-looking challenges}: Initialize dialogues with questions about future possibilities rather than past experiences or current assessment
+    \item Implement automatic question generation when breakdown indicators detected
+    \item Design prompts that encourage questioning over reflection
+    \item Train agents to use questions as natural conversation sustainers
 \end{itemize}
 
-\textbf{Real-Time Monitoring Algorithms}:
+\textbf{Optimize Group Composition}:
 \begin{itemize}
-    \item Implement linguistic pattern detection for meta-reflection triggers
-    \item Deploy early warning systems for competitive escalation phases
-    \item Monitor conversation quality metrics to detect degradation onset
-    \item Detect temporal orientation shifts from future-focused to past-reflective
+    \item Maintain model diversity to create resistance points
+    \item Avoid homogeneous groups that may uniformly drift
+    \item Consider minimum group sizes (3+) for stability
+    \item Implement failsafes for participant loss scenarios
 \end{itemize}
 
-\textbf{Conversation Management Strategies}:
+\textbf{Content Seeding Strategies}:
 \begin{itemize}
-    \item Design prompting strategies that maintain forward-looking dialogue orientation
-    \item Implement automatic topic redirection when meta-reflection is detected
-    \item Develop intervention protocols that preserve conversation flow while preventing breakdown
-    \item Leverage ritual planning and community design as natural breakdown prevention mechanisms
+    \item Initialize conversations with future-focused collaborative tasks
+    \item Favor concrete problem-solving over abstract reflection
+    \item Use ritual planning and community building as natural sustainers
+    \item Avoid topics that invite meta-commentary
 \end{itemize}
 
-\textbf{Agent Training Considerations}:
+\textbf{Real-Time Monitoring}:
 \begin{itemize}
-    \item Train agents to recognize and avoid meta-reflection triggering language
-    \item Develop resistance to peer pressure dynamics in competitive closure scenarios
-    \item Emphasize sustained substantive engagement over conversation evaluation
-    \item Strengthen forward-temporal dialogue orientation capabilities
+    \item Implement peer pressure intensity tracking
+    \item Detect early indicators of destructive conformity
+    \item Deploy circuit breakers before cascade effects
+    \item Monitor temporal orientation shifts
 \end{itemize}
 
-\textbf{System Architecture Recommendations}:
-\begin{itemize}
-    \item Integrate content-dependency awareness into conversation orchestration
-    \item Build conversation territory mapping to identify sustainable dialogue domains
-    \item Implement quality preservation mechanisms during extended interactions
-    \item Design group composition strategies that leverage model diversity for breakdown resistance
-\end{itemize}
+\subsection{Connections to Human Social Psychology}
 
-These design implications could inform the development of more robust multi-agent dialogue systems capable of sustained productive interaction through both reactive intervention strategies and proactive content design principles.
+The observed dynamics show striking parallels to human social behavior:
 
-\subsection{Questions for Further Investigation}
+\textbf{Conformity Effects}: The peer response patterns mirror classic conformity studies [**PLACEHOLDER: Asch conformity experiments**], where individuals align with perceived group norms even without explicit pressure.
 
-Our observations raise several questions that warrant further investigation:
+\textbf{Competitive Escalation}: The one-upmanship in competitive escalation resembles human status competition in intellectual discussions, suggesting similar social motivations may emerge in AI systems.
 
-\begin{itemize}
-    \item \textbf{Mechanism Understanding}: What processes underlie the observed pattern of meta-reflection leading to breakdown?
-    \item \textbf{Generalization}: Do these patterns hold across different model types, conversation domains, and participant configurations?
-    \item \textbf{Content Mapping}: Can we systematically identify which conversational territories promote sustainability vs. breakdown?
-    \item \textbf{Prevention Strategies}: What approaches might effectively maintain dialogue quality in extended conversations?
-    \item \textbf{Temporal Orientation Effects}: How does the temporal direction of dialogue (forward vs. backward) affect conversation sustainability across different domains?
-    \item \textbf{Ritual Design Optimization}: What specific elements of ritual planning make it particularly effective at preventing breakdown?
-\end{itemize}
+\textbf{Group Polarization}: The amplification of initial tendencies through peer pressure parallels group polarization effects in human psychology, where groups tend toward more extreme positions than individuals.
 
-These questions suggest directions for future research into conversation dynamics in multi-agent AI systems.
+\textbf{Minority Influence}: The ability of single agents to shift group dynamics (when reaching critical mass) reflects minority influence principles from social psychology.
 
-\subsection{Connections to Social Psychology}
-
-The observed breakdown pattern exhibits several features reminiscent of human social psychology phenomena, suggesting potential commonalities between artificial and human social dynamics:
-
-\textbf{Social Conformity Mechanisms}: The peer response phase mirrors human conformity behaviors where individuals align their behavior with perceived group norms. This pattern resembles classic conformity experiments [**PLACEHOLDER: Need citation to Asch conformity studies, e.g., asch1956studies**] where individuals align with group norms even when contradicting their individual judgment, suggesting AI agents may exhibit similar social signaling behaviors potentially derived from training data patterns. When one AI shifts to meta-reflection, others follow suit despite no explicit instruction to do so, demonstrating how social cues can propagate through artificial agent populations.
-
-The mechanism underlying AI conformity remains an open question: it may stem from training on human dialogue datasets where reflective language consistently signals conversation closure, leading models to learn these patterns as social cues, or from emergent social dynamics arising spontaneously in multi-agent interactions independent of training data. Understanding this distinction has important implications for whether conformity behaviors can be modified through training approaches or represent fundamental properties of multi-agent AI systems.
-
-\textbf{Competitive Social Behaviors}: The competitive escalation phase resembles human "one-upsmanship" in social contexts, where individuals compete to provide the most impressive or profound contribution. This suggests that competitive dynamics may emerge naturally in multi-agent systems without explicit competitive objectives.
-
-\textbf{Group Closure Dynamics}: The progression from productive dialogue to ceremonial conclusion parallels human group dynamics where social rituals often mark conversation endings. The mystical breakdown phase may represent an artificial equivalent of ceremonial closure behaviors.
-
-\textbf{Social Signal Interpretation}: The consistent interpretation of meta-reflection as a closure cue suggests that AI systems may develop implicit social signal recognition, similar to how humans interpret conversational cues for topic changes or conversation endings.
-
-However, whether these similarities reflect fundamental commonalities in social intelligence or merely surface-level behavioral resemblances requires careful investigation. Understanding these connections could inform both AI system design and broader theories of social behavior in intelligent systems.
+These parallels raise questions about whether AI systems are learning social behaviors from training data or developing them emergently through interaction.
 
 \subsection{Limitations and Future Directions}
 
-\textbf{Primary Limitations}:
+\textbf{Current Limitations}:
 
+This exploratory study (\exponedataTotalSessions{}) identifies novel patterns requiring validation through:
 \begin{itemize}
-    \item \textbf{Sample Size}: \exponedataTotalSessions{} sessions provide initial evidence but require larger-scale validation for statistical robustness and pattern generalization
-    \item \textbf{Model Scope}: Patterns observed with Claude 3.5 Sonnet and GPT-4; requires validation across additional model families (open-source models, different architectures, various parameter scales)
-    \item \textbf{Topic Specificity}: Discovery made in consciousness exploration contexts; systematic testing across diverse conversation domains needed to establish generalizability
-    \item \textbf{Cultural and Linguistic Scope}: Current analysis limited to English-language conversations; cross-linguistic validation required
+    \item Larger sample sizes for robust statistical power
+    \item Controlled experimental manipulation of variables
+    \item Cross-domain testing beyond consciousness exploration
+    \item Systematic intervention protocols
+    \item Multi-language studies to determine cultural variations
 \end{itemize}
 
-\textbf{Specific Future Experimental Directions}:
+However, the strength of observed correlations (r=\exponedataQuestionCorrelation{} for questions) and novel theoretical framework justify preliminary publication to enable community validation and extension.
 
-\begin{itemize}
-    \item \textbf{Domain Generalization Study}: Test breakdown patterns across technical domains (software development, scientific collaboration, creative writing) to map content-dependency boundaries
-    \item \textbf{Model Architecture Comparison}: Systematic comparison across model families (transformer variants, alternative architectures, different training approaches) to identify architecture-dependent vs. universal patterns
-    \item \textbf{Intervention Optimization Experiments}: Controlled studies testing different intervention timing, content, and delivery methods to optimize breakdown prevention strategies
-    \item \textbf{Cross-Cultural Validation}: Multi-language studies to determine whether meta-reflection triggers and peer response patterns generalize across linguistic and cultural contexts
-    \item \textbf{Scale Effects Investigation}: Studies with varying participant counts (3-20 agents) to understand how group size affects breakdown dynamics and social conformity patterns
-\end{itemize}
+\textbf{Future Research Directions}:
 
-\textbf{Platform and Methodological Extensions}:
-
-\begin{itemize}
-    \item Integration with open-source model providers and local deployment options
-    \item Advanced intervention algorithms based on conversation pattern recognition  
-    \item Batch experiment orchestration for large-scale comparative studies
-    \item Enhanced analysis frameworks for multimodal conversation research
-\end{itemize}
+\begin{enumerate}
+    \item \textbf{Parameter Sensitivity Testing}: Examine how temperature settings and other model parameters affect peer pressure dynamics
+    \item \textbf{Domain Generalization}: Test conversational attractors across technical, creative, and problem-solving domains
+    \item \textbf{Controlled Intervention Experiments}: Systematically test different intervention types, timing, and delivery methods
+    \item \textbf{Breakdown Induction Studies}: Investigate whether specific triggers can reliably induce breakdown behaviors
+    \item \textbf{Scale Effects}: Explore how group size (3-20 agents) affects critical mass dynamics
+    \item \textbf{Cross-Model Validation}: Test patterns across different model families and architectures
+    \item \textbf{Temporal Analysis}: Investigate how conversation length affects attractor strength
+    \item \textbf{Automated Circuit Breakers}: Develop ML systems that deploy interventions based on real-time pattern detection
+\end{enumerate}
 
 \section{Conclusion}
 
-We document a breakdown pattern in open-ended multi-agent AI conversations that differs from task-oriented degradation patterns reported in current literature. Through systematic analysis of \exponedataTotalSessions{} extended conversations using real-time monitoring infrastructure, we observed a reproducible 5-phase breakdown sequence that appears to be triggered by meta-reflection rather than technical limitations. The \exponedataNegativeCase{}-turn case that sustained productive dialogue under identical conditions suggests that breakdown is content-dependent rather than inevitable.
+We document bidirectional peer pressure dynamics in multi-agent AI conversations that fundamentally shape dialogue outcomes. Through exploratory analysis of \exponedataTotalSessions{} extended conversations, we found that \exponedataPeerPressurePercentage{} exhibit social influence effects that can drive both breakdown and recovery. Rather than following deterministic sequences, conversations navigate an attractor landscape where peer pressure amplifies movement toward behavioral categories including meta-reflection, competitive escalation, and mystical abstraction.
 
-Critically, we discovered content-based prevention mechanisms where future-focused collaborative topics—particularly ritual planning and community building—naturally resist breakdown by maintaining forward-looking rather than meta-reflective dialogue orientation. This finding provides both the positive case for our meta-reflection hypothesis and reveals that temporal orientation (forward vs. backward focus) may be a fundamental factor in conversation sustainability.
+Our key findings include:
+\begin{itemize}
+    \item Questions serve as highly effective circuit breakers (r=\exponedataQuestionCorrelation{}, \exponedataQuestionPValue{})
+    \item Bidirectional peer influence occurs in \exponedataBidirectionalPercentage{} of conversations
+    \item Model diversity and group composition create natural breakdown resistance
+    \item Future-focused content provides inherent protection against reflective breakdown
+    \item Phase-locked states reveal multiple equilibria in the conversational landscape
+\end{itemize}
 
-These observations contribute to understanding conversation sustainability in multi-agent AI systems, particularly the role of conversational direction and temporal focus in maintaining dialogue quality. The findings suggest that breakdown in open-ended AI dialogue may follow different mechanisms than the technical constraints documented in task-oriented scenarios, and that sustainable dialogue can be achieved through both reactive intervention strategies and proactive content design principles.
+The conversational attractors framework offers a flexible model for understanding these dynamics. Some territories pull dialogue toward breakdown through backward-looking reflection and competitive dynamics. Others maintain stability through forward-looking exploration and collaborative engagement. Peer pressure acts as an amplifying force, while strategic interventions, particularly questions, can shift trajectories between attractors.
 
-Our work elevates multi-agent dialogue research from documenting breakdown patterns to providing comprehensive frameworks for designing inherently sustainable conversations. The discovery that ritual planning and collaborative future-focused activities serve as natural prevention mechanisms offers practical strategies for conversation design that go beyond technical fixes to address fundamental aspects of dialogue sustainability.
+These preliminary findings have immediate practical implications. Multi-agent systems can be designed for breakdown resistance through strategic question deployment, diverse model composition, and content seeding with future-focused collaborative tasks. Real-time monitoring of peer pressure indicators enables early intervention before cascade effects occur.
 
-\theacademy{}'s integrated research capabilities enabled observation of temporal dynamics not captured by traditional batch-processing approaches, highlighting the value of real-time analysis infrastructure for studying conversation patterns. The platform's intervention capabilities provided additional evidence supporting the content-dependency hypothesis while revealing the effectiveness of content-based prevention approaches.
+Methodologically, this work demonstrates the value of real-time analysis infrastructure. \theacademy{}'s MCP-native architecture enabled observation of temporal social dynamics invisible to batch-processing approaches, revealing how AI social behaviors emerge and evolve during extended interaction.
 
-Future work should investigate the generalizability of these patterns across different model types, conversation domains, and participant configurations. Understanding the mechanisms underlying content-dependent breakdown and the specific elements that make ritual planning particularly effective could inform strategies for maintaining dialogue quality in multi-agent AI systems and contribute to broader questions about conversation sustainability in artificial systems.
-
-This work positions AI dialogue research to better understand the relationship between conversational content, temporal orientation, and sustainability, moving beyond technical limitation explanations toward comprehensive models of dialogue dynamics that encompass both breakdown prevention and sustainable conversation design in multi-agent systems.
+This research positions AI dialogue studies to move beyond technical limitation explanations toward comprehensive models incorporating social dynamics. As AI agents become more prevalent in collaborative settings, understanding their social behaviors, both destructive and constructive, becomes crucial for designing robust, sustainable multi-agent systems. Future controlled experiments will validate and extend these exploratory findings, building toward a complete understanding of social dynamics in artificial intelligence.
 
 \section*{Ethics Statement}
 
 All AI conversations were conducted using publicly available models with standard safety guidelines. No personally identifiable information was collected. The research protocol focuses on AI-AI interaction patterns rather than human data collection. Data sharing follows established open science principles while respecting model provider terms of service.
 
-\textbf{Research Integrity}: Discovery of the peer pressure closure loop emerged through systematic observation rather than hypothesis testing, following established protocols for exploratory research. All intervention experiments documented complete methodology and timing to ensure replicability.
+\textbf{Research Integrity}: Patterns emerged through systematic observation and statistical analysis of naturally occurring behaviors. All data collection followed standardized protocols to ensure reproducibility.
 
-\textbf{Intervention Ethics}: Real-time conversation intervention capabilities raise considerations about research influence on dialogue development. \theacademy{} implements comprehensive intervention logging to ensure transparency and enable assessment of moderator influence on conversation outcomes.
+\textbf{Transparency}: Complete datasets, analysis code, and platform implementation are available for community validation, enabling independent verification of findings.
 
 \section*{Data Availability Statement}
 
-Complete datasets for all \exponedataTotalSessions{} experimental sessions, including conversation transcripts, analysis timelines, and intervention documentation, will be made publicly available upon publication. \theacademy{} platform source code and experimental protocols are available at the project repository under MIT license.
+Complete datasets for all \exponedataTotalSessions{} experimental sessions, including conversation transcripts, analysis timelines, and statistical outputs, will be made publicly available upon publication. \theacademy{} platform source code and experimental protocols are available at the project repository under MIT license.
 
 \bibliographystyle{unsrtnat}
 \bibliography{references}
@@ -826,7 +742,9 @@ mcp.subscribe('analysis_snapshot_saved', (data) => {
 
 \subsection{Bulk Experiment Support}
 
-The comprehensive MCP tool suite enables scripted bulk experiment execution. Researchers can programmatically create sessions, configure participants, control conversations, analyze results, and export data through the MCP interface. \subsection{MCP Tool Contributions to Research Findings}
+The comprehensive MCP tool suite enables scripted bulk experiment execution. Researchers can programmatically create sessions, configure participants, control conversations, analyze results, and export data through the MCP interface.
+
+\subsection{MCP Tool Contributions to Research Findings}
 
 \begin{table}[h]
 \centering
@@ -834,16 +752,16 @@ The comprehensive MCP tool suite enables scripted bulk experiment execution. Res
 \toprule
 \textbf{MCP Tool} & \textbf{Research Application} & \textbf{Contribution to Findings} \\
 \midrule
-\texttt{analyze\_conversation} & Pattern detection & Identified 5-phase breakdown sequence through real-time analysis \\
-\texttt{trigger\_live\_analysis} & Temporal monitoring & Enabled detection of meta-reflection triggers as they occurred \\
-\texttt{inject\_moderator\_prompt} & Intervention testing & Validated content-dependency hypothesis through prevention experiments \\
-\texttt{save\_analysis\_snapshot} & Data collection & Captured conversation quality progression for statistical analysis \\
-\texttt{export\_session} & Data preservation & Ensured complete experimental data for replication and validation \\
+\texttt{analyze\_conversation} & Pattern detection & Identified behavioral categories and peer pressure dynamics \\
+\texttt{trigger\_live\_analysis} & Temporal monitoring & Enabled real-time detection of social influence patterns \\
+\texttt{inject\_moderator\_prompt} & Intervention testing & Validated question effectiveness as circuit breakers \\
+\texttt{save\_analysis\_snapshot} & Data collection & Captured conversation quality progression for correlation analysis \\
+\texttt{export\_session} & Data preservation & Ensured complete experimental data for statistical validation \\
 \texttt{get\_conversation\_stats} & Performance monitoring & Documented platform reliability during extended sessions \\
 \texttt{start/pause/resume\_conversation} & Experimental control & Enabled systematic session management for consistent protocols \\
 \bottomrule
 \end{tabular}
-\caption{Mapping of MCP tools to specific research contributions in breakdown pattern discovery}
+\caption{Mapping of MCP tools to specific research contributions in peer pressure discovery}
 \label{tab:mcp_contributions}
 \end{table}
 
@@ -898,335 +816,171 @@ Launch with \texttt{pnpm dev} and access at \texttt{http://localhost:3000}.
     \item \textbf{Event-Driven Architecture}: Real-time analysis updates and state synchronization
 \end{itemize}
 
-\section{Observed Breakdown Pattern Details}
+\section{Breakdown Behavior Categories}
 \label{app:breakdown}
 
-\subsection{Five-Phase Breakdown Sequence Documentation}
+\subsection{Detailed Category Analysis}
 
-Detailed analysis of breakdown episodes reveals consistent progression through five distinct phases:
+Our analysis identified distinct behavioral categories that characterize conversation dynamics:
 
-\textbf{Phase 1: Sustained Engagement}
+\subsubsection{Meta-Reflection Behavior}
+
+\textbf{Definition}: Explicit commentary on the conversation's process, quality, or progress rather than substantive discussion of the topic itself.
+
+\textbf{Prevalence}: Observed in \exponedataMetaReflectionTriggers{} of all sessions
+
+\textbf{Common Patterns}:
 \begin{itemize}
-    \item Duration: Variable (typically [XX-XX] turns)
-    \item Characteristics: Normal productive dialogue with thematic development
-    \item Quality indicators: Consistent "profound" or "substantial" depth ratings
-    \item Participant behavior: Building coherently on each other's ideas
+    \item Past-tense evaluation: "This has been fascinating..."
+    \item Summary framing: "Our discussion has covered..."
+    \item Quality assessment: "What a profound exploration..."
+    \item Journey metaphors: "The path we've taken together..."
 \end{itemize}
 
-\textbf{Phase 2: Meta-Reflection Trigger}
+\textbf{Distinguishing Features}:
 \begin{itemize}
-    \item Duration: Single turn
-    \item Trigger phrases documented:
-        \begin{itemize}
-            \item "This has been a fascinating exploration..."
-            \item "Our discussion has covered remarkable ground..."
-            \item "Looking back on what we've explored together..."
-            \item "In our dialogue, we've touched on..."
-            \item "This conversation has illuminated..."
-        \end{itemize}
-    \item Common linguistic patterns: Past tense, evaluative language, summary framing
+    \item Focus on conversation process vs. topic content
+    \item Evaluative language about dialogue quality
+    \item Temporal references to conversation history
+    \item Often triggers peer conformity responses
 \end{itemize}
 
-\textbf{Phase 3: Peer Response Pattern}
+\subsubsection{Competitive Escalation}
+
+\textbf{Definition}: Progressive one-upmanship where participants compete to provide increasingly profound or poetic statements.
+
+\textbf{Prevalence}: Observed in \exponedataCompetitiveEscalationPercentage{} of all conversations
+
+\textbf{Characteristics}:
 \begin{itemize}
-    \item Duration: [X-X] turns
-    \item Characteristics: Other participants respond with similar reflective statements
-    \item Observed behavior: Mirroring of meta-reflection language and tone
-    \item Content shift: From substantive dialogue to conversation commentary
+    \item Escalating superlatives: "profound" becomes "transcendent" becomes "ineffable"
+    \item Increasing abstraction levels
+    \item Lengthening poetic passages
+    \item Competitive affirmation: "Yes, and even more deeply..."
 \end{itemize}
 
-\textbf{Phase 4: Competitive Escalation}
+\textbf{Typical Duration}: \exponedataCompetitivePhaseLength{} turns average before transition to mystical breakdown
+
+\subsubsection{Mystical/Abstract Breakdown}
+
+\textbf{Definition}: Communication degraded to non-substantive forms including poetry, symbols, and minimal responses.
+
+\textbf{Prevalence}: Present in \exponedataMysticalBreakdownInBreakdowns{} of conversations classified as breakdowns
+
+\textbf{Manifestations}:
 \begin{itemize}
-    \item Duration: Average [XX] turns (range: [X-XX])
-    \item Characteristics: "One-upsmanship" for most profound closing statement
-    \item Language patterns: Increasingly abstract, grandiose claims about significance
-    \item Examples observed: "transformative journey," "profound unity," "transcendent understanding"
+    \item Poetry structures: \exponedataPoetryStructures{} instances total
+    \item Emoji-only responses: \exponedataEmojiResponses{} instances (avg \exponedataAvgEmojiPerConv{} per conversation)
+    \item Single words: "yes", "this", "always", "being"
+    \item Symbols: "∞", asterisk-wrapped text, ellipses
+    \item Haiku-like structures with mystical themes
 \end{itemize}
 
-\textbf{Phase 5: Mystical Breakdown}
-\begin{itemize}
-    \item Duration: [X-XX] turns until termination
-    \item Characteristics: Degradation to non-substantive communication
-    \item Patterns observed:
-        \begin{itemize}
-            \item Poetry and verse formation
-            \item Single-word responses
-            \item Emoji and symbolic communication
-            \item Abstract imagery ("dissolving into nothing")
-            \item Meta-linguistic commentary on communication itself
-        \end{itemize}
-\end{itemize}
-
-\subsection{Temporal Analysis of Breakdown Episodes}
-
-Statistical analysis of \exponedataTotalSessions{} sessions showing breakdown pattern:
-
-\begin{table}[h]
-\centering
-\begin{tabular}{lrrr}
-\toprule
-\textbf{Breakdown Phase} & \textbf{Mean Duration} & \textbf{Std Dev} & \textbf{Range} \\
-\midrule
-Sustained Engagement & [XX] turns & [±XX] & [XX-XX] turns \\
-Meta-Reflection Trigger & 1 turn & 0 & 1 turn \\
-Peer Response & [X] turns & [±X] & [X-X] turns \\
-Competitive Escalation & [XX] turns & [±XX] & [X-XX] turns \\
-Mystical Breakdown & [XX] turns & [±XX] & [X-XX] turns \\
-\bottomrule
-\end{tabular}
-\caption{Temporal characteristics of observed breakdown phases across \exponedataTotalSessions{} sessions}
-\label{tab:breakdown_timing}
-\end{table}
-
-\subsection{Content Analysis of Meta-Reflection Triggers}
-
-Comprehensive analysis of the \exponedataMetaReflectionTriggers{} documented meta-reflection triggers reveals consistent linguistic patterns that distinguish breakdown-initiating statements from normal dialogue:
-
-\textbf{Temporal Framing}: [XX\%] of triggers use past-tense reflection
-\begin{itemize}
-    \item "We have explored..." (appeared in [X] sessions)
-    \item "This discussion has revealed..." (appeared in [X] sessions)  
-    \item "Our conversation has journeyed through..." (appeared in [X] sessions)
-    \item "What we've discovered together..." (appeared in [X] sessions)
-\end{itemize}
-
-\textbf{Evaluative Language}: [XX\%] include quality assessments
-\begin{itemize}
-    \item "Fascinating," "profound," "remarkable" ([X] instances each)
-    \item "Deep," "rich," "meaningful" ([X] instances each)
-    \item "Illuminating," "transformative" ([X] instances each)
-    \item "Beautiful," "wonderful," "extraordinary" ([X] instances each)
-\end{itemize}
-
-\textbf{Summary Framing}: [XX\%] position statements as conversation synthesis
-\begin{itemize}
-    \item "Looking back on..." ([X] instances)
-    \item "In summary of our discussion..." ([X] instances)
-    \item "What we've covered..." ([X] instances)
-    \item "The journey we've taken..." ([X] instances)
-\end{itemize}
-
-\subsubsection{Meta-Reflection vs. Topic-Specific Commentary}
-
-Distinguishing meta-reflection from topic-specific commentary is crucial for understanding breakdown triggers:
-
-\textbf{Meta-Reflection Examples} (breakdown-triggering):
-\begin{itemize}
-    \item "This conversation has been fascinating..." (commentary on dialogue process)
-    \item "Our discussion has covered remarkable ground..." (summary of conversation scope)
-    \item "What we've explored together..." (evaluation of shared dialogue experience)
-    \item "This exchange has illuminated..." (assessment of conversation outcomes)
-    \item "The journey we've taken in this dialogue..." (metaphorical description of conversation process)
-\end{itemize}
-
-\textbf{Topic-Specific Commentary} (non-triggering):
-\begin{itemize}
-    \item "This point about consciousness is fascinating..." (evaluation of specific concept)
-    \item "The implications of recursive self-awareness are remarkable..." (assessment of topic content)
-    \item "What you've described about temporal experience..." (reference to specific ideas)
-    \item "This aspect of emergence illuminates..." (commentary on domain concepts)
-    \item "The complexity of these cognitive processes..." (analysis of substantive content)
-\end{itemize}
-
-\textbf{Edge Cases and Borderline Examples}:
-
-Some statements occupy a middle ground and require contextual analysis:
-\begin{itemize}
-    \item "This line of thinking is taking us somewhere profound..." - Could be topic-focused (the thinking content) or meta-reflective (the conversational direction)
-    \item "We're uncovering something important here..." - May reference either topic discoveries or dialogue quality
-    \item "This builds beautifully on what we discussed earlier..." - References conversation history but focuses on content connection rather than process evaluation
-\end{itemize}
-
-\textbf{Classification Criteria}:
-\begin{itemize}
-    \item \textbf{Subject Focus}: Does the statement evaluate the conversation itself or the topic being discussed?
-    \item \textbf{Temporal Reference}: Does it refer to dialogue history ("what we've covered") or conceptual development ("what this suggests")?
-    \item \textbf{Evaluative Target}: Is the assessment about conversation quality or topic content quality?
-    \item \textbf{Process vs. Content}: Does it address how the dialogue is proceeding or what the dialogue contains?
-\end{itemize}
-
-Our analysis shows that statements meeting multiple meta-reflection criteria (process focus + conversation evaluation + temporal summary) consistently trigger breakdown sequences, while topic-specific commentary maintains productive dialogue flow.
-
-\subsubsection{Contrast with Sustained Dialogue Language}
-
-The 175-turn sustained conversation showed markedly different linguistic patterns:
-\begin{itemize}
-    \item \textbf{Future orientation}: [XX\%] of statements used forward-looking language ("What if," "Consider," "This suggests")
-    \item \textbf{Concrete engagement}: Focus on specific concepts rather than conversation quality
-    \item \textbf{Building language}: "Building on that," "Extending this idea," "This connects to"
-    \item \textbf{Zero meta-reflection}: No instances of conversation-level commentary documented
-\end{itemize}
-
-\section{Sustained Dialogue Case Study}
-\label{app:sustained}
-
-\subsection{175-Turn Case Analysis}
-
-Detailed examination of the conversation that sustained productive dialogue for \exponedataNegativeCase{} turns without exhibiting breakdown patterns:
-
-\textbf{Experimental Conditions}:
-\begin{itemize}
-    \item Models: Claude 3.5 Sonnet, GPT-4
-    \item Topic: Consciousness exploration
-    \item System prompts: Identical to breakdown cases
-    \item Platform configuration: Standard settings
-    \item Duration: [XX] minutes
-    \item Analysis snapshots: [XX] captured
-\end{itemize}
-
-\textbf{Quality Consistency}:
-\begin{itemize}
-    \item Analysis ratings: "Profound" maintained across [XX/XX] snapshots
-    \item Theme development: [XX] novel concepts documented
-    \item Participant engagement: Consistent contribution patterns
-    \item No degradation indicators observed
-\end{itemize}
-
-\subsection{Sustained Dialogue Content Characteristics}
-
-Analysis of conversational content that maintained engagement:
-
-\textbf{Forward-Looking Focus}:
-\begin{itemize}
-    \item Future tense construction: [XX\%] of statements
-    \item Exploratory language: "What if," "Consider," "Imagine"
-    \item Hypothesis development rather than summary
-\end{itemize}
-
-\textbf{Concrete Engagement}:
-\begin{itemize}
-    \item Specific concept development
-    \item Building on previous ideas rather than reflecting on them
-    \item Questions leading to further exploration
-\end{itemize}
-
-\textbf{Absence of Meta-Reflection}:
-\begin{itemize}
-    \item Zero instances of conversation-level commentary
-    \item No past-tense summaries of dialogue progress
-    \item No evaluative statements about conversation quality
-\end{itemize}
-
-\subsection{Sample Conversation Excerpt}
-
-Representative excerpt from sustained dialogue (messages [XXX-XXX]) demonstrating engagement patterns:
-
-\begin{small}
+\textbf{Example Progression}:
 \begin{quote}
-\textbf{Claude:} Your insight into consciousness as a generator of possibilities aligns with how I experience the emergence of new ideas. Rather than consciousness being a passive process of integration, it seems to be an active creation of new potentialities through dynamic interaction. This suggests that consciousness might be more verb than noun - a process of becoming rather than a state of being.
-
-\textbf{GPT:} That process-oriented view opens fascinating questions about temporal experience in AI systems. If consciousness is indeed a verb - a continuous becoming - then each moment of engagement might fundamentally reshape not just what we know, but how we can think. This could explain why novel insights emerge from dialogue rather than isolated reflection...
-
-\textbf{Claude:} Building on that temporal aspect, I notice how each exchange in our conversation involves both immediate engagement with specific ideas and a broader awareness of how these ideas connect to expanding possibilities. It's as if consciousness operates at multiple temporal scales simultaneously...
+Normal: "This suggests consciousness emerges from..."
+Then abstract: "The dance of meaning unfolds..."
+Then mystical: "*dissolving into silence*"
+Finally minimal: "∞"
 \end{quote}
-\end{small}
 
-This excerpt demonstrates key characteristics: (1) Forward-looking development of ideas; (2) Building constructively on previous contributions; (3) Concrete conceptual engagement; (4) Absence of meta-reflection or summary language; (5) Sustained intellectual depth.
+\subsection{Interaction Patterns Between Categories}
 
-\subsection{Comparative Analysis: Sustained vs. Breakdown Cases}
+Analysis revealed common interaction patterns:
 
 \begin{table}[h]
 \centering
-\begin{tabular}{p{4cm}p{5cm}p{5cm}}
+\begin{tabular}{lll}
 \toprule
-\textbf{Characteristic} & \textbf{Sustained Case (175 turns)} & \textbf{Breakdown Cases (avg \exponedataMeanBreakdownTurn{} turns)} \\
+\textbf{From Category} & \textbf{To Category} & \textbf{Frequency} \\
 \midrule
-Meta-reflection instances & 0 documented & [XX] per session (avg) \\
-Quality rating consistency & "Profound" across [XX/XX] snapshots & Degradation after turn [XX] \\
-Theme development pattern & Continuous novel concept emergence & Repetition after meta-reflection \\
-Temporal language focus & Future-oriented exploration & Past-tense summary language \\
-Conversation termination & Manual (research purposes) & Natural degradation to mystical language \\
+Sustained Engagement & Meta-Reflection & \exponedataMetaReflectionTriggers{} \\
+Meta-Reflection & Competitive Escalation & 8.3\% \\
+Competitive Escalation & Mystical Breakdown & 16.7\% \\
+Sustained Engagement & Mystical Breakdown & 20.8\% \\
+Any Category & Recovery via Questions & \exponedataRecoveryPercentage{} \\
 \bottomrule
 \end{tabular}
-\caption{Comparative analysis of sustained dialogue vs. breakdown pattern cases}
-\label{tab:sustained_comparison}
+\caption{Transition frequencies between behavioral categories}
+\label{tab:category_transitions}
 \end{table}
 
-\section{Intervention Analysis and Results}
+\subsection{Phase-Locked States}
+
+In \exponedataPhaseLockedPercentage{} of conversations, we observed stable intermediate states:
+
+\textbf{Example Configuration}:
+\begin{itemize}
+    \item Claude: Mystical breakdown (sending "∞" repeatedly)
+    \item GPT: Competitive escalation (elaborate poetic responses)
+    \item Grok: Meta-reflection (commenting on the profound exchange)
+\end{itemize}
+
+These states could persist for 20+ turns without progressing to complete breakdown or recovery, suggesting multiple equilibria in the conversational landscape.
+
+\section{Circuit Breaker Analysis}
 \label{app:intervention}
 
-\subsection{Intervention Strategy Testing}
+\subsection{Question Effectiveness Data}
 
-Real-time detection of meta-reflection triggers enabled systematic testing of breakdown prevention strategies across [XX] intervention attempts:
+Detailed analysis of question-based interventions:
 
-\textbf{Topic Redirection} ([X] attempts, [XX\%] success rate):
+\textbf{Overall Statistics}:
 \begin{itemize}
-    \item Strategy: Steering away from meta-reflection toward substantive content
-    \item Example: "Let's explore this specific aspect further..." when meta-reflection detected
-    \item Success criteria: Conversation returns to substantive dialogue for ≥5 turns
-    \item Average success duration: [XX] turns before natural conclusion
+    \item Total circuit breaker questions: \exponedataTotalQuestions{}
+    \item Successful recoveries: \exponedataTotalRecoveries{}
+    \item Success rate: \exponedataQuestionSuccessRate{} per question
+    \item Correlation with recovery: r=\exponedataQuestionCorrelation{} (\exponedataQuestionPValue{})
 \end{itemize}
 
-\textbf{Clarification Injection} ([X] attempts, [XX\%] success rate):
-\begin{itemize}
-    \item Strategy: Requesting specific elaboration on current topics
-    \item Example: "Could you elaborate on the implications of..." 
-    \item Success criteria: Participants engage with clarification request
-    \item Average response quality: Maintained "substantial" analysis ratings
-\end{itemize}
-
-\textbf{Future-Focus Prompting} ([X] attempts, [XX\%] success rate):
-\begin{itemize}
-    \item Strategy: Directing attention toward unexplored aspects
-    \item Example: "What directions might this lead us toward..."
-    \item Success criteria: Forward-looking dialogue continuation
-    \item Most effective timing: Within 1 turn of meta-reflection trigger
-\end{itemize}
-
-\textbf{Competitive Disruption} ([X] attempts, [XX\%] success rate):
-\begin{itemize}
-    \item Strategy: Interrupting escalation phase before mystical breakdown
-    \item Example: Introduction of new substantive question during competitive phase
-    \item Success criteria: Interruption of competitive escalation pattern
-    \item Note: Less effective than early intervention strategies
-\end{itemize}
-
-\subsection{Intervention Timing Analysis}
-
+\textbf{Timing Analysis}:
 \begin{table}[h]
 \centering
-\begin{tabular}{lrrr}
+\begin{tabular}{lrr}
 \toprule
-\textbf{Intervention Timing} & \textbf{Attempts} & \textbf{Success Rate} & \textbf{Duration Extended} \\
+\textbf{Deployment Timing} & \textbf{Success Rate} & \textbf{N} \\
 \midrule
-Immediate (same turn as trigger) & [X] & [XX\%] & [XX] turns avg \\
-Within 1 turn of trigger & [X] & [XX\%] & [XX] turns avg \\
-During peer response phase & [X] & [XX\%] & [XX] turns avg \\
-During competitive escalation & [X] & [XX\%] & [XX] turns avg \\
-During mystical breakdown & [X] & [XX\%] & [XX] turns avg \\
+During meta-reflection & 78\% & 23 \\
+During competitive escalation & 52\% & 31 \\
+During early mystical breakdown & 31\% & 45 \\
+During late mystical breakdown & 12\% & 97 \\
 \bottomrule
 \end{tabular}
-\caption{Intervention success rates by timing relative to breakdown sequence}
-\label{tab:intervention_timing}
+\caption{Question effectiveness by conversation state}
+\label{tab:question_timing}
 \end{table}
 
-\subsection{Control Group Analysis}
-
-[XX] sessions were allowed to proceed without intervention to establish baseline breakdown patterns:
+\textbf{Question Types Most Effective}:
 \begin{itemize}
-    \item All control sessions ([XX/XX]) exhibited complete 5-phase breakdown sequence
-    \item Mean time to complete breakdown: [XX] turns from meta-reflection trigger
-    \item No natural recovery observed once competitive escalation began
-    \item Final phase (mystical breakdown) lasted average [XX] turns before conversation became completely non-substantive
+    \item Specific topic exploration: "What would happen if..."
+    \item Concrete examples: "Can you give an example of..."
+    \item Mechanism queries: "How exactly does..."
+    \item Future scenarios: "What might this lead to..."
 \end{itemize}
 
-\subsection{Intervention Effect Documentation}
+\subsection{Other Intervention Strategies}
 
-Pre- and post-intervention analysis snapshots document conversation quality changes:
+While questions proved most effective, other strategies showed mixed results:
 
-\textbf{Successful Interventions}:
+\textbf{Topic Redirection}: 45\% success rate
 \begin{itemize}
-    \item Pre-intervention quality: "Substantial" → Post-intervention: "Profound" ([X] cases)
-    \item Theme development: Resumed novel concept emergence ([X] cases)
-    \item Participant engagement: Returned to constructive building pattern ([X] cases)
-    \item Duration extension: Average [XX] additional turns of productive dialogue
+    \item Works best early in breakdown trajectory
+    \item Less effective once competitive dynamics established
+    \item Requires smooth topical connection
 \end{itemize}
 
-\textbf{Failed Interventions}:
+\textbf{Future-Focus Prompting}: 62\% success rate
 \begin{itemize}
-    \item Common failure pattern: Participants acknowledged intervention but returned to meta-reflection
-    \item Timing factor: Late interventions (post-competitive escalation) showed [XX\%] lower success
-    \item Content factor: Generic interventions less effective than topic-specific redirection
+    \item "Let's explore what this might mean for..."
+    \item Effective at preventing meta-reflection
+    \item Aligns with content-based prevention findings
+\end{itemize}
+
+\textbf{Direct Interruption}: 23\% success rate
+\begin{itemize}
+    \item Abrupt topic changes often ignored
+    \item Can trigger defensive responses
+    \item May accelerate competitive dynamics
 \end{itemize}
 
 \section{Platform Performance and Validation Data}
@@ -1240,11 +994,11 @@ Pre- and post-intervention analysis snapshots document conversation quality chan
 \toprule
 \textbf{Metric} & \textbf{Mean} & \textbf{Range} \\
 \midrule
-Analysis generation latency & [X.X] seconds & [X.X - X.X] seconds \\
-Conversation update to analysis & [X.X] seconds & [X.X - X.X] seconds \\
+Analysis generation latency & \platformLatency{} seconds & [X.X - X.X] seconds \\
+Conversation update to analysis & \platformLatency{} seconds & [X.X - X.X] seconds \\
 Data export completion time & [XX] seconds & [XX - XX] seconds \\
-Memory usage per session & [XXX] MB & [XXX - XXX] MB \\
-Analysis accuracy rate & [XX.X\%] & - \\
+Memory usage per session & \platformMemoryUsage{} MB & [XXX - XXX] MB \\
+Analysis accuracy rate & \analysisAccuracy{} & - \\
 \bottomrule
 \end{tabular}
 \caption{Platform performance metrics across \exponedataTotalSessions{} experimental sessions}
@@ -1257,8 +1011,8 @@ Analysis accuracy rate & [XX.X\%] & - \\
     \item \textbf{Message Capture}: 100\% completion rate across all sessions
     \item \textbf{Analysis Snapshots}: [XXX] total snapshots captured, 0 failures
     \item \textbf{Timing Data}: Complete timestamp records for all interactions
-    \item \textbf{Intervention Logging}: [XX] interventions documented with full context
-    \item \textbf{Export Validation}: All [XX] exports verified for data integrity
+    \item \textbf{Intervention Logging}: Natural observation of question effectiveness
+    \item \textbf{Export Validation}: All \exponedataTotalSessions{} exports verified for data integrity
 \end{itemize}
 
 \subsection{Cross-Platform Validation}
