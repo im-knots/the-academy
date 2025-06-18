@@ -16,6 +16,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # NLP imports - will gracefully fail if not installed
+# NLP imports - will gracefully fail if not installed
 try:
     from sentence_transformers import SentenceTransformer
     from transformers import pipeline
@@ -24,11 +25,22 @@ try:
     from sklearn.decomposition import LatentDirichletAllocation
     from sklearn.metrics.pairwise import cosine_similarity
     import torch
-    NLP_AVAILABLE = True
+    NLP_AVAILABLE = True  # Fix indentation
+
+    os.environ['TRANSFORMERS_OFFLINE'] = '1'
+    os.environ['HF_DATASETS_OFFLINE'] = '1'
+    
+    # Check if models need downloading (only on first run)
+    if not os.path.exists(os.path.expanduser("~/.cache/torch/sentence_transformers/sentence-transformers_all-MiniLM-L6-v2")):
+        print("First run detected. Downloading models...")
+        SentenceTransformer('all-MiniLM-L6-v2')
+        pipeline("sentiment-analysis", model="j-hartmann/emotion-english-distilroberta-base")
+        print("Models cached!")
 except ImportError as e:
     NLP_AVAILABLE = False
     print(f"Warning: NLP libraries not available. Install with: pip install transformers sentence-transformers spacy scikit-learn torch")
     print(f"Missing: {e}")
+
 
 # Set up logging
 logging.basicConfig(
@@ -2929,6 +2941,26 @@ def load_threshold_config(filename='threshold_config.json'):
         logger.warning(f"Threshold config file {filename} not found, using defaults")
         return DEFAULT_THRESHOLDS.copy()
 
+def process_single_file(args):
+    """Worker function to process a single JSON file"""
+    filepath, position, use_nlp, total_files = args
+    
+    # Configure logging for this process
+    logging.basicConfig(
+        level=logging.INFO,
+        format=f'%(asctime)s - [Worker-{position % cpu_count()}] %(levelname)s - %(message)s'
+    )
+    
+    try:
+        logger.info(f"Processing {filepath.name} ({position}/{total_files})")
+        metadata = parse_and_analyze_json(filepath, use_nlp)
+        return metadata
+    except Exception as e:
+        logger.error(f"Error processing {filepath.name}: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
 def process_directory(directory='.', run_sensitivity=True, max_workers=None, thresholds_to_test=None, use_nlp=True):
     json_files = sorted(Path(directory).glob('Consciousness_Exploration_*.json'))
     
@@ -2947,28 +2979,59 @@ def process_directory(directory='.', run_sensitivity=True, max_workers=None, thr
     # Save current threshold configuration
     save_threshold_config(DEFAULT_THRESHOLDS)
     
-    all_metadata = []
-    
-    logger.info("Starting main analysis...")
+    # Prepare for parallel processing
+    logger.info("Starting parallel main analysis...")
     start_time = time.time()
     
-    for i, filepath in enumerate(json_files):
-        try:
-            if i == 0 or (i + 1) % 10 == 0 or i == len(json_files) - 1:
+    # Determine number of workers for main analysis
+    if max_workers is None:
+        max_workers = min(cpu_count() - 1, 4)  # Default to 4 for main analysis
+    max_workers = max(1, max_workers)
+    
+    logger.info(f"Using {max_workers} workers for main analysis")
+    
+    # Prepare tasks
+    tasks = [(filepath, i, use_nlp, len(json_files)) for i, filepath in enumerate(json_files, 1)]
+    
+    # Process files in parallel
+    all_metadata = []
+    
+    try:
+        with Pool(processes=max_workers) as pool:
+            # Use imap for better progress tracking
+            for result in pool.imap(process_single_file, tasks):
+                if result:
+                    all_metadata.append(result)
+                    
+                # Progress update
+                completed = len(all_metadata)
                 elapsed = time.time() - start_time
-                rate = (i + 1) / elapsed if elapsed > 0 else 0
-                logger.info(f"Processing file {i+1}/{len(json_files)} ({(i+1)/len(json_files)*100:.0f}%) "
-                          f"- {rate:.1f} files/sec - {filepath.name}")
-            metadata = parse_and_analyze_json(filepath, use_nlp)
-            if metadata:
-                all_metadata.append(metadata)
-        except Exception as e:
-            logger.error(f"Error processing {filepath.name}: {e}")
-            import traceback
-            traceback.print_exc()
+                rate = completed / elapsed if elapsed > 0 else 0
+                
+                if completed % 5 == 0 or completed == len(json_files):
+                    logger.info(f"Progress: {completed}/{len(json_files)} files "
+                              f"({completed/len(json_files)*100:.0f}%) - "
+                              f"{rate:.1f} files/sec")
+    
+    except Exception as e:
+        logger.error(f"Multiprocessing error: {e}")
+        logger.info("Falling back to sequential processing...")
+        
+        # Fallback to sequential processing
+        all_metadata = []
+        for i, filepath in enumerate(json_files):
+            try:
+                metadata = parse_and_analyze_json(filepath, use_nlp)
+                if metadata:
+                    all_metadata.append(metadata)
+            except Exception as e:
+                logger.error(f"Error processing {filepath.name}: {e}")
     
     main_analysis_time = time.time() - start_time
     logger.info(f"Main analysis completed in {main_analysis_time:.1f} seconds")
+    
+    # Sort by filename to ensure consistent ordering
+    all_metadata.sort(key=lambda x: x['filename'])
     
     fieldnames = [
         'filename', 'session_id', 'duration_minutes', 'total_messages', 'total_participants',
@@ -3074,6 +3137,10 @@ def process_directory(directory='.', run_sensitivity=True, max_workers=None, thr
 
 if __name__ == "__main__":
     import sys
+    import multiprocessing
+
+    # Set spawn method for CUDA compatibility
+    multiprocessing.set_start_method('spawn', force=True)
     
     # Required for Windows multiprocessing
     freeze_support()
@@ -3092,7 +3159,7 @@ if __name__ == "__main__":
     
     if len(sys.argv) > 1:
         if '--help' in sys.argv:
-            print("Usage: python script.py [options]")
+            print("Usage: python3 extract-data.py [options]")
             print("Options:")
             print("  --no-sensitivity       Skip sensitivity analysis")
             print("  --no-nlp              Disable NLP analysis (faster)")

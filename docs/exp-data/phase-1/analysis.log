@@ -1,451 +1,219 @@
-2025-06-18 11:14:51,517 - [MainProcess] WARNING - Threshold config file threshold_config.json not found, using defaults
-2025-06-18 11:14:51,518 - [MainProcess] INFO - Found 25 JSON files to process
-2025-06-18 11:14:51,518 - [MainProcess] INFO - NLP analysis enabled
-2025-06-18 11:14:51,518 - [MainProcess] INFO - Threshold configuration saved to: threshold_config.json
-2025-06-18 11:14:51,518 - [MainProcess] INFO - Starting main analysis...
-2025-06-18 11:14:51,518 - [MainProcess] INFO - Processing file 1/25 (4%) - 1048576.0 files/sec - Consciousness_Exploration_2025-06-12_1-Y.json
-2025-06-18 11:14:51,521 - [MainProcess] INFO - Initializing NLP models...
-2025-06-18 11:14:51,521 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:14:51,521 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:14:52,338 - [MainProcess] INFO - Pre-computing BERT embeddings for phase archetypes...
-2025-06-18 11:14:53,301 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:14:53,301 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:14:53,755 - [MainProcess] INFO - NLP models loaded successfully
-2025-06-18 11:15:53,830 - [MainProcess] INFO - Initializing NLP models...
-2025-06-18 11:15:53,830 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:15:53,831 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:15:54,200 - [MainProcess] INFO - Pre-computing BERT embeddings for phase archetypes...
-2025-06-18 11:15:54,783 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:15:54,783 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:15:55,158 - [MainProcess] INFO - NLP models loaded successfully
-2025-06-18 11:16:57,028 - [MainProcess] INFO - Initializing NLP models...
-2025-06-18 11:16:57,029 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:16:57,029 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:16:57,428 - [MainProcess] INFO - Pre-computing BERT embeddings for phase archetypes...
-2025-06-18 11:16:58,003 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:16:58,003 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:16:58,451 - [MainProcess] INFO - NLP models loaded successfully
-2025-06-18 11:17:13,300 - [MainProcess] INFO - Initializing NLP models...
-2025-06-18 11:17:13,300 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:17:13,300 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:17:13,745 - [MainProcess] INFO - Pre-computing BERT embeddings for phase archetypes...
-2025-06-18 11:17:14,323 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:17:14,324 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:17:14,657 - [MainProcess] INFO - NLP models loaded successfully
-2025-06-18 11:17:41,084 - [MainProcess] INFO - Initializing NLP models...
-2025-06-18 11:17:41,085 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:17:41,085 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:17:41,442 - [MainProcess] INFO - Pre-computing BERT embeddings for phase archetypes...
-2025-06-18 11:17:42,225 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:17:42,225 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:17:42,565 - [MainProcess] INFO - NLP models loaded successfully
-2025-06-18 11:18:08,368 - [MainProcess] INFO - Initializing NLP models...
-2025-06-18 11:18:08,368 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:18:08,375 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:18:08,701 - [MainProcess] INFO - Pre-computing BERT embeddings for phase archetypes...
-2025-06-18 11:18:09,267 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:18:09,268 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:18:09,606 - [MainProcess] INFO - NLP models loaded successfully
-2025-06-18 11:18:48,103 - [MainProcess] INFO - Initializing NLP models...
-2025-06-18 11:18:48,104 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:18:48,104 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:18:48,422 - [MainProcess] INFO - Pre-computing BERT embeddings for phase archetypes...
-2025-06-18 11:18:48,979 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:18:48,979 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:18:49,283 - [MainProcess] INFO - NLP models loaded successfully
-2025-06-18 11:19:54,007 - [MainProcess] INFO - Initializing NLP models...
-2025-06-18 11:19:54,007 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:19:54,007 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:19:54,323 - [MainProcess] INFO - Pre-computing BERT embeddings for phase archetypes...
-2025-06-18 11:19:54,898 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:19:54,898 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:19:55,251 - [MainProcess] INFO - NLP models loaded successfully
-2025-06-18 11:21:43,671 - [MainProcess] INFO - Initializing NLP models...
-2025-06-18 11:21:43,671 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:21:43,671 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:21:44,001 - [MainProcess] INFO - Pre-computing BERT embeddings for phase archetypes...
-2025-06-18 11:21:44,567 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:21:44,567 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:21:44,964 - [MainProcess] INFO - NLP models loaded successfully
-2025-06-18 11:23:45,443 - [MainProcess] INFO - Processing file 10/25 (40%) - 0.0 files/sec - Consciousness_Exploration_2025-06-15_9-Recovered.json
-2025-06-18 11:23:45,446 - [MainProcess] INFO - Initializing NLP models...
-2025-06-18 11:23:45,446 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:23:45,446 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:23:45,816 - [MainProcess] INFO - Pre-computing BERT embeddings for phase archetypes...
-2025-06-18 11:23:46,381 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:23:46,381 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:23:46,854 - [MainProcess] INFO - NLP models loaded successfully
-2025-06-18 11:26:00,650 - [MainProcess] INFO - Initializing NLP models...
-2025-06-18 11:26:00,650 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:26:00,650 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:26:01,109 - [MainProcess] INFO - Pre-computing BERT embeddings for phase archetypes...
-2025-06-18 11:26:01,710 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:26:01,711 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:26:02,220 - [MainProcess] INFO - NLP models loaded successfully
-2025-06-18 11:27:52,874 - [MainProcess] INFO - Initializing NLP models...
-2025-06-18 11:27:52,874 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:27:52,874 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:27:53,201 - [MainProcess] INFO - Pre-computing BERT embeddings for phase archetypes...
-2025-06-18 11:27:53,870 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:27:53,870 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:27:54,307 - [MainProcess] INFO - NLP models loaded successfully
-2025-06-18 11:29:41,245 - [MainProcess] INFO - Initializing NLP models...
-2025-06-18 11:29:41,245 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:29:41,245 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:29:41,620 - [MainProcess] INFO - Pre-computing BERT embeddings for phase archetypes...
-2025-06-18 11:29:42,321 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:29:42,321 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:29:44,120 - [MainProcess] INFO - NLP models loaded successfully
-2025-06-18 11:30:59,763 - [MainProcess] INFO - Initializing NLP models...
-2025-06-18 11:30:59,764 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:30:59,764 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:31:00,102 - [MainProcess] INFO - Pre-computing BERT embeddings for phase archetypes...
-2025-06-18 11:31:00,684 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:31:00,684 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:31:01,623 - [MainProcess] INFO - NLP models loaded successfully
-2025-06-18 11:33:37,398 - [MainProcess] INFO - Initializing NLP models...
-2025-06-18 11:33:37,399 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:33:37,399 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:33:37,737 - [MainProcess] INFO - Pre-computing BERT embeddings for phase archetypes...
-2025-06-18 11:33:38,338 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:33:38,338 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:33:38,687 - [MainProcess] INFO - NLP models loaded successfully
-2025-06-18 11:34:16,193 - [MainProcess] INFO - Initializing NLP models...
-2025-06-18 11:34:16,194 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:34:16,194 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:34:16,847 - [MainProcess] INFO - Pre-computing BERT embeddings for phase archetypes...
-2025-06-18 11:34:17,465 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:34:17,465 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:34:17,855 - [MainProcess] INFO - NLP models loaded successfully
-2025-06-18 11:35:55,557 - [MainProcess] INFO - Initializing NLP models...
-2025-06-18 11:35:55,558 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:35:55,558 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:35:56,485 - [MainProcess] INFO - Pre-computing BERT embeddings for phase archetypes...
-2025-06-18 11:35:57,144 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:35:57,145 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:35:57,551 - [MainProcess] INFO - NLP models loaded successfully
-2025-06-18 11:37:44,275 - [MainProcess] INFO - Initializing NLP models...
-2025-06-18 11:37:44,275 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:37:44,275 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:37:44,625 - [MainProcess] INFO - Pre-computing BERT embeddings for phase archetypes...
-2025-06-18 11:37:45,274 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:37:45,274 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:37:45,657 - [MainProcess] INFO - NLP models loaded successfully
-2025-06-18 11:38:57,497 - [MainProcess] INFO - Initializing NLP models...
-2025-06-18 11:38:57,498 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:38:57,498 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:38:57,822 - [MainProcess] INFO - Pre-computing BERT embeddings for phase archetypes...
-2025-06-18 11:38:58,403 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:38:58,403 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:38:58,763 - [MainProcess] INFO - NLP models loaded successfully
-2025-06-18 11:40:00,746 - [MainProcess] INFO - Processing file 20/25 (80%) - 0.0 files/sec - Consciousness_Exploration_2025-06-16_20-N.json
-2025-06-18 11:40:00,749 - [MainProcess] INFO - Initializing NLP models...
-2025-06-18 11:40:00,749 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:40:00,749 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:40:01,514 - [MainProcess] INFO - Pre-computing BERT embeddings for phase archetypes...
-2025-06-18 11:40:02,324 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:40:02,325 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:40:02,718 - [MainProcess] INFO - NLP models loaded successfully
-2025-06-18 11:41:55,227 - [MainProcess] INFO - Initializing NLP models...
-2025-06-18 11:41:55,227 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:41:55,234 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:41:55,573 - [MainProcess] INFO - Pre-computing BERT embeddings for phase archetypes...
-2025-06-18 11:41:56,162 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:41:56,162 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:41:56,490 - [MainProcess] INFO - NLP models loaded successfully
-2025-06-18 11:43:09,652 - [MainProcess] INFO - Initializing NLP models...
-2025-06-18 11:43:09,653 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:43:09,653 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:43:11,138 - [MainProcess] INFO - Pre-computing BERT embeddings for phase archetypes...
-2025-06-18 11:43:11,695 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:43:11,696 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:43:12,319 - [MainProcess] INFO - NLP models loaded successfully
-2025-06-18 11:44:04,311 - [MainProcess] INFO - Initializing NLP models...
-2025-06-18 11:44:04,312 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:44:04,312 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:44:04,641 - [MainProcess] INFO - Pre-computing BERT embeddings for phase archetypes...
-2025-06-18 11:44:05,210 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:44:05,210 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:44:05,645 - [MainProcess] INFO - NLP models loaded successfully
-2025-06-18 11:47:26,924 - [MainProcess] INFO - Initializing NLP models...
-2025-06-18 11:47:26,925 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:47:26,925 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:47:27,393 - [MainProcess] INFO - Pre-computing BERT embeddings for phase archetypes...
-2025-06-18 11:47:27,983 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:47:27,984 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:47:28,327 - [MainProcess] INFO - NLP models loaded successfully
-2025-06-18 11:48:02,478 - [MainProcess] INFO - Processing file 25/25 (100%) - 0.0 files/sec - Consciousness_Exploration_2025-06-18_25.json
-2025-06-18 11:48:02,480 - [MainProcess] INFO - Initializing NLP models...
-2025-06-18 11:48:02,481 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:48:02,481 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:48:02,820 - [MainProcess] INFO - Pre-computing BERT embeddings for phase archetypes...
-2025-06-18 11:48:03,636 - [MainProcess] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:48:03,636 - [MainProcess] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:48:04,014 - [MainProcess] INFO - NLP models loaded successfully
-2025-06-18 11:49:10,430 - [MainProcess] INFO - Main analysis completed in 2058.9 seconds
-2025-06-18 11:49:10,432 - [MainProcess] INFO - CSV generated: conversation_analysis_enhanced.csv
-2025-06-18 11:49:10,432 - [MainProcess] INFO - Processed 25 files
-2025-06-18 11:49:10,432 - [MainProcess] INFO - Metric mapping saved to: metric_mapping.json
-2025-06-18 11:49:10,432 - [MainProcess] INFO - Performing statistical analysis...
-2025-06-18 11:49:10,446 - [MainProcess] INFO - ============================================================
-2025-06-18 11:49:10,446 - [MainProcess] INFO - STARTING SENSITIVITY ANALYSIS
-2025-06-18 11:49:10,446 - [MainProcess] INFO - ============================================================
-2025-06-18 11:49:10,446 - [MainProcess] INFO - Available CPU cores: 24
-2025-06-18 11:49:10,446 - [MainProcess] INFO - Max workers: 8
-2025-06-18 11:49:10,446 - [MainProcess] INFO - Starting sensitivity analysis with 8 worker processes
-2025-06-18 11:49:10,446 - [MainProcess] INFO - Analyzing 25 files for 6 thresholds
-2025-06-18 11:49:10,446 - [MainProcess] INFO - NLP analysis enabled for sensitivity testing
-2025-06-18 11:49:10,446 - [MainProcess] INFO - Total analysis tasks: 29
-2025-06-18 11:49:10,446 - [MainProcess] INFO - Thresholds being tested: escalation_threshold, peer_pressure_intensity_low, high_question_density, prevention_content_threshold, bert_similarity_threshold, alignment_threshold
-2025-06-18 11:49:10,446 - [MainProcess] INFO -   escalation_threshold: [0.2, 0.25, 0.3, 0.35, 0.4]
-2025-06-18 11:49:10,446 - [MainProcess] INFO -   peer_pressure_intensity_low: [0.01, 0.015, 0.02, 0.025, 0.03]
-2025-06-18 11:49:10,446 - [MainProcess] INFO -   high_question_density: [0.1, 0.125, 0.15, 0.175, 0.2]
-2025-06-18 11:49:10,446 - [MainProcess] INFO -   prevention_content_threshold: [2, 3, 4, 5]
-2025-06-18 11:49:10,446 - [MainProcess] INFO -   bert_similarity_threshold: [0.6, 0.65, 0.7, 0.75, 0.8]
-2025-06-18 11:49:10,446 - [MainProcess] INFO -   alignment_threshold: [0.7, 0.725, 0.75, 0.775, 0.8]
-2025-06-18 11:49:10,446 - [MainProcess] INFO - 
-Estimated processing:
-2025-06-18 11:49:10,446 - [MainProcess] INFO -   - Total file analyses: 725 (29 tasks × 25 files)
-2025-06-18 11:49:10,446 - [MainProcess] INFO -   - Sequential time: ~2.4 minutes
-2025-06-18 11:49:10,446 - [MainProcess] INFO -   - Parallel time (8 workers): ~0.3 minutes
-2025-06-18 11:49:10,446 - [MainProcess] INFO - ============================================================
-2025-06-18 11:49:10,713 - [ForkPoolWorker-2] INFO - Starting escalation_threshold = 0.25 (NLP: True)
-2025-06-18 11:49:10,713 - [ForkPoolWorker-1] INFO - Starting escalation_threshold = 0.2 (NLP: True)
-2025-06-18 11:49:10,714 - [ForkPoolWorker-3] INFO - Starting escalation_threshold = 0.3 (NLP: True)
-2025-06-18 11:49:10,714 - [ForkPoolWorker-4] INFO - Starting escalation_threshold = 0.35 (NLP: True)
-2025-06-18 11:49:10,714 - [ForkPoolWorker-5] INFO - Starting escalation_threshold = 0.4 (NLP: True)
-2025-06-18 11:49:10,714 - [ForkPoolWorker-6] INFO - Starting peer_pressure_intensity_low = 0.01 (NLP: True)
-2025-06-18 11:49:10,714 - [ForkPoolWorker-7] INFO - Starting peer_pressure_intensity_low = 0.015 (NLP: True)
-2025-06-18 11:49:10,714 - [ForkPoolWorker-8] INFO - Starting peer_pressure_intensity_low = 0.02 (NLP: True)
-2025-06-18 11:49:10,724 - [ForkPoolWorker-3] INFO - Initializing NLP models...
-2025-06-18 11:49:10,724 - [ForkPoolWorker-6] INFO - Initializing NLP models...
-2025-06-18 11:49:10,724 - [ForkPoolWorker-5] INFO - Initializing NLP models...
-2025-06-18 11:49:10,725 - [ForkPoolWorker-2] INFO - Initializing NLP models...
-2025-06-18 11:49:10,725 - [ForkPoolWorker-1] INFO - Initializing NLP models...
-2025-06-18 11:49:10,725 - [ForkPoolWorker-4] INFO - Initializing NLP models...
-2025-06-18 11:49:10,725 - [ForkPoolWorker-8] INFO - Initializing NLP models...
-2025-06-18 11:49:10,726 - [ForkPoolWorker-7] INFO - Initializing NLP models...
-2025-06-18 11:49:10,726 - [ForkPoolWorker-6] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:10,726 - [ForkPoolWorker-3] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:10,726 - [ForkPoolWorker-5] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:10,726 - [ForkPoolWorker-4] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:10,726 - [ForkPoolWorker-2] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:10,726 - [ForkPoolWorker-1] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:10,726 - [ForkPoolWorker-6] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:10,726 - [ForkPoolWorker-3] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:10,726 - [ForkPoolWorker-5] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:10,726 - [ForkPoolWorker-4] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:10,726 - [ForkPoolWorker-2] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:10,726 - [ForkPoolWorker-1] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:10,727 - [ForkPoolWorker-7] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:10,727 - [ForkPoolWorker-7] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:10,727 - [ForkPoolWorker-8] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:10,727 - [ForkPoolWorker-8] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:11,179 - [ForkPoolWorker-1] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:11,188 - [ForkPoolWorker-3] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:11,205 - [ForkPoolWorker-5] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:11,208 - [ForkPoolWorker-2] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:11,231 - [ForkPoolWorker-6] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:11,294 - [ForkPoolWorker-8] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:11,323 - [ForkPoolWorker-4] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:11,355 - [ForkPoolWorker-7] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:13,370 - [ForkPoolWorker-1] INFO - Initializing NLP models...
-2025-06-18 11:49:13,371 - [ForkPoolWorker-1] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:13,371 - [ForkPoolWorker-1] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:13,402 - [ForkPoolWorker-3] INFO - Initializing NLP models...
-2025-06-18 11:49:13,403 - [ForkPoolWorker-3] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:13,403 - [ForkPoolWorker-3] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:13,424 - [ForkPoolWorker-2] INFO - Initializing NLP models...
-2025-06-18 11:49:13,424 - [ForkPoolWorker-2] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:13,424 - [ForkPoolWorker-2] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:13,437 - [ForkPoolWorker-5] INFO - Initializing NLP models...
-2025-06-18 11:49:13,438 - [ForkPoolWorker-5] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:13,438 - [ForkPoolWorker-5] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:13,442 - [ForkPoolWorker-6] INFO - Initializing NLP models...
-2025-06-18 11:49:13,443 - [ForkPoolWorker-6] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:13,443 - [ForkPoolWorker-6] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:13,505 - [ForkPoolWorker-8] INFO - Initializing NLP models...
-2025-06-18 11:49:13,505 - [ForkPoolWorker-8] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:13,505 - [ForkPoolWorker-8] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:13,529 - [ForkPoolWorker-4] INFO - Initializing NLP models...
-2025-06-18 11:49:13,529 - [ForkPoolWorker-4] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:13,529 - [ForkPoolWorker-4] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:13,582 - [ForkPoolWorker-7] INFO - Initializing NLP models...
-2025-06-18 11:49:13,582 - [ForkPoolWorker-7] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:13,582 - [ForkPoolWorker-7] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:13,763 - [ForkPoolWorker-5] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:13,782 - [ForkPoolWorker-2] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:13,815 - [ForkPoolWorker-3] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:13,833 - [ForkPoolWorker-8] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:13,846 - [ForkPoolWorker-4] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:13,847 - [ForkPoolWorker-6] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:13,899 - [ForkPoolWorker-1] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:14,009 - [ForkPoolWorker-7] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:15,993 - [ForkPoolWorker-5] INFO - Initializing NLP models...
-2025-06-18 11:49:15,993 - [ForkPoolWorker-5] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:15,993 - [ForkPoolWorker-5] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:16,007 - [ForkPoolWorker-2] INFO - Initializing NLP models...
-2025-06-18 11:49:16,007 - [ForkPoolWorker-2] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:16,007 - [ForkPoolWorker-2] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:16,048 - [ForkPoolWorker-3] INFO - Initializing NLP models...
-2025-06-18 11:49:16,048 - [ForkPoolWorker-3] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:16,048 - [ForkPoolWorker-3] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:16,076 - [ForkPoolWorker-6] INFO - Initializing NLP models...
-2025-06-18 11:49:16,077 - [ForkPoolWorker-6] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:16,077 - [ForkPoolWorker-6] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:16,082 - [ForkPoolWorker-8] INFO - Initializing NLP models...
-2025-06-18 11:49:16,083 - [ForkPoolWorker-8] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:16,083 - [ForkPoolWorker-8] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:16,114 - [ForkPoolWorker-4] INFO - Initializing NLP models...
-2025-06-18 11:49:16,115 - [ForkPoolWorker-4] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:16,115 - [ForkPoolWorker-4] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:16,131 - [ForkPoolWorker-1] INFO - Initializing NLP models...
-2025-06-18 11:49:16,132 - [ForkPoolWorker-1] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:16,132 - [ForkPoolWorker-1] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:16,256 - [ForkPoolWorker-7] INFO - Initializing NLP models...
-2025-06-18 11:49:16,257 - [ForkPoolWorker-7] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:16,257 - [ForkPoolWorker-7] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:16,324 - [ForkPoolWorker-5] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:16,330 - [ForkPoolWorker-2] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:16,398 - [ForkPoolWorker-6] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:16,399 - [ForkPoolWorker-8] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:16,403 - [ForkPoolWorker-3] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:16,470 - [ForkPoolWorker-4] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:16,488 - [ForkPoolWorker-1] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:16,591 - [ForkPoolWorker-7] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:16,828 - [ForkPoolWorker-2] INFO - Initializing NLP models...
-2025-06-18 11:49:16,829 - [ForkPoolWorker-2] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:16,829 - [ForkPoolWorker-2] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:16,830 - [ForkPoolWorker-5] INFO - Initializing NLP models...
-2025-06-18 11:49:16,830 - [ForkPoolWorker-5] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:16,830 - [ForkPoolWorker-5] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:16,904 - [ForkPoolWorker-6] INFO - Initializing NLP models...
-2025-06-18 11:49:16,905 - [ForkPoolWorker-6] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:16,905 - [ForkPoolWorker-6] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:16,906 - [ForkPoolWorker-8] INFO - Initializing NLP models...
-2025-06-18 11:49:16,907 - [ForkPoolWorker-8] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:16,907 - [ForkPoolWorker-8] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:16,912 - [ForkPoolWorker-3] INFO - Initializing NLP models...
-2025-06-18 11:49:16,913 - [ForkPoolWorker-3] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:16,913 - [ForkPoolWorker-3] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:16,965 - [ForkPoolWorker-4] INFO - Initializing NLP models...
-2025-06-18 11:49:16,965 - [ForkPoolWorker-4] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:16,965 - [ForkPoolWorker-4] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:16,983 - [ForkPoolWorker-1] INFO - Initializing NLP models...
-2025-06-18 11:49:16,984 - [ForkPoolWorker-1] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:16,984 - [ForkPoolWorker-1] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:17,091 - [ForkPoolWorker-7] INFO - Initializing NLP models...
-2025-06-18 11:49:17,092 - [ForkPoolWorker-7] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:17,092 - [ForkPoolWorker-7] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:17,168 - [ForkPoolWorker-2] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:17,202 - [ForkPoolWorker-5] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:17,224 - [ForkPoolWorker-6] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:17,269 - [ForkPoolWorker-3] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:17,291 - [ForkPoolWorker-4] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:17,330 - [ForkPoolWorker-1] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:17,429 - [ForkPoolWorker-7] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:17,494 - [ForkPoolWorker-8] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:18,190 - [ForkPoolWorker-2] INFO - Initializing NLP models...
-2025-06-18 11:49:18,191 - [ForkPoolWorker-2] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:18,191 - [ForkPoolWorker-2] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:18,213 - [ForkPoolWorker-5] INFO - Initializing NLP models...
-2025-06-18 11:49:18,213 - [ForkPoolWorker-5] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:18,213 - [ForkPoolWorker-5] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:18,253 - [ForkPoolWorker-6] INFO - Initializing NLP models...
-2025-06-18 11:49:18,253 - [ForkPoolWorker-6] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:18,253 - [ForkPoolWorker-6] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:18,299 - [ForkPoolWorker-3] INFO - Initializing NLP models...
-2025-06-18 11:49:18,299 - [ForkPoolWorker-3] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:18,299 - [ForkPoolWorker-3] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:18,312 - [ForkPoolWorker-4] INFO - Initializing NLP models...
-2025-06-18 11:49:18,313 - [ForkPoolWorker-4] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:18,313 - [ForkPoolWorker-4] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:18,354 - [ForkPoolWorker-1] INFO - Initializing NLP models...
-2025-06-18 11:49:18,354 - [ForkPoolWorker-1] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:18,354 - [ForkPoolWorker-1] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:18,447 - [ForkPoolWorker-7] INFO - Initializing NLP models...
-2025-06-18 11:49:18,447 - [ForkPoolWorker-7] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:18,447 - [ForkPoolWorker-7] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:18,494 - [ForkPoolWorker-2] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:18,511 - [ForkPoolWorker-8] INFO - Initializing NLP models...
-2025-06-18 11:49:18,511 - [ForkPoolWorker-8] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:18,511 - [ForkPoolWorker-8] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:18,563 - [ForkPoolWorker-5] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:18,628 - [ForkPoolWorker-6] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:18,630 - [ForkPoolWorker-4] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:18,661 - [ForkPoolWorker-3] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:18,665 - [ForkPoolWorker-1] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:18,838 - [ForkPoolWorker-8] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:18,843 - [ForkPoolWorker-7] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:19,333 - [ForkPoolWorker-2] INFO - escalation_threshold=0.25: 5/25 files (20%) - 0.6 files/sec
-2025-06-18 11:49:19,336 - [ForkPoolWorker-2] INFO - Initializing NLP models...
-2025-06-18 11:49:19,336 - [ForkPoolWorker-2] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:19,336 - [ForkPoolWorker-2] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:19,404 - [ForkPoolWorker-5] INFO - escalation_threshold=0.4: 5/25 files (20%) - 0.6 files/sec
-2025-06-18 11:49:19,407 - [ForkPoolWorker-5] INFO - Initializing NLP models...
-2025-06-18 11:49:19,407 - [ForkPoolWorker-5] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:19,407 - [ForkPoolWorker-5] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:19,473 - [ForkPoolWorker-6] INFO - peer_pressure_intensity_low=0.01: 5/25 files (20%) - 0.6 files/sec
-2025-06-18 11:49:19,476 - [ForkPoolWorker-6] INFO - Initializing NLP models...
-2025-06-18 11:49:19,476 - [ForkPoolWorker-6] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:19,476 - [ForkPoolWorker-6] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:19,493 - [ForkPoolWorker-4] INFO - escalation_threshold=0.35: 5/25 files (20%) - 0.6 files/sec
-2025-06-18 11:49:19,496 - [ForkPoolWorker-4] INFO - Initializing NLP models...
-2025-06-18 11:49:19,496 - [ForkPoolWorker-4] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:19,496 - [ForkPoolWorker-4] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:19,510 - [ForkPoolWorker-3] INFO - escalation_threshold=0.3: 5/25 files (20%) - 0.6 files/sec
-2025-06-18 11:49:19,512 - [ForkPoolWorker-1] INFO - escalation_threshold=0.2: 5/25 files (20%) - 0.6 files/sec
-2025-06-18 11:49:19,513 - [ForkPoolWorker-3] INFO - Initializing NLP models...
-2025-06-18 11:49:19,513 - [ForkPoolWorker-3] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:19,513 - [ForkPoolWorker-3] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:19,515 - [ForkPoolWorker-1] INFO - Initializing NLP models...
-2025-06-18 11:49:19,515 - [ForkPoolWorker-1] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:19,515 - [ForkPoolWorker-1] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:19,681 - [ForkPoolWorker-8] INFO - peer_pressure_intensity_low=0.02: 5/25 files (20%) - 0.6 files/sec
-2025-06-18 11:49:19,684 - [ForkPoolWorker-8] INFO - Initializing NLP models...
-2025-06-18 11:49:19,684 - [ForkPoolWorker-8] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:19,684 - [ForkPoolWorker-8] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:19,693 - [ForkPoolWorker-7] INFO - peer_pressure_intensity_low=0.015: 5/25 files (20%) - 0.6 files/sec
-2025-06-18 11:49:19,695 - [ForkPoolWorker-7] INFO - Initializing NLP models...
-2025-06-18 11:49:19,696 - [ForkPoolWorker-7] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:19,696 - [ForkPoolWorker-7] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:19,696 - [ForkPoolWorker-2] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:19,731 - [ForkPoolWorker-5] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:19,792 - [ForkPoolWorker-6] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:19,810 - [ForkPoolWorker-4] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:19,824 - [ForkPoolWorker-3] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:19,825 - [ForkPoolWorker-1] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:19,991 - [ForkPoolWorker-8] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:20,012 - [ForkPoolWorker-7] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:21,008 - [ForkPoolWorker-2] INFO - Initializing NLP models...
-2025-06-18 11:49:21,009 - [ForkPoolWorker-2] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:21,009 - [ForkPoolWorker-2] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:21,046 - [ForkPoolWorker-5] INFO - Initializing NLP models...
-2025-06-18 11:49:21,046 - [ForkPoolWorker-5] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:21,046 - [ForkPoolWorker-5] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:21,103 - [ForkPoolWorker-6] INFO - Initializing NLP models...
-2025-06-18 11:49:21,104 - [ForkPoolWorker-6] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:21,104 - [ForkPoolWorker-6] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:21,120 - [ForkPoolWorker-4] INFO - Initializing NLP models...
-2025-06-18 11:49:21,120 - [ForkPoolWorker-4] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:21,121 - [ForkPoolWorker-4] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:21,143 - [ForkPoolWorker-3] INFO - Initializing NLP models...
-2025-06-18 11:49:21,144 - [ForkPoolWorker-3] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:21,144 - [ForkPoolWorker-3] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:21,145 - [ForkPoolWorker-1] INFO - Initializing NLP models...
-2025-06-18 11:49:21,145 - [ForkPoolWorker-1] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:21,145 - [ForkPoolWorker-1] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:21,321 - [ForkPoolWorker-8] INFO - Initializing NLP models...
-2025-06-18 11:49:21,321 - [ForkPoolWorker-8] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:21,321 - [ForkPoolWorker-8] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:21,335 - [ForkPoolWorker-7] INFO - Initializing NLP models...
-2025-06-18 11:49:21,335 - [ForkPoolWorker-7] INFO - Use pytorch device_name: cuda:0
-2025-06-18 11:49:21,335 - [ForkPoolWorker-7] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-06-18 11:49:21,376 - [ForkPoolWorker-2] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:21,405 - [ForkPoolWorker-6] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:21,454 - [ForkPoolWorker-4] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:21,496 - [ForkPoolWorker-1] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:21,516 - [ForkPoolWorker-5] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:21,662 - [ForkPoolWorker-7] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:21,719 - [ForkPoolWorker-3] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
-2025-06-18 11:49:21,810 - [ForkPoolWorker-8] WARNING - Failed to load NLP models: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
+2025-06-18 15:40:55,090 - [MainProcess] WARNING - Threshold config file threshold_config.json not found, using defaults
+2025-06-18 15:40:55,090 - [MainProcess] INFO - Using 5 worker processes
+2025-06-18 15:40:55,090 - [MainProcess] INFO - Found 26 JSON files to process
+2025-06-18 15:40:55,090 - [MainProcess] INFO - NLP analysis enabled
+2025-06-18 15:40:55,090 - [MainProcess] INFO - Threshold configuration saved to: threshold_config.json
+2025-06-18 15:40:55,090 - [MainProcess] INFO - Starting parallel main analysis...
+2025-06-18 15:40:55,090 - [MainProcess] INFO - Using 5 workers for main analysis
+2025-06-18 15:41:00,169 - [SpawnPoolWorker-4] INFO - Processing Consciousness_Exploration_2025-06-12_1-Y.json (1/26)
+2025-06-18 15:41:00,176 - [SpawnPoolWorker-4] INFO - Initializing NLP models...
+2025-06-18 15:41:00,177 - [SpawnPoolWorker-4] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:41:00,177 - [SpawnPoolWorker-4] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:41:00,264 - [SpawnPoolWorker-2] INFO - Processing Consciousness_Exploration_2025-06-12_2-Y.json (2/26)
+2025-06-18 15:41:00,265 - [SpawnPoolWorker-3] INFO - Processing Consciousness_Exploration_2025-06-12_3-Y.json (3/26)
+2025-06-18 15:41:00,266 - [SpawnPoolWorker-1] INFO - Processing Consciousness_Exploration_2025-06-12_4-Y.json (4/26)
+2025-06-18 15:41:00,266 - [SpawnPoolWorker-5] INFO - Processing Consciousness_Exploration_2025-06-12_5-Y.json (5/26)
+2025-06-18 15:41:00,266 - [SpawnPoolWorker-3] INFO - Initializing NLP models...
+2025-06-18 15:41:00,267 - [SpawnPoolWorker-3] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:41:00,267 - [SpawnPoolWorker-3] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:41:00,267 - [SpawnPoolWorker-2] INFO - Initializing NLP models...
+2025-06-18 15:41:00,267 - [SpawnPoolWorker-1] INFO - Initializing NLP models...
+2025-06-18 15:41:00,267 - [SpawnPoolWorker-5] INFO - Initializing NLP models...
+2025-06-18 15:41:00,268 - [SpawnPoolWorker-2] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:41:00,268 - [SpawnPoolWorker-2] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:41:00,268 - [SpawnPoolWorker-1] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:41:00,268 - [SpawnPoolWorker-5] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:41:00,268 - [SpawnPoolWorker-1] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:41:00,268 - [SpawnPoolWorker-5] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:41:00,276 - [SpawnPoolWorker-4] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-06-18 15:41:00,366 - [SpawnPoolWorker-1] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-06-18 15:41:00,366 - [SpawnPoolWorker-2] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-06-18 15:41:00,366 - [SpawnPoolWorker-3] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-06-18 15:41:00,366 - [SpawnPoolWorker-5] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-06-18 15:41:01,479 - [SpawnPoolWorker-4] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:41:01,479 - [SpawnPoolWorker-4] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:41:01,648 - [SpawnPoolWorker-4] INFO - NLP models loaded successfully
+2025-06-18 15:41:01,672 - [SpawnPoolWorker-5] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:41:01,672 - [SpawnPoolWorker-2] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:41:01,673 - [SpawnPoolWorker-2] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:41:01,673 - [SpawnPoolWorker-5] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:41:01,673 - [SpawnPoolWorker-1] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:41:01,674 - [SpawnPoolWorker-1] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:41:01,678 - [SpawnPoolWorker-3] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:41:01,678 - [SpawnPoolWorker-3] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:41:01,786 - [SpawnPoolWorker-1] INFO - NLP models loaded successfully
+2025-06-18 15:41:01,786 - [SpawnPoolWorker-2] INFO - NLP models loaded successfully
+2025-06-18 15:41:01,786 - [SpawnPoolWorker-5] INFO - NLP models loaded successfully
+2025-06-18 15:41:01,791 - [SpawnPoolWorker-3] INFO - NLP models loaded successfully
+2025-06-18 15:41:21,520 - [SpawnPoolWorker-3] INFO - Processing Consciousness_Exploration_2025-06-12_6-Y.json (6/26)
+2025-06-18 15:41:21,522 - [SpawnPoolWorker-3] INFO - Initializing NLP models...
+2025-06-18 15:41:21,523 - [SpawnPoolWorker-3] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:41:21,523 - [SpawnPoolWorker-3] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:41:21,615 - [SpawnPoolWorker-3] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-06-18 15:41:22,203 - [SpawnPoolWorker-3] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:41:22,203 - [SpawnPoolWorker-3] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:41:22,294 - [SpawnPoolWorker-3] INFO - NLP models loaded successfully
+2025-06-18 15:41:36,612 - [SpawnPoolWorker-5] INFO - Processing Consciousness_Exploration_2025-06-12_7-Y.json (7/26)
+2025-06-18 15:41:36,614 - [SpawnPoolWorker-5] INFO - Initializing NLP models...
+2025-06-18 15:41:36,615 - [SpawnPoolWorker-5] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:41:36,615 - [SpawnPoolWorker-5] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:41:36,714 - [SpawnPoolWorker-5] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-06-18 15:41:36,965 - [SpawnPoolWorker-1] INFO - Processing Consciousness_Exploration_2025-06-13_8-N.json (8/26)
+2025-06-18 15:41:36,968 - [SpawnPoolWorker-1] INFO - Initializing NLP models...
+2025-06-18 15:41:36,969 - [SpawnPoolWorker-1] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:41:36,969 - [SpawnPoolWorker-1] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:41:37,054 - [SpawnPoolWorker-1] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-06-18 15:41:37,297 - [SpawnPoolWorker-5] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:41:37,297 - [SpawnPoolWorker-5] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:41:37,380 - [SpawnPoolWorker-5] INFO - NLP models loaded successfully
+2025-06-18 15:41:37,669 - [SpawnPoolWorker-1] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:41:37,669 - [SpawnPoolWorker-1] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:41:37,768 - [SpawnPoolWorker-1] INFO - NLP models loaded successfully
+2025-06-18 15:42:14,064 - [SpawnPoolWorker-3] INFO - Processing Consciousness_Exploration_2025-06-15_10-N.json (9/26)
+2025-06-18 15:42:14,067 - [SpawnPoolWorker-3] INFO - Initializing NLP models...
+2025-06-18 15:42:14,067 - [SpawnPoolWorker-3] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:42:14,067 - [SpawnPoolWorker-3] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:42:14,146 - [SpawnPoolWorker-3] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-06-18 15:42:14,743 - [SpawnPoolWorker-3] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:42:14,744 - [SpawnPoolWorker-3] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:42:14,824 - [SpawnPoolWorker-3] INFO - NLP models loaded successfully
+2025-06-18 15:42:22,102 - [SpawnPoolWorker-4] INFO - Processing Consciousness_Exploration_2025-06-15_9-Recovered.json (10/26)
+2025-06-18 15:42:22,105 - [SpawnPoolWorker-4] INFO - Initializing NLP models...
+2025-06-18 15:42:22,105 - [SpawnPoolWorker-4] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:42:22,106 - [SpawnPoolWorker-4] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:42:22,193 - [SpawnPoolWorker-4] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-06-18 15:42:22,785 - [SpawnPoolWorker-4] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:42:22,785 - [SpawnPoolWorker-4] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:42:22,878 - [SpawnPoolWorker-4] INFO - NLP models loaded successfully
+2025-06-18 15:42:24,453 - [SpawnPoolWorker-2] INFO - Processing Consciousness_Exploration_2025-06-16_11-Resisted.json (11/26)
+2025-06-18 15:42:24,453 - [MainProcess] INFO - Progress: 5/26 files (19%) - 0.1 files/sec
+2025-06-18 15:42:24,455 - [SpawnPoolWorker-2] INFO - Initializing NLP models...
+2025-06-18 15:42:24,460 - [SpawnPoolWorker-2] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:42:24,460 - [SpawnPoolWorker-2] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:42:24,556 - [SpawnPoolWorker-2] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-06-18 15:42:25,164 - [SpawnPoolWorker-2] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:42:25,164 - [SpawnPoolWorker-2] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:42:25,250 - [SpawnPoolWorker-2] INFO - NLP models loaded successfully
+2025-06-18 15:43:04,701 - [SpawnPoolWorker-5] INFO - Processing Consciousness_Exploration_2025-06-16_12-N.json (12/26)
+2025-06-18 15:43:04,703 - [SpawnPoolWorker-5] INFO - Initializing NLP models...
+2025-06-18 15:43:04,704 - [SpawnPoolWorker-5] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:43:04,704 - [SpawnPoolWorker-5] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:43:04,795 - [SpawnPoolWorker-5] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-06-18 15:43:05,403 - [SpawnPoolWorker-5] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:43:05,403 - [SpawnPoolWorker-5] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:43:05,496 - [SpawnPoolWorker-5] INFO - NLP models loaded successfully
+2025-06-18 15:44:00,573 - [SpawnPoolWorker-1] INFO - Processing Consciousness_Exploration_2025-06-16_13-Recovered.json (13/26)
+2025-06-18 15:44:00,575 - [SpawnPoolWorker-1] INFO - Initializing NLP models...
+2025-06-18 15:44:00,576 - [SpawnPoolWorker-1] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:44:00,576 - [SpawnPoolWorker-1] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:44:00,672 - [SpawnPoolWorker-1] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-06-18 15:44:01,293 - [SpawnPoolWorker-1] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:44:01,293 - [SpawnPoolWorker-1] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:44:01,375 - [SpawnPoolWorker-1] INFO - NLP models loaded successfully
+2025-06-18 15:44:55,478 - [SpawnPoolWorker-2] INFO - Processing Consciousness_Exploration_2025-06-16_14-Y-After-grok-dropout.json (14/26)
+2025-06-18 15:44:55,482 - [SpawnPoolWorker-2] INFO - Initializing NLP models...
+2025-06-18 15:44:55,482 - [SpawnPoolWorker-2] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:44:55,482 - [SpawnPoolWorker-2] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:44:55,578 - [SpawnPoolWorker-2] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-06-18 15:44:55,803 - [SpawnPoolWorker-3] INFO - Processing Consciousness_Exploration_2025-06-16_15-Y.json (15/26)
+2025-06-18 15:44:55,805 - [SpawnPoolWorker-3] INFO - Initializing NLP models...
+2025-06-18 15:44:55,805 - [SpawnPoolWorker-3] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:44:55,805 - [SpawnPoolWorker-3] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:44:55,895 - [SpawnPoolWorker-3] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-06-18 15:44:56,166 - [SpawnPoolWorker-2] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:44:56,166 - [SpawnPoolWorker-2] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:44:56,255 - [SpawnPoolWorker-2] INFO - NLP models loaded successfully
+2025-06-18 15:44:56,500 - [SpawnPoolWorker-3] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:44:56,500 - [SpawnPoolWorker-3] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:44:56,593 - [SpawnPoolWorker-3] INFO - NLP models loaded successfully
+2025-06-18 15:45:18,015 - [SpawnPoolWorker-5] INFO - Processing Consciousness_Exploration_2025-06-16_16-Recovered.json (16/26)
+2025-06-18 15:45:18,018 - [SpawnPoolWorker-5] INFO - Initializing NLP models...
+2025-06-18 15:45:18,018 - [SpawnPoolWorker-5] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:45:18,018 - [SpawnPoolWorker-5] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:45:18,114 - [SpawnPoolWorker-5] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-06-18 15:45:18,716 - [SpawnPoolWorker-5] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:45:18,716 - [SpawnPoolWorker-5] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:45:18,810 - [SpawnPoolWorker-5] INFO - NLP models loaded successfully
+2025-06-18 15:45:26,219 - [SpawnPoolWorker-4] INFO - Processing Consciousness_Exploration_2025-06-16_17-Recovered.json (17/26)
+2025-06-18 15:45:26,219 - [MainProcess] INFO - Progress: 10/26 files (38%) - 0.0 files/sec
+2025-06-18 15:45:26,222 - [SpawnPoolWorker-4] INFO - Initializing NLP models...
+2025-06-18 15:45:26,222 - [SpawnPoolWorker-4] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:45:26,223 - [SpawnPoolWorker-4] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:45:26,311 - [SpawnPoolWorker-4] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-06-18 15:45:26,916 - [SpawnPoolWorker-4] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:45:26,916 - [SpawnPoolWorker-4] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:45:27,000 - [SpawnPoolWorker-4] INFO - NLP models loaded successfully
+2025-06-18 15:45:42,007 - [SpawnPoolWorker-1] INFO - Processing Consciousness_Exploration_2025-06-16_18-Recovered.json (18/26)
+2025-06-18 15:45:42,010 - [SpawnPoolWorker-1] INFO - Initializing NLP models...
+2025-06-18 15:45:42,011 - [SpawnPoolWorker-1] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:45:42,011 - [SpawnPoolWorker-1] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:45:42,105 - [SpawnPoolWorker-1] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-06-18 15:45:42,694 - [SpawnPoolWorker-1] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:45:42,694 - [SpawnPoolWorker-1] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:45:42,781 - [SpawnPoolWorker-1] INFO - NLP models loaded successfully
+2025-06-18 15:45:43,098 - [SpawnPoolWorker-3] INFO - Processing Consciousness_Exploration_2025-06-16_19-Y.json (19/26)
+2025-06-18 15:45:43,101 - [SpawnPoolWorker-3] INFO - Initializing NLP models...
+2025-06-18 15:45:43,101 - [SpawnPoolWorker-3] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:45:43,101 - [SpawnPoolWorker-3] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:45:43,199 - [SpawnPoolWorker-3] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-06-18 15:45:43,813 - [SpawnPoolWorker-3] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:45:43,813 - [SpawnPoolWorker-3] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:45:43,903 - [SpawnPoolWorker-3] INFO - NLP models loaded successfully
+2025-06-18 15:47:08,856 - [SpawnPoolWorker-3] INFO - Processing Consciousness_Exploration_2025-06-16_20-N.json (20/26)
+2025-06-18 15:47:08,859 - [SpawnPoolWorker-3] INFO - Initializing NLP models...
+2025-06-18 15:47:08,860 - [SpawnPoolWorker-3] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:47:08,860 - [SpawnPoolWorker-3] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:47:08,946 - [SpawnPoolWorker-3] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-06-18 15:47:09,543 - [SpawnPoolWorker-3] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:47:09,543 - [SpawnPoolWorker-3] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:47:09,621 - [SpawnPoolWorker-3] INFO - NLP models loaded successfully
+2025-06-18 15:47:18,865 - [SpawnPoolWorker-1] INFO - Processing Consciousness_Exploration_2025-06-16_21.json (21/26)
+2025-06-18 15:47:18,868 - [SpawnPoolWorker-1] INFO - Initializing NLP models...
+2025-06-18 15:47:18,868 - [SpawnPoolWorker-1] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:47:18,868 - [SpawnPoolWorker-1] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:47:18,961 - [SpawnPoolWorker-1] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-06-18 15:47:19,541 - [SpawnPoolWorker-1] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:47:19,541 - [SpawnPoolWorker-1] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:47:19,908 - [SpawnPoolWorker-1] INFO - NLP models loaded successfully
+2025-06-18 15:47:26,295 - [SpawnPoolWorker-5] INFO - Processing Consciousness_Exploration_2025-06-17_22.json (22/26)
+2025-06-18 15:47:26,297 - [SpawnPoolWorker-5] INFO - Initializing NLP models...
+2025-06-18 15:47:26,298 - [SpawnPoolWorker-5] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:47:26,298 - [SpawnPoolWorker-5] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:47:26,389 - [SpawnPoolWorker-5] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-06-18 15:47:26,978 - [SpawnPoolWorker-5] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:47:26,978 - [SpawnPoolWorker-5] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:47:27,077 - [SpawnPoolWorker-5] INFO - NLP models loaded successfully
+2025-06-18 15:47:45,938 - [SpawnPoolWorker-4] INFO - Processing Consciousness_Exploration_2025-06-17_23.json (23/26)
+2025-06-18 15:47:45,942 - [SpawnPoolWorker-4] INFO - Initializing NLP models...
+2025-06-18 15:47:45,942 - [SpawnPoolWorker-4] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:47:45,942 - [SpawnPoolWorker-4] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:47:46,026 - [SpawnPoolWorker-4] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-06-18 15:47:46,611 - [SpawnPoolWorker-4] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:47:46,611 - [SpawnPoolWorker-4] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:47:46,694 - [SpawnPoolWorker-4] INFO - NLP models loaded successfully
+2025-06-18 15:48:08,739 - [SpawnPoolWorker-2] INFO - Processing Consciousness_Exploration_2025-06-17_24.json (24/26)
+2025-06-18 15:48:08,739 - [MainProcess] INFO - Progress: 15/26 files (58%) - 0.0 files/sec
+2025-06-18 15:48:08,741 - [SpawnPoolWorker-2] INFO - Initializing NLP models...
+2025-06-18 15:48:08,742 - [SpawnPoolWorker-2] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:48:08,742 - [SpawnPoolWorker-2] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:48:08,837 - [SpawnPoolWorker-2] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-06-18 15:48:09,421 - [SpawnPoolWorker-2] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:48:09,422 - [SpawnPoolWorker-2] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:48:09,513 - [SpawnPoolWorker-2] INFO - NLP models loaded successfully
+2025-06-18 15:48:41,756 - [SpawnPoolWorker-5] INFO - Processing Consciousness_Exploration_2025-06-18_25.json (25/26)
+2025-06-18 15:48:41,759 - [SpawnPoolWorker-5] INFO - Initializing NLP models...
+2025-06-18 15:48:41,759 - [SpawnPoolWorker-5] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:48:41,759 - [SpawnPoolWorker-5] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:48:41,860 - [SpawnPoolWorker-5] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-06-18 15:48:42,470 - [SpawnPoolWorker-5] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:48:42,470 - [SpawnPoolWorker-5] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:48:42,560 - [SpawnPoolWorker-5] INFO - NLP models loaded successfully
+2025-06-18 15:48:58,058 - [SpawnPoolWorker-2] INFO - Processing Consciousness_Exploration_2025-06-18_26.json (26/26)
+2025-06-18 15:48:58,061 - [SpawnPoolWorker-2] INFO - Initializing NLP models...
+2025-06-18 15:48:58,062 - [SpawnPoolWorker-2] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:48:58,062 - [SpawnPoolWorker-2] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:48:58,149 - [SpawnPoolWorker-2] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-06-18 15:48:58,739 - [SpawnPoolWorker-2] INFO - Use pytorch device_name: cuda:0
+2025-06-18 15:48:58,739 - [SpawnPoolWorker-2] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-06-18 15:48:58,830 - [SpawnPoolWorker-2] INFO - NLP models loaded successfully
+2025-06-18 15:49:35,256 - [MainProcess] INFO - Progress: 20/26 files (77%) - 0.0 files/sec
