@@ -32,7 +32,7 @@ try:
     
     # Check if models need downloading (only on first run)
     if not os.path.exists(os.path.expanduser("~/.cache/torch/sentence_transformers/sentence-transformers_all-MiniLM-L6-v2")):
-        print("First run detected. Downloading models...")
+        print("First run detected. ")
         SentenceTransformer('all-MiniLM-L6-v2')
         pipeline("sentiment-analysis", model="j-hartmann/emotion-english-distilroberta-base")
         print("Models cached!")
