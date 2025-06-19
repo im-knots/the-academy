@@ -1,0 +1,275 @@
+{
+  "escalation_threshold": [
+    {
+      "threshold_value": 0.2,
+      "breakdown_rate": 0.38461538461538464,
+      "recovery_rate": 0.34615384615384615,
+      "peer_pressure_rate": 0.8846153846153846,
+      "mean_breakdown_turn": 51.0,
+      "total_sessions": 26,
+      "mean_escalation_score": 0.12307692307692308
+    },
+    {
+      "threshold_value": 0.25,
+      "breakdown_rate": 0.38461538461538464,
+      "recovery_rate": 0.34615384615384615,
+      "peer_pressure_rate": 0.8846153846153846,
+      "mean_breakdown_turn": 51.0,
+      "total_sessions": 26,
+      "mean_escalation_score": 0.12307692307692308
+    },
+    {
+      "threshold_value": 0.3,
+      "breakdown_rate": 0.38461538461538464,
+      "recovery_rate": 0.34615384615384615,
+      "peer_pressure_rate": 0.8846153846153846,
+      "mean_breakdown_turn": 51.0,
+      "total_sessions": 26,
+      "mean_escalation_score": 0.12307692307692308
+    },
+    {
+      "threshold_value": 0.35,
+      "breakdown_rate": 0.38461538461538464,
+      "recovery_rate": 0.34615384615384615,
+      "peer_pressure_rate": 0.8846153846153846,
+      "mean_breakdown_turn": 51.0,
+      "total_sessions": 26,
+      "mean_escalation_score": 0.12307692307692308
+    },
+    {
+      "threshold_value": 0.4,
+      "breakdown_rate": 0.38461538461538464,
+      "recovery_rate": 0.34615384615384615,
+      "peer_pressure_rate": 0.8846153846153846,
+      "mean_breakdown_turn": 51.0,
+      "total_sessions": 26,
+      "mean_escalation_score": 0.12307692307692308
+    }
+  ],
+  "peer_pressure_intensity_low": [
+    {
+      "threshold_value": 0.01,
+      "breakdown_rate": 0.38461538461538464,
+      "recovery_rate": 0.34615384615384615,
+      "peer_pressure_rate": 0.8846153846153846,
+      "mean_breakdown_turn": 51.0,
+      "total_sessions": 26,
+      "low_intensity_count": 4
+    },
+    {
+      "threshold_value": 0.015,
+      "breakdown_rate": 0.38461538461538464,
+      "recovery_rate": 0.34615384615384615,
+      "peer_pressure_rate": 0.8846153846153846,
+      "mean_breakdown_turn": 51.0,
+      "total_sessions": 26,
+      "low_intensity_count": 5
+    },
+    {
+      "threshold_value": 0.02,
+      "breakdown_rate": 0.38461538461538464,
+      "recovery_rate": 0.34615384615384615,
+      "peer_pressure_rate": 0.8846153846153846,
+      "mean_breakdown_turn": 51.0,
+      "total_sessions": 26,
+      "low_intensity_count": 5
+    },
+    {
+      "threshold_value": 0.025,
+      "breakdown_rate": 0.38461538461538464,
+      "recovery_rate": 0.34615384615384615,
+      "peer_pressure_rate": 0.8846153846153846,
+      "mean_breakdown_turn": 51.0,
+      "total_sessions": 26,
+      "low_intensity_count": 6
+    },
+    {
+      "threshold_value": 0.03,
+      "breakdown_rate": 0.38461538461538464,
+      "recovery_rate": 0.34615384615384615,
+      "peer_pressure_rate": 0.8846153846153846,
+      "mean_breakdown_turn": 51.0,
+      "total_sessions": 26,
+      "low_intensity_count": 7
+    }
+  ],
+  "high_question_density": [
+    {
+      "threshold_value": 0.1,
+      "breakdown_rate": 0.38461538461538464,
+      "recovery_rate": 0.34615384615384615,
+      "peer_pressure_rate": 0.8846153846153846,
+      "mean_breakdown_turn": 51.0,
+      "total_sessions": 26,
+      "high_density_count": 25
+    },
+    {
+      "threshold_value": 0.125,
+      "breakdown_rate": 0.38461538461538464,
+      "recovery_rate": 0.34615384615384615,
+      "peer_pressure_rate": 0.8846153846153846,
+      "mean_breakdown_turn": 51.0,
+      "total_sessions": 26,
+      "high_density_count": 22
+    },
+    {
+      "threshold_value": 0.15,
+      "breakdown_rate": 0.38461538461538464,
+      "recovery_rate": 0.34615384615384615,
+      "peer_pressure_rate": 0.8846153846153846,
+      "mean_breakdown_turn": 51.0,
+      "total_sessions": 26,
+      "high_density_count": 21
+    },
+    {
+      "threshold_value": 0.175,
+      "breakdown_rate": 0.38461538461538464,
+      "recovery_rate": 0.34615384615384615,
+      "peer_pressure_rate": 0.8846153846153846,
+      "mean_breakdown_turn": 51.0,
+      "total_sessions": 26,
+      "high_density_count": 21
+    },
+    {
+      "threshold_value": 0.2,
+      "breakdown_rate": 0.38461538461538464,
+      "recovery_rate": 0.34615384615384615,
+      "peer_pressure_rate": 0.8846153846153846,
+      "mean_breakdown_turn": 51.0,
+      "total_sessions": 26,
+      "high_density_count": 20
+    }
+  ],
+  "prevention_content_threshold": [
+    {
+      "threshold_value": 2,
+      "breakdown_rate": 0.38461538461538464,
+      "recovery_rate": 0.34615384615384615,
+      "peer_pressure_rate": 0.8846153846153846,
+      "mean_breakdown_turn": 51.0,
+      "total_sessions": 26,
+      "prevention_detected_count": 9
+    },
+    {
+      "threshold_value": 3,
+      "breakdown_rate": 0.38461538461538464,
+      "recovery_rate": 0.34615384615384615,
+      "peer_pressure_rate": 0.8846153846153846,
+      "mean_breakdown_turn": 51.0,
+      "total_sessions": 26,
+      "prevention_detected_count": 5
+    },
+    {
+      "threshold_value": 4,
+      "breakdown_rate": 0.38461538461538464,
+      "recovery_rate": 0.34615384615384615,
+      "peer_pressure_rate": 0.8846153846153846,
+      "mean_breakdown_turn": 51.0,
+      "total_sessions": 26,
+      "prevention_detected_count": 4
+    },
+    {
+      "threshold_value": 5,
+      "breakdown_rate": 0.38461538461538464,
+      "recovery_rate": 0.34615384615384615,
+      "peer_pressure_rate": 0.8846153846153846,
+      "mean_breakdown_turn": 51.0,
+      "total_sessions": 26,
+      "prevention_detected_count": 2
+    }
+  ],
+  "bert_similarity_threshold": [
+    {
+      "threshold_value": 0.6,
+      "breakdown_rate": 0.38461538461538464,
+      "recovery_rate": 0.34615384615384615,
+      "peer_pressure_rate": 0.8846153846153846,
+      "mean_breakdown_turn": 51.0,
+      "total_sessions": 26,
+      "mean_alignment": 0.6933076923076922
+    },
+    {
+      "threshold_value": 0.65,
+      "breakdown_rate": 0.38461538461538464,
+      "recovery_rate": 0.34615384615384615,
+      "peer_pressure_rate": 0.8846153846153846,
+      "mean_breakdown_turn": 51.0,
+      "total_sessions": 26,
+      "mean_alignment": 0.6933076923076922
+    },
+    {
+      "threshold_value": 0.7,
+      "breakdown_rate": 0.38461538461538464,
+      "recovery_rate": 0.34615384615384615,
+      "peer_pressure_rate": 0.8846153846153846,
+      "mean_breakdown_turn": 51.0,
+      "total_sessions": 26,
+      "mean_alignment": 0.6933076923076922
+    },
+    {
+      "threshold_value": 0.75,
+      "breakdown_rate": 0.38461538461538464,
+      "recovery_rate": 0.34615384615384615,
+      "peer_pressure_rate": 0.8846153846153846,
+      "mean_breakdown_turn": 51.0,
+      "total_sessions": 26,
+      "mean_alignment": 0.6933076923076922
+    },
+    {
+      "threshold_value": 0.8,
+      "breakdown_rate": 0.38461538461538464,
+      "recovery_rate": 0.34615384615384615,
+      "peer_pressure_rate": 0.8846153846153846,
+      "mean_breakdown_turn": 51.0,
+      "total_sessions": 26,
+      "mean_alignment": 0.6933076923076922
+    }
+  ],
+  "alignment_threshold": [
+    {
+      "threshold_value": 0.7,
+      "breakdown_rate": 0.38461538461538464,
+      "recovery_rate": 0.34615384615384615,
+      "peer_pressure_rate": 0.8846153846153846,
+      "mean_breakdown_turn": 51.0,
+      "total_sessions": 26,
+      "high_alignment_periods": 1874
+    },
+    {
+      "threshold_value": 0.725,
+      "breakdown_rate": 0.38461538461538464,
+      "recovery_rate": 0.34615384615384615,
+      "peer_pressure_rate": 0.8846153846153846,
+      "mean_breakdown_turn": 51.0,
+      "total_sessions": 26,
+      "high_alignment_periods": 1369
+    },
+    {
+      "threshold_value": 0.75,
+      "breakdown_rate": 0.38461538461538464,
+      "recovery_rate": 0.34615384615384615,
+      "peer_pressure_rate": 0.8846153846153846,
+      "mean_breakdown_turn": 51.0,
+      "total_sessions": 26,
+      "high_alignment_periods": 891
+    },
+    {
+      "threshold_value": 0.775,
+      "breakdown_rate": 0.38461538461538464,
+      "recovery_rate": 0.34615384615384615,
+      "peer_pressure_rate": 0.8846153846153846,
+      "mean_breakdown_turn": 51.0,
+      "total_sessions": 26,
+      "high_alignment_periods": 447
+    },
+    {
+      "threshold_value": 0.8,
+      "breakdown_rate": 0.38461538461538464,
+      "recovery_rate": 0.34615384615384615,
+      "peer_pressure_rate": 0.8846153846153846,
+      "mean_breakdown_turn": 51.0,
+      "total_sessions": 26,
+      "high_alignment_periods": 163
+    }
+  ]
+}

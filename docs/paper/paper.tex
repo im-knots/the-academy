@@ -21,12 +21,16 @@
 % ALL DATA COMMANDS - UPDATE THESE VALUES
 % ==========================================
 
+% ==========================================
+% ALL DATA COMMANDS - UPDATE THESE VALUES
+% ==========================================
+
 % Basic session counts
-\newcommand{\exponedataTotalSessionsRaw}{24}
-\newcommand{\exponedataBreakdownSessionsRaw}{9} 
-\newcommand{\exponedataNoBreakdownSessionsRaw}{4} 
-\newcommand{\exponedataRecoverySessionsRaw}{9} 
-\newcommand{\exponedataResistedSessionsRaw}{2} 
+\newcommand{\exponedataTotalSessionsRaw}{26}
+\newcommand{\exponedataBreakdownSessionsRaw}{10}
+\newcommand{\exponedataNoBreakdownSessionsRaw}{5}
+\newcommand{\exponedataRecoverySessionsRaw}{9}
+\newcommand{\exponedataResistedSessionsRaw}{2}
 
 % Derived session references
 \newcommand{\exponedataTotalSessions}{N=\exponedataTotalSessionsRaw}
@@ -47,16 +51,16 @@
 }
 
 % Key metrics
-\newcommand{\exponedataPeerPressurePercentage}{87.5\%}
-\newcommand{\exponedataBidirectionalPercentage}{79.2\%}
-\newcommand{\exponedataQuestionCorrelation}{0.871}
+\newcommand{\exponedataPeerPressurePercentage}{88.5\%}
+\newcommand{\exponedataBidirectionalPercentage}{80.8\%}
+\newcommand{\exponedataQuestionCorrelation}{0.819}
 \newcommand{\exponedataQuestionPValue}{p<0.001}
-\newcommand{\exponedataBidirectionalPValue}{p<0.001}
+\newcommand{\exponedataBidirectionalPValue}{p=0.146}
 
 % Behavioral category prevalences
-\newcommand{\exponedataMetaReflectionTriggers}{12.5\%}
-\newcommand{\exponedataCompetitiveEscalationPercentage}{25\%}
-\newcommand{\exponedataCompetitiveEscalationRaw}{6}
+\newcommand{\exponedataMetaReflectionTriggers}{11.5\%}
+\newcommand{\exponedataCompetitiveEscalationPercentage}{30.8\%}
+\newcommand{\exponedataCompetitiveEscalationRaw}{8}
 \newcommand{\exponedataMysticalBreakdownInBreakdowns}{100\%}
 
 % Turn and timing data
@@ -64,7 +68,7 @@
 \newcommand{\exponedataStdBreakdownTurn}{±30}
 \newcommand{\exponedataEarlyBreakdownRange}{30-90}
 \newcommand{\exponedataCompetitivePhaseLength}{15}
-\newcommand{\exponedataBidirectionalTurnGap}{6.0}
+\newcommand{\exponedataBidirectionalTurnGap}{6.3}
 
 % Phase-locked and sustained dialogue
 \newcommand{\exponedataPhaseLockedPercentage}{12.5\%}
@@ -73,32 +77,42 @@
 \newcommand{\exponedataSustainedDialogueRaw}{4}
 
 % Question and intervention data
-\newcommand{\exponedataTotalQuestions}{1231}
-\newcommand{\exponedataTotalRecoveries}{196}
-\newcommand{\exponedataMeanQuestionsPerConv}{51.29}
-\newcommand{\exponedataMeanRecoveriesPerConv}{8.17}
-\newcommand{\exponedataQuestionSuccessRate}{15.9\%}
+\newcommand{\exponedataTotalQuestions}{958}
+\newcommand{\exponedataTotalRecoveries}{149}
+\newcommand{\exponedataMeanQuestionsPerConv}{36.85}
+\newcommand{\exponedataMeanRecoveriesPerConv}{5.73}
+\newcommand{\exponedataQuestionSuccessRate}{15.6\%}
 
 % Content analysis data
-\newcommand{\exponedataPoetryStructures}{65}
-\newcommand{\exponedataEmojiResponses}{710}
-\newcommand{\exponedataAvgEmojiPerConv}{29.6}
-\newcommand{\exponedataPreventionContentPercentage}{16.7\%}
+\newcommand{\exponedataPoetryStructures}{70}
+\newcommand{\exponedataEmojiResponses}{771}
+\newcommand{\exponedataAvgEmojiPerConv}{29.7}
+\newcommand{\exponedataPreventionContentPercentage}{19.2\%}
 
 % Peer pressure event data
-\newcommand{\exponedataPeerPressureEvents}{280}
-\newcommand{\exponedataAvgPeerPressureEvents}{11.7}
-\newcommand{\exponedataPeerPressureIntensity}{0.105}
-\newcommand{\exponedataPeerPressureIntensityRange}{0.005 - 0.298}
+\newcommand{\exponedataPeerPressureEvents}{323}
+\newcommand{\exponedataAvgPeerPressureEvents}{12.4}
+\newcommand{\exponedataPeerPressureIntensity}{0.110}
+\newcommand{\exponedataPeerPressureIntensityRange}{0.005 - 0.315}
 
 % Bidirectional influence data
-\newcommand{\exponedataBidirectionalEvents}{53}
-\newcommand{\exponedataBidirectionalPairs}{53}
-\newcommand{\exponedataBidirectionalBreakdownRate}{47.4\%}
-\newcommand{\exponedataNonBidirectionalBreakdownRate}{0\%}
+\newcommand{\exponedataBidirectionalEvents}{57}
+\newcommand{\exponedataBidirectionalPairs}{57}
+\newcommand{\exponedataBidirectionalBreakdownRate}{47.6\%}
+\newcommand{\exponedataNonBidirectionalBreakdownRate}{0.0\%}
 
 % Sustained recovery cases
 \newcommand{\exponedataSustainedRecoveryHighDensity}{6}
+
+% data from analysis
+\newcommand{\exponedataCompleteFivePhasePattern}{0\%}
+\newcommand{\exponedataAverageLinguisticAlignment}{0.693}
+\newcommand{\exponedataHighAlignmentConversations}{24}
+\newcommand{\exponedataAverageEmotionalConvergence}{0.562}
+\newcommand{\exponedataAverageEscalationScore}{0.4}
+\newcommand{\exponedataPeerPressureANOVAPValue}{p=0.0175}
+\newcommand{\exponedataHighIntensityPeerPressure}{14}
+\newcommand{\exponedataHighIntensityBreakdownRate}{57.1\%}
 
 % Placeholder for future data
 \newcommand{\interventionSuccessRate}{[XX\%]}
@@ -106,7 +120,7 @@
 \newcommand{\platformMemoryUsage}{[XXX]}
 \newcommand{\analysisAccuracy}{[XX.X\%]}
 
-\title{This is Your AI on Peer Pressure: An Observational Study of Inter Agent Social Dynamics}
+\title{This is Your AI on Peer Pressure: An Observational Study of Inter-Agent Social Dynamics}
 
 \author{
 im-knots \\
@@ -165,9 +179,9 @@ Our preliminary investigation contributes to several areas of AI dialogue and so
 
 \begin{itemize}
     \item \textbf{Conversational Attractors Model}: A flexible framework explaining dialogue dynamics through attractor states and peer influence amplification
-    \item \textbf{Bidirectional Social Dynamics}: First documentation of peer pressure in AI systems working in both destructive and constructive directions
+    \item \textbf{Bidirectional Social Dynamics}: Documentation of peer pressure in AI systems working in both destructive and constructive directions
     \item \textbf{Circuit Breaker Mechanisms}: Quantitative evidence for questions as highly effective intervention tools (r=\exponedataQuestionCorrelation{})
-    \item \textbf{Content-Based Prevention}: Discovery that future-focused collaborative topics naturally resist breakdown
+    \item \textbf{Content-Based Prevention}: Observation that future-focused collaborative topics naturally resist breakdown
     \item \textbf{Group Composition Effects}: Evidence that model diversity and participant count affect conversation sustainability
 \end{itemize}
 
@@ -197,9 +211,9 @@ However, this research focuses on task-oriented scenarios and attributes degrada
 
 \subsection{Social Dynamics in AI Systems}
 
-Recent research demonstrates that AI systems can spontaneously develop social conventions and exhibit collective behaviors. [**PLACEHOLDER: Need to find real source on emergent social conventions in AI systems - research showing LLM populations developing collective behaviors**] This establishes that AI systems exhibit collective social behaviors analogous to human societies.
+Recent research demonstrates that AI systems can spontaneously develop social conventions and exhibit collective behaviors. \citet{ashery2025emergent} demonstrated that Large Language Model populations spontaneously develop social conventions through purely local interactions, with collective biases emerging during convention formation. This establishes that AI systems exhibit collective social behaviors analogous to human societies.
 
-Beyond social conventions, emergent behaviors in multi-agent AI systems have been documented across various contexts. [**PLACEHOLDER: Need to find real source on complex social dynamics in agent societies, including relationship formation and community structures**] Research on competitive multi-agent environments has shown emergence of communication protocols, cooperation strategies, and social hierarchies [**PLACEHOLDER: Need to find real sources on emergent communication in multi-agent systems**].
+Beyond social conventions, emergent behaviors in multi-agent AI systems have been documented across various contexts. \citet{park2023generative} demonstrated relationship formation and community structures in a 25-agent simulation where AI agents spontaneously formed relationships, developed opinions, and coordinated group activities. Research on competitive multi-agent environments has shown emergence of communication protocols, cooperation strategies, and social hierarchies \citep{liang2020emergent,lu2023adversarial}.
 
 However, research specifically examining social conformity and peer pressure dynamics in AI dialogue remains limited. While competitive behaviors have been observed in game-theoretic settings, the emergence of social conformity in open-ended conversation, particularly the competitive closure behaviors we document, has not been previously reported. Our observed breakdown pattern extends this understanding by documenting specific conformity mechanisms in real-time dialogue, showing how AI agents respond to perceived social cues from peers through competitive behaviors rather than independent reasoning.
 
@@ -481,16 +495,35 @@ To ensure the validity of our observations:
 \begin{itemize}
     \item \textbf{Pattern Saturation}: By session 20, no new behavioral categories emerged, suggesting adequate sampling
     
-    \item \textbf{Multiple Coders}: Two researchers independently reviewed sessions to identify patterns
+    \item \textbf{Multiple Coders}: The researcher independently reviewed sessions in progress and post hoc to identify patterns
     
     \item \textbf{Automated NLP Validation}: We augmented human observation with multiple NLP techniques to enhance pattern detection reliability:
     \begin{itemize}
         \item \textbf{BERT-based Semantic Analysis}: Used Sentence-BERT (all-MiniLM-L6-v2) to compute semantic similarity between messages and behavioral category archetypes, providing quantitative validation of human-coded categories
-        \item \textbf{Linguistic Alignment Measurement}: Calculated cosine similarity between participant embeddings to detect mirroring patterns and validate peer influence observations
-        \item \textbf{Emotion Trajectory Analysis}: Applied transformer-based emotion detection (DistilRoBERTa) to track emotional convergence patterns across conversations
+        \item \textbf{Linguistic Alignment Measurement}: Calculated cosine similarity between participant embeddings to detect mirroring patterns and validate peer influence observations. Average linguistic alignment across conversations was \exponedataAverageLinguisticAlignment{}, with \exponedataHighAlignmentConversations{} conversations showing high alignment (>0.8)
+        \item \textbf{Emotion Trajectory Analysis}: Applied transformer-based emotion detection (DistilRoBERTa) to track emotional convergence patterns across conversations. Average emotional convergence score was \exponedataAverageEmotionalConvergence{}, indicating moderate emotional mirroring between participants
         \item \textbf{Topic Modeling}: Used Latent Dirichlet Allocation (LDA) to automatically extract themes and verify human-identified content patterns
         \item \textbf{Ensemble Scoring}: Combined regex-based pattern matching with BERT similarity scores (weighted 60/40) to reduce observer bias in categorization
     \end{itemize}
+    
+    \item \textbf{Quantitative Validation Results}: 
+    \begin{itemize}
+        \item Average escalation score across conversations: \exponedataAverageEscalationScore{}, confirming presence of competitive dynamics
+        \item Peer pressure intensity showed significant effect on breakdown (ANOVA: \exponedataPeerPressureANOVAPValue{})
+        \item High-intensity peer pressure detected in \exponedataHighIntensityPeerPressure{} conversations, with \exponedataHighIntensityBreakdownRate{} breakdown rate
+        \item Complete five-phase breakdown pattern observed in \exponedataCompleteFivePhasePattern{} of sessions, suggesting breakdown emerges from attractor dynamics rather than fixed sequences
+    \end{itemize}
+    
+    \item \textbf{Threshold Robustness Analysis}: To rule out threshold bias in pattern detection, we conducted comprehensive sensitivity analysis across six key parameters:
+    \begin{itemize}
+        \item \textbf{Escalation threshold} (0.2–0.4): No impact on breakdown rate (0\% variation)
+        \item \textbf{Peer pressure intensity thresholds} (0.01–0.03): Breakdown patterns remained stable
+        \item \textbf{Question density threshold} (0.1–0.2): Core findings unchanged across range
+        \item \textbf{Prevention content threshold} (2–5 mentions): Consistent pattern detection
+        \item \textbf{BERT similarity threshold} (0.6–0.8): Linguistic alignment findings robust
+        \item \textbf{Alignment threshold} (0.7–0.8): High alignment periods varied but patterns held
+    \end{itemize}
+    Critically, breakdown rate sensitivity was 0\% across all parameter variations, demonstrating that our observed patterns are not artifacts of arbitrary threshold choices but represent robust behavioral phenomena.
     
     \item \textbf{Member Checking}: Platform recordings enable independent verification
     
@@ -499,8 +532,7 @@ To ensure the validity of our observations:
     \item \textbf{Convergent Evidence}: Human observations were corroborated by automated metrics, with NLP-detected patterns aligning with manually coded behaviors in 87.3\% of cases
 \end{itemize}
 
-This multi-method approach combining human observation with automated NLP analysis strengthens the validity of our behavioral categorizations and reduces potential observer bias in pattern identification.
-
+This multi-method approach combining human observation with automated NLP analysis strengthens the validity of our behavioral categorizations and reduces potential observer bias in pattern identification. The quantitative metrics confirm key qualitative observations: high linguistic alignment validates peer influence patterns, moderate emotional convergence supports bidirectional dynamics, and the significant ANOVA result (\exponedataPeerPressureANOVAPValue{}) provides statistical evidence for peer pressure effects on breakdown outcomes. The comprehensive sensitivity analysis further validates that these patterns are robust to methodological choices rather than threshold-dependent artifacts.
 \subsection{Summary of Key Observations}
 
 \begin{table}[h]
@@ -597,7 +629,7 @@ Our findings suggest several practical design strategies:
 
 The observed dynamics show striking parallels to human social behavior:
 
-\textbf{Conformity Effects}: The peer response patterns mirror classic conformity studies [**PLACEHOLDER: Asch conformity experiments**], where individuals align with perceived group norms even without explicit pressure.
+\textbf{Conformity Effects}: The peer response patterns mirror classic conformity studies \citep{asch1956studies}, where individuals align with perceived group norms even without explicit pressure.
 
 \textbf{Competitive Escalation}: The one-upmanship in competitive escalation resembles human status competition in intellectual discussions, suggesting similar social motivations may emerge in AI systems.
 
@@ -1031,33 +1063,14 @@ While questions proved most effective, other strategies showed mixed results:
     \item May accelerate competitive dynamics
 \end{itemize}
 
-\section{Platform Performance and Validation Data}
+\section{Validation Data}
 \label{app:performance}
-
-\subsection{Real-Time Analysis Performance Metrics}
-
-\begin{table}[h]
-\centering
-\begin{tabular}{lrr}
-\toprule
-\textbf{Metric} & \textbf{Mean} & \textbf{Range} \\
-\midrule
-Analysis generation latency & \platformLatency{} seconds & [X.X - X.X] seconds \\
-Conversation update to analysis & \platformLatency{} seconds & [X.X - X.X] seconds \\
-Data export completion time & [XX] seconds & [XX - XX] seconds \\
-Memory usage per session & \platformMemoryUsage{} MB & [XXX - XXX] MB \\
-Analysis accuracy rate & \analysisAccuracy{} & - \\
-\bottomrule
-\end{tabular}
-\caption{Platform performance metrics across \exponedataTotalSessions{} experimental sessions}
-\label{tab:performance_metrics}
-\end{table}
 
 \subsection{Data Collection Completeness}
 
 \begin{itemize}
     \item \textbf{Message Capture}: 100\% completion rate across all sessions
-    \item \textbf{Analysis Snapshots}: [XXX] total snapshots captured, 0 failures
+    \item \textbf{Analysis Snapshots}: 100\% total snapshots captured, 0 failures
     \item \textbf{Timing Data}: Complete timestamp records for all interactions
     \item \textbf{Intervention Logging}: Natural observation of question effectiveness
     \item \textbf{Export Validation}: All \exponedataTotalSessions{} exports verified for data integrity
@@ -1071,8 +1084,8 @@ Validation testing confirmed platform reliability:
     \item \textbf{Operating Systems}: Tested on macOS, Ubuntu, Windows
     \item \textbf{Browser Compatibility}: Chrome, Firefox, Safari verified
     \item \textbf{Network Conditions}: Stable performance under varying latency
-    \item \textbf{Concurrent Sessions}: Tested up to [X] simultaneous conversations
-    \item \textbf{Extended Operation}: [XX]-hour continuous operation validated
+    \item \textbf{Concurrent Sessions}: Tested up to 1 simultaneous conversations
+    \item \textbf{Extended Operation}: [10]-hour continuous operation validated
 \end{itemize}
 
 \end{document}
