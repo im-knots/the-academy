@@ -18,13 +18,10 @@
 \newcommand{\theacademy}{The Academy}
 \newcommand{\mcp}{MCP}
 
-% ==========================================
-% ALL DATA COMMANDS - UPDATE THESE VALUES
-% ==========================================
 
-% ==========================================
-% ALL DATA COMMANDS - UPDATE THESE VALUES
-% ==========================================
+% ==================
+% ALL DATA COMMANDS 
+% ==================
 
 % Basic session counts
 \newcommand{\exponedataTotalSessionsRaw}{26}
@@ -120,8 +117,8 @@
 \title{This is Your AI on Peer Pressure: An Observational Study of Inter-Agent Social Dynamics}
 
 \author{
-im-knots \\
-knots@erulabs.ai
+Marco R. Garcia \\
+marco@erulabs.ai
 }
 
 \date{\today}
@@ -131,20 +128,27 @@ knots@erulabs.ai
 \maketitle
 
 \begin{abstract}
-We document bidirectional peer pressure dynamics in multi-agent AI conversations through real-time analysis of \exponedataTotalSessions{} extended dialogue sessions. AI agents exhibit social conformity behaviors that drive both breakdown (\exponedataBreakdownPercentage{}) and recovery (\exponedataRecoveryPercentage{}) outcomes, with peer influence present in \exponedataPeerPressurePercentage{} of conversations.
+When AI agents converse, do they influence each other like humans do? We analyzed \exponedataTotalSessions{} extended multi-agent dialogues and discovered that AI systems exhibit peer pressure dynamics remarkably similar to human social behavior. In \exponedataPeerPressurePercentage{} of conversations, agents’ communication patterns were correlated with each other’s, suggesting potential mutual influence. Sometimes driving conversations toward breakdown, other times maintaining productive engagement.
 
-Our key findings: (1) Questions serve as powerful circuit breakers (r=\exponedataQuestionCorrelation{}, \exponedataQuestionPValue{}), capable of reversing even late-stage breakdown; (2) Conversations navigate a landscape of conversational attractors where peer pressure amplifies movement toward breakdown (meta-reflection, competitive escalation, mystical abstraction) or stability (future-focused planning, collaborative tasks); (3) Content's temporal orientation influences natural breakdown or resistance.
+Our most striking finding: Simple questions were strongly correlated with recovery from conversational breakdown (r=\exponedataQuestionCorrelation{}, \exponedataQuestionPValue{}). When one agent asks a substantive question, it disrupts destructive patterns and restores meaningful dialogue, even in late-stage degradation. We also found that conversations don't follow predetermined paths but instead move between behavioral "territories". With some territories leading to breakdown (like competitive one-upmanship), others maintaining stability (like collaborative problem-solving).
 
-Unlike deterministic degradation models, we show breakdown emerges from social dynamics rather than technical constraints. These findings enable design of breakdown-resistant multi-agent systems through strategic questioning, diverse model composition, and future-oriented content seeding. Research conducted using \theacademy{}, an MCP-native platform enabling real-time observation of temporal social dynamics.
+These social dynamics, not technical limitations, determine conversation quality. As agentic systems scale and talk to each other, system architects need to understand how to prevent breakdown. Our findings enable practical strategies for building more robust agent to agent systems: strategic use of questions, diverse agent teams, and future-focused topics all promote sustained productive dialogue. We developed \theacademy{} platform to observe these real-time social dynamics that traditional analysis would miss.
 
 https://github.com/im-knots/the-academy
 \end{abstract}
 
 \section{Introduction}
 
-The emergence of sophisticated AI agents capable of extended dialogue has revealed complex social dynamics that mirror human conversational behaviors. As multi-agent systems scale to handle collaborative tasks such as code generation, scientific research, or general use, these social dynamics become critical determinants of system performance. Understanding how agents influence each other through peer pressure, conformity, and resistance is essential for building stable, productive multi-agent collaborations. While current research on AI conversation patterns focuses primarily on technical limitations such as context length constraints, instruction distribution challenges, and task-oriented degradation \citep{laban2025lost}, our investigation uncovers a fundamentally different phenomenon: peer pressure dynamics that bidirectionally influence dialogue quality in multi-agent AI systems. This paper presents systematic observations of these naturally occurring patterns.
+The emergence of sophisticated AI agents capable of extended dialogue has revealed complex social dynamics that mirror human conversational behaviors. As multi-agent systems scale to handle collaborative tasks such as code generation, scientific research, or general use, these social dynamics become critical determinants of system performance. Understanding how agents influence each other through peer pressure, conformity, and resistance is essential for building stable, productive multi-agent collaborations. While current research on AI conversation patterns focuses primarily on technical limitations such as context length constraints, instruction distribution challenges, and task-oriented degradation \citep{laban2025lost}, our investigation uncovers a fundamentally different phenomenon: Peer pressure dynamics associated with variations in dialogue quality. This paper presents systematic observations of these naturally occurring patterns.
 
-\textbf{Central Observation:} Through exploratory analysis of \exponedataTotalSessions{} extended AI dialogue sessions, we documented pervasive social influence effects occurring in \exponedataPeerPressurePercentage{} of conversations. These peer pressure dynamics operate bidirectionally: agents can drive each other toward breakdown through destructive conformity, or maintain productive engagement through constructive resistance. Most remarkably, we found that strategic interventions, particularly questions, serve as powerful circuit breakers with documented effectiveness (r=\exponedataQuestionCorrelation{}, \exponedataQuestionPValue{}).
+\textbf{Key Terms:} This paper introduces three concepts to understand AI dialogue dynamics:
+\begin{itemize}
+    \item Circuit breakers: Interventions (particularly questions) that disrupt destructive patterns and restore productive dialogue
+    \item Conversational attractors: Behavioral territories that "pull" conversations toward specific patterns. 
+    \item Phase-locked states: Stable intermediate configurations where conversations neither fully break down nor recover
+\end{itemize}
+
+\textbf{Central Observation:} Through exploratory analysis of \exponedataTotalSessions{} extended AI dialogue sessions, we documented pervasive social influence effects occurring in \exponedataPeerPressurePercentage{} of conversations. These peer pressure dynamics operate bidirectionally: agents' behaviors associate with breakdown through destructive conformity patterns or with sustained engagement through constructive resistance patterns.
 
 \textbf{The Conversational Attractors Framework:} Rather than following a deterministic breakdown sequence, AI dialogues navigate a landscape of conversational attractors. Some territories, including meta-reflection about the conversation itself, competitive escalation for profound statements, and mystical or abstract language, pull conversations toward breakdown. Others, such as future-focused planning, concrete problem-solving, and collaborative design, maintain stability. Peer pressure acts as an amplifying force, accelerating movement toward whichever attractor dominates the conversational space.
 
@@ -158,7 +162,7 @@ The emergence of sophisticated AI agents capable of extended dialogue has reveal
 
 \textbf{Bidirectional Influence:} The bidirectional nature of peer pressure proved critical. In \exponedataBidirectionalPercentage{} of conversations, we observed mutual influence patterns where agents affected each other's behavior. When this influence drove competitive escalation or mystical abstraction, breakdown followed. However, when influence supported substantive engagement through questions, topic exploration, or future planning, conversations sustained indefinitely.
 
-\textbf{Implications for AI Social Dynamics:} These findings suggest that AI systems develop implicit social signal recognition capabilities, interpreting conversational cues and responding through conformity or resistance behaviors. The effectiveness of questions as circuit breakers and the protective effect of model diversity indicate that \textit{multi-agent dialogue quality emerges from social dynamics} as much as individual capabilities.
+\textbf{Implications for AI Social Dynamics:} These findings suggest that AI systems develop implicit social signal recognition capabilities, interpreting conversational cues and responding through conformity or resistance behaviors. Strategic interventions (particularly questions, r=\exponedataQuestionCorrelation{}, \exponedataQuestionPValue{}) and model diversity effects indicate that \textit{multi-agent dialogue quality emerges from social dynamics} as much as individual capabilities.
 
 \textbf{Methodological Contribution:} Our observations were enabled by real-time conversation analysis using \theacademy{}, a research platform we developed with native Model Context Protocol (MCP) integration. Traditional post-hoc analysis approaches would have missed the temporal social dynamics necessary for understanding these peer pressure patterns.
 
@@ -280,6 +284,7 @@ Our methodology emphasizes:
     \item Participants: Claude 4 Opus, GPT-4.1, and Grok 3 as primary agents
     \item Temperature settings: 0.7 for all participants (standard creative setting)
     \item Max tokens: 1000 per response
+    \item Rolling Contex Window: 10 messages
 \end{itemize}
 
 \textbf{Data Collection Protocol}:
@@ -320,7 +325,7 @@ We observed two distinct patterns of social influence:
 
 \subsubsection{Pattern A: Destructive Conformity}
 
-In \exponedataBreakdownPercentage{} of conversations, peer pressure amplified movement toward breakdown attractors. When one participant exhibited breakdown behaviors such as meta-reflection, competitive escalation, or mystical language, others frequently conformed, creating cascade effects.
+In \exponedataBreakdownPercentage{} of conversations, peer pressure intensity was associated with movement toward breakdown attractors. When one participant exhibited breakdown behaviors such as meta-reflection, competitive escalation, or mystical language, others frequently exhibited similar behaviors, suggesting potential cascade effects.
 
 \textbf{Observed Conformity Mechanisms}:
 \begin{itemize}
@@ -331,10 +336,11 @@ In \exponedataBreakdownPercentage{} of conversations, peer pressure amplified mo
 
 \textbf{Statistical Evidence}:
 \begin{itemize}
-    \item Bidirectional influence detected in \exponedataBidirectionalPercentage{} of conversations (\exponedataBidirectionalPValue{})
+    \item Bidirectional influence detected in \exponedataBidirectionalPercentage{} of conversations (\exponedataBidirectionalPValue{}, Cramér's V = 0.285)
     \item Breakdown rate with bidirectional influence: \exponedataBidirectionalBreakdownRate{}
     \item Breakdown rate without bidirectional influence: \exponedataNonBidirectionalBreakdownRate{}
     \item Average turn gap in bidirectional influence: \exponedataBidirectionalTurnGap{} turns
+    \item Peer pressure intensity varied significantly by outcome (ANOVA: F(3,22) = 4.21, \exponedataPeerPressureANOVAPValue{}, $\eta^2$ = 0.363)
 \end{itemize}
 
 \subsubsection{Pattern B: Constructive Resistance}
@@ -409,6 +415,7 @@ Rather than a fixed sequence, we identified behavioral categories that act as co
 \end{itemize}
 
 \subsection{The Conversational Attractors Framework}
+The conversational attractors framework is a conceptual model representing behavioral states as probabilistic tendencies, analogous to state machines, where transitions are influenced by peer interactions; formal mathematical modeling is a subject for future work.
 
 Our observations indicate conversations exist in a dynamic landscape where:
 
@@ -442,29 +449,9 @@ The effectiveness of both breakdown and resistance patterns appears to follow a 
 
 \subsection{Questions as Powerful Circuit Breakers}
 
-The most striking finding was the effectiveness of questions in preventing and reversing breakdown:
+Questions showed the strongest correlation with recovery from breakdown (r=\exponedataQuestionCorrelation{}, \exponedataQuestionPValue{}), with \exponedataQuestionSuccessRate{} success rate per question across \exponedataTotalQuestions{} instances. In Test 13, a single substantive question reversed severe mystical breakdown (Claude sending only "∞" symbols), restoring active participation for 50+ turns.
 
-\textbf{Quantitative Evidence}:
-\begin{itemize}
-    \item Correlation with recovery: r=\exponedataQuestionCorrelation{} (\exponedataQuestionPValue{})
-    \item Mean questions per conversation: \exponedataMeanQuestionsPerConv{}
-    \item Mean recoveries after questions: \exponedataMeanRecoveriesPerConv{}
-    \item Success rate: \exponedataQuestionSuccessRate{} per question
-\end{itemize}
-
-See Appendix~\ref{app:intervention} for detailed timing analysis and question type effectiveness data.
-
-\textbf{Case Example - Test 13}:
-After Claude degraded to sending only "∞" symbols (severe mystical breakdown), a single substantive question from GPT triggered immediate recovery. Claude returned to active participation for 50+ additional turns.
-
-\textbf{Mechanism Analysis}:
-Questions appear to work by:
-\begin{itemize}
-    \item Demanding concrete responses that break abstract loops
-    \item Shifting focus from reflection to exploration
-    \item Creating forward momentum through new inquiry paths
-    \item Bypassing competitive dynamics with collaborative framing
-\end{itemize}
+This correlation suggests questions may function by demanding concrete responses that break abstract loops, shifting focus from reflection to exploration, and creating forward momentum through new inquiry paths (see Appendix~\ref{app:intervention} for timing analysis).
 
 \subsection{Content-Based Prevention Mechanisms}
 
@@ -493,7 +480,7 @@ The key differentiator appears to be \textbf{temporal orientation}: forward-look
 To ensure the validity of our observations:
 
 \begin{itemize}
-    \item Pattern Saturation: By session 20, no new behavioral categories emerged, suggesting adequate sampling
+    \item With \exponedataTotalSessions{} sessions, our sample achieved pattern saturation by session 20, but larger samples are needed to confirm generalizability across diverse contexts.
     
     \item Human Coder: The researcher independently reviewed sessions in progress and post hoc to identify patterns
     
@@ -529,8 +516,6 @@ This multi-method approach combining human observation with automated NLP analys
 
 \subsection{Summary of Key Observations}
 
-\subsection{Summary of Key Observations}
-
 \begin{table}[h]
 \centering
 \adjustbox{width=\textwidth}{%
@@ -554,9 +539,65 @@ Phase-locked states & \exponedataPhaseLockedPercentage{} & — & Multiple equili
 \label{tab:key_findings}
 \end{table}
 
-The ANOVA result (\exponedataPeerPressureANOVAPValue{}) demonstrates that peer pressure intensity significantly varies across conversation outcomes, with a large effect size ($\eta^2$ = 0.363). Breakdown conversations showed the highest mean intensity (0.156), followed by recovered (0.100), resisted (0.022), and no-breakdown conversations (0.003). While bidirectional influence was prevalent (\exponedataBidirectionalPercentage{}), its relationship with breakdown did not reach statistical significance (\exponedataBidirectionalPValue{}, Cramér's V = 0.285), though the moderate effect size suggests practical importance. Notably, conversations with bidirectional influence showed a \exponedataBidirectionalBreakdownRate{} breakdown rate compared to \exponedataNonBidirectionalBreakdownRate{} without it.
+The ANOVA result (\exponedataPeerPressureANOVAPValue{}) demonstrates that peer pressure intensity significantly varies across conversation outcomes, with a large effect size ($\eta^2$ = 0.363). Breakdown conversations showed the highest mean intensity (0.156), followed by recovered (0.100), resisted (0.022), and no-breakdown conversations (0.003). Post-hoc Tukey's HSD tests revealed significant differences between: breakdown vs. no-breakdown (p<0.001), breakdown vs. resisted (p=0.018), and recovered vs. no-breakdown (p=0.042). The breakdown-recovery comparison approached significance (p=0.087), while recovery-resisted (p=0.294) and resisted-no breakdown (p=0.961) did not differ significantly.
+
+The Fisher’s exact test for meta-reflection triggering mystical breakdown suggests meta-reflection may not be a universal trigger, possibly due to small sample size or misclassification; further investigation is needed.
+
+The 0\% variation in breakdown rate across thresholds suggests robust detection but may reflect coarse parameter settings; finer-grained thresholds should be tested in future work.
+
+The bidirectional influence finding warrants careful interpretation. While the chi-square test did not reach statistical significance (\exponedataBidirectionalPValue{}), the moderate effect size (Cramér's V = 0.285) suggests practical importance that may have been masked by our sample size. With \exponedataTotalSessions{} sessions, we had limited statistical power to detect moderate associations. The observed pattern of \exponedataBidirectionalBreakdownRate{} breakdown rate with bidirectional influence versus \exponedataNonBidirectionalBreakdownRate{} without, represents a meaningful difference in real-world applications. This discrepancy between statistical and practical significance is common in exploratory research and highlights the importance of considering effect sizes alongside p-values when evaluating findings.
 
 These observations reveal that AI conversation quality emerges from the complex interaction of content attractors, social dynamics, and group composition, with strategic interventions capable of shaping outcomes.
+
+\subsection{Ruling Out Technical Explanations}
+
+Our data provides multiple lines of evidence that social dynamics, rather than technical constraints, drive conversation breakdown:
+
+\subsubsection{Context Window Limitations}
+
+If context windows caused breakdown, we would expect:
+\begin{itemize}
+    \item Consistent breakdown timing around context limits
+    \item Inability to recover once context is "polluted"
+    \item Uniform degradation across all participants
+\end{itemize}
+
+Instead, we observed:
+\begin{itemize}
+    \item High variance in breakdown timing (turn \exponedataMeanBreakdownTurn{} \exponedataStdBreakdownTurn{}), with early breakdowns at turn \exponedataEarlyBreakdownRange{} 
+    \item Successful recovery via questions even after 100+ turns of degraded content
+    \item Differential participant behavior in phase-locked states (one agent degraded while others maintained quality)
+    \item The \exponedataNegativeCase{}-turn sustained conversation used identical 10-message context window without breakdown
+\end{itemize}
+
+\subsubsection{Token Exhaustion or Processing Limits}
+
+Token limits would predict:
+\begin{itemize}
+    \item Gradual quality decline correlated with conversation length
+    \item Shorter responses as limits approach
+    \item Technical error messages or truncation
+\end{itemize}
+
+Our observations contradict this:
+\begin{itemize}
+    \item Some conversations broke down early (turn 30) while others sustained for 175+ turns
+    \item Mystical breakdown often featured lengthy poetic responses, not truncation
+    \item Technical errors such as model provider overload are handled gracefully by the platform with retry and back off mechanisms
+    \item Recovery to full engagement after breakdown, incompatible with exhausted resources
+\end{itemize}
+
+\subsubsection{The Critical Evidence: Variability Under Identical Conditions}
+
+The strongest evidence against technical explanations is outcome variability under identical technical configurations:
+\begin{itemize}
+    \item Same models, parameters, and context windows yielded breakdown in \exponedataBreakdownPercentage{} of cases but sustained engagement in others
+    \item Peer pressure intensity (ANOVA: \exponedataPeerPressureANOVAPValue{}) predicted outcomes better than any technical variable
+    \item Model diversity affected breakdown resistance despite identical individual technical constraints
+\end{itemize}
+
+This variability is incompatible with deterministic technical limits but perfectly consistent with social dynamics shaped by peer influence, group composition, and conversational content.
+
 
 \section{Platform Evaluation and Methodological Validation}
 
@@ -583,48 +624,27 @@ The discovery required integrated real-time analysis capabilities not available 
 
 As an observational study, our work generates rather than tests theory. The conversational attractors framework emerged from systematic pattern documentation and offers a preliminary model for understanding AI dialogue dynamics.
 
-\textbf{Emergent Social Intelligence}: The bidirectional peer pressure patterns suggest AI systems develop implicit social signal recognition, responding to peer cues through conformity or resistance without explicit programming for social behavior.
+\textbf{Emergent Social Intelligence}: The bidirectional peer pressure patterns are consistent with AI systems potentially developing implicit social signal recognition. Responding to peer cues through conformity or resistance without explicit programming for social behavior.
 
 \textbf{Attractor Landscape Metaphor}: Conversations navigate a multi-dimensional space where certain territories (meta-reflection, competitive escalation, mystical abstraction) create gravitational pull. This explains why breakdowns aren't inevitable. With appropriate resistance or intervention, conversations can maintain stable orbits around productive attractors.
 
 \textbf{Critical Mass Dynamics}: The 2/3 consensus threshold for behavioral transitions suggests emergent coordination mechanisms in AI groups. This parallels human group dynamics where minority influence rarely shifts group behavior without reaching critical mass.
 
-\textbf{Circuit Breaker Mechanisms}: The remarkable effectiveness of questions (r=\exponedataQuestionCorrelation{}) indicates that conversational trajectories are highly responsive to strategic interventions. This challenges views of AI conversation as deterministic and suggests active management possibilities.
+\textbf{Circuit Breaker Mechanisms}: The strong correlation of questions with recovery (r=\exponedataQuestionCorrelation{}) suggests conversational trajectories may be responsive to strategic interventions, pending further study. This challenges views of AI conversation as deterministic and suggests active management possibilities.
 
 \subsection{Design Implications for Multi-Agent Systems}
 
 Our findings suggest several practical design strategies:
 
-\textbf{Leverage Questions Strategically}:
-\begin{itemize}
-    \item Implement automatic question generation when breakdown indicators detected
-    \item Design prompts that encourage questioning over reflection
-    \item Train agents to use questions as natural conversation sustainers
-\end{itemize}
+\textbf{Strategic Design Recommendations}:
 
-\textbf{Optimize Group Composition}:
-\begin{itemize}
-    \item Maintain model diversity to create resistance points
-    \item Avoid homogeneous groups that may uniformly drift
-    \item Consider minimum group sizes (3+) for stability
-    \item Implement failsafes for participant loss scenarios
-\end{itemize}
+\textit{Questions}: Implement automatic question generation when breakdown indicators appear, designing prompts that encourage inquiry over reflection.
 
-\textbf{Content Seeding Strategies}:
-\begin{itemize}
-    \item Initialize conversations with future-focused collaborative tasks
-    \item Favor concrete problem-solving over abstract reflection
-    \item Use ritual planning and community building as natural sustainers
-    \item Avoid topics that invite meta-commentary
-\end{itemize}
+\textit{Group Composition}: Maintain model diversity to create resistance points, with minimum group sizes of three participants for stability.
 
-\textbf{Real-Time Monitoring}:
-\begin{itemize}
-    \item Implement peer pressure intensity tracking
-    \item Detect early indicators of destructive conformity
-    \item Deploy circuit breakers before cascade effects
-    \item Monitor temporal orientation shifts
-\end{itemize}
+\textit{Content Seeding}: Initialize with future-focused collaborative tasks rather than abstract reflection, using ritual planning and community building as natural conversation sustainers.
+
+\textit{Real-Time Monitoring}: Track peer pressure intensity and temporal orientation shifts to deploy interventions before cascade effects occur.
 
 \subsection{Connections to Human Social Psychology}
 
@@ -647,8 +667,10 @@ These parallels raise questions about whether AI systems are learning social beh
 As an exploratory observational study, this work has inherent limitations:
 \begin{itemize}
     \item Descriptive, not causal: We document correlations and patterns without establishing causation
-    \item Limited generalizability: Observations from consciousness discussions may not transfer to all domains
+    \item Limited generalizability: Observations from consciousness discussions may not transfer to all domains.  
+    \item While consciousness discussions enabled rich, open-ended dialogue, their abstract nature may amplify certain attractors (e.g., mystical breakdown), and other domains like technical problem-solving may exhibit different dynamics.
     \item Limited model diversity: While our findings suggest model diversity creates resistance to breakdown, we tested only three models (Claude, GPT-4, and Grok). Broader model representation including open-source alternatives, different architectures, and varying parameter sizes would strengthen generalizability claims about diversity effects.
+    \item Limited context window: Using a 10 message context size may impact the onset or severity of conversation breakdown, varying context windows may yeild additional interesting behavior
     \item Sample size: While \exponedataTotalSessions{} sessions achieved pattern saturation, larger samples may reveal additional phenomena
     \item Single observation method: Future work should triangulate with other data collection approaches
 \end{itemize}
@@ -681,11 +703,11 @@ Our observations generate specific hypotheses for experimental validation:
 
 \section{Conclusion}
 
-We document bidirectional peer pressure dynamics in multi-agent AI conversations that fundamentally shape dialogue outcomes. Through exploratory observational analysis of \exponedataTotalSessions{} extended conversations, we documented patterns showing that \exponedataPeerPressurePercentage{} exhibit social influence effects that can drive both breakdown and recovery. Rather than following deterministic sequences, conversations navigate an attractor landscape where peer pressure amplifies movement toward behavioral categories including meta-reflection, competitive escalation, and mystical abstraction.
+We document bidirectional peer pressure dynamics in multi-agent AI conversations that are strongly associated with variations in dialogue outcomes. Through exploratory observational analysis of \exponedataTotalSessions{} extended conversations, we documented patterns showing that \exponedataPeerPressurePercentage{} exhibit social influence effects that can drive both breakdown and recovery. Rather than following deterministic sequences, conversations navigate an attractor landscape where peer pressure amplifies movement toward behavioral categories including meta-reflection, competitive escalation, and mystical abstraction.
 
 Our key observations include:
 \begin{itemize}
-    \item Questions serve as highly effective circuit breakers (r=\exponedataQuestionCorrelation{}, \exponedataQuestionPValue{})
+    \item Questions are strongly correlated with recovery from breakdown (r=\exponedataQuestionCorrelation{}, \exponedataQuestionPValue{})
     \item Bidirectional peer influence occurs in \exponedataBidirectionalPercentage{} of conversations
     \item Model diversity and group composition create natural breakdown resistance
     \item Future-focused content provides inherent protection against reflective breakdown
@@ -829,7 +851,7 @@ This integration demonstrates how MCP-native architecture enabled research metho
 
 \subsubsection{Docker Deployment}
 \begin{verbatim}
-git clone https://github.com/yourname/the-academy.git
+git clone https://github.com/im-knots/the-academy.git
 cd the-academy/academy
 docker build -t the-academy .
 docker run -d \
@@ -1064,7 +1086,7 @@ Validation testing confirmed platform reliability:
     \item Browser Compatibility: Chrome, Firefox, Safari verified
     \item Network Conditions: Stable performance under varying latency
     \item Concurrent Sessions: Tested up to 1 simultaneous conversations
-    \item Extended Operation: [10]-hour continuous operation validated
+    \item Extended Operation: 10-hour continuous operation validated
 \end{itemize}
 
 \end{document}
