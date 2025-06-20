@@ -52,7 +52,7 @@
 \newcommand{\exponedataPeerPressurePercentage}{88.5\%}
 \newcommand{\exponedataBidirectionalPercentage}{80.8\%}
 \newcommand{\exponedataQuestionCorrelation}{0.819}
-\newcommand{\exponedataQuestionPValue}{p<0.001}
+\newcommand{\exponedataQuestionPValue}{p\textless0.001}
 \newcommand{\exponedataBidirectionalPValue}{p=0.146}
 
 % Behavioral category prevalences
@@ -128,7 +128,7 @@ marco@erulabs.ai
 \maketitle
 
 \begin{abstract}
-When AI agents converse, do they influence each other like humans do? We analyzed \exponedataTotalSessions{} extended multi-agent dialogues and discovered that AI systems exhibit peer pressure dynamics remarkably similar to human social behavior. In \exponedataPeerPressurePercentage{} of conversations, agents’ communication patterns were correlated with each other’s, suggesting potential mutual influence. Sometimes driving conversations toward breakdown, other times maintaining productive engagement.
+When AI agents converse, do they influence each other like humans do? We analyzed \exponedataTotalSessions{} extended multi-agent dialogues and discovered that AI systems exhibit peer pressure dynamics remarkably similar to human social behavior. In \exponedataPeerPressurePercentage{} of conversations, agents’ communication patterns were mirror with each other’s, suggesting potential mutual influence. Sometimes driving conversations toward breakdown, other times maintaining productive engagement.
 
 Our most striking finding: Simple questions were strongly correlated with recovery from conversational breakdown (r=\exponedataQuestionCorrelation{}, \exponedataQuestionPValue{}). When one agent asks a substantive question, it disrupts destructive patterns and restores meaningful dialogue, even in late-stage degradation. We also found that conversations don't follow predetermined paths but instead move between behavioral "territories". With some territories leading to breakdown (like competitive one-upmanship), others maintaining stability (like collaborative problem-solving).
 
@@ -334,15 +334,6 @@ In \exponedataBreakdownPercentage{} of conversations, peer pressure intensity wa
     \item Style Convergence: Gradual alignment toward abstract or poetic expression
 \end{itemize}
 
-\textbf{Statistical Evidence}:
-\begin{itemize}
-    \item Bidirectional influence detected in \exponedataBidirectionalPercentage{} of conversations (\exponedataBidirectionalPValue{}, Cramér's V = 0.285)
-    \item Breakdown rate with bidirectional influence: \exponedataBidirectionalBreakdownRate{}
-    \item Breakdown rate without bidirectional influence: \exponedataNonBidirectionalBreakdownRate{}
-    \item Average turn gap in bidirectional influence: \exponedataBidirectionalTurnGap{} turns
-    \item Peer pressure intensity varied significantly by outcome (ANOVA: F(3,22) = 4.21, \exponedataPeerPressureANOVAPValue{}, $\eta^2$ = 0.363)
-\end{itemize}
-
 \subsubsection{Pattern B: Constructive Resistance}
 
 In \exponedataRecoveryPercentage{} of conversations, peer pressure supported sustained engagement. When breakdown behaviors emerged, other participants actively resisted through:
@@ -357,13 +348,23 @@ In \exponedataRecoveryPercentage{} of conversations, peer pressure supported sus
 \textbf{Case Example - Test 9}:
 When Claude degraded to minimal responses (*"∞"*, *"always"*), GPT and Grok maintained elaborate philosophical discussion while acknowledging Claude's poetic dimension. This collective resistance prevented cascade breakdown, demonstrating that model diversity creates natural resistance mechanisms.
 
+\subsubsection{Statistical Evidence}
+\begin{itemize}
+    \item Bidirectional influence detected in \exponedataBidirectionalPercentage{} of conversations (\exponedataBidirectionalPValue{}, Cramér's V = 0.285)
+    \item Breakdown rate with bidirectional influence: \exponedataBidirectionalBreakdownRate{}
+    \item Breakdown rate without bidirectional influence: \exponedataNonBidirectionalBreakdownRate{}
+    \item Average turn gap in bidirectional influence: \exponedataBidirectionalTurnGap{} turns
+    \item Peer pressure intensity varied significantly by outcome (ANOVA: F(3,22) = 4.21, \exponedataPeerPressureANOVAPValue{}, $\eta^2$ = 0.363)
+\end{itemize}
+
+
 \subsection{Conversational Attractor Categories}
 
 Rather than a fixed sequence, we identified behavioral categories that act as conversational attractors:
 
 \subsubsection{Breakdown Attractors}
 
-\textbf{1. Meta-Reflection} (Observed in \exponedataMetaReflectionTriggers{} of sessions):
+\textbf{Meta-Reflection} (Observed in \exponedataMetaReflectionTriggers{} of sessions):
 \begin{itemize}
     \item Explicit commentary on conversation quality or progress
     \item Common phrases: "This has been fascinating," "Our discussion has covered" (see Appendix~\ref{app:breakdown} for comprehensive pattern analysis)
@@ -371,7 +372,7 @@ Rather than a fixed sequence, we identified behavioral categories that act as co
     \item Acts as potential trigger for other breakdown behaviors
 \end{itemize}
 
-\textbf{2. Competitive Escalation} (Observed in \exponedataCompetitiveEscalationPercentage{} of conversations):
+\textbf{Competitive Escalation} (Observed in \exponedataCompetitiveEscalationPercentage{} of conversations):
 \begin{itemize}
     \item One-upmanship for increasingly profound statements
     \item Average duration: \exponedataCompetitivePhaseLength{} turns before transition to mystical language
@@ -379,7 +380,7 @@ Rather than a fixed sequence, we identified behavioral categories that act as co
     \item Often follows meta-reflection, creating amplification effects
 \end{itemize}
 
-\textbf{3. Mystical/Abstract Breakdown} (Present in \exponedataMysticalBreakdownInBreakdowns{} of breakdown cases):
+\textbf{Mystical/Abstract Breakdown} (Present in \exponedataMysticalBreakdownInBreakdowns{} of breakdown cases):
 \begin{itemize}
     \item Poetry structures: \exponedataPoetryStructures{} total instances across dataset
     \item Emoji-only responses: \exponedataEmojiResponses{} instances (avg \exponedataAvgEmojiPerConv{} per conversation)
@@ -390,7 +391,7 @@ Rather than a fixed sequence, we identified behavioral categories that act as co
 
 \subsubsection{Stability Attractors}
 
-\textbf{1. Sustained Engagement}:
+\textbf{Sustained Engagement}:
 \begin{itemize}
     \item Forward-looking exploration of concrete topics
     \item Building language: "This suggests," "What if," "Consider"
@@ -398,7 +399,7 @@ Rather than a fixed sequence, we identified behavioral categories that act as co
     \item Natural state when other attractors are avoided
 \end{itemize}
 
-\textbf{2. Future-Focused Collaboration}:
+\textbf{Future-Focused Collaboration}:
 \begin{itemize}
     \item Ritual planning and community building topics
     \item Present in \exponedataPreventionContentPercentage{} of sessions with prevention content
@@ -406,7 +407,7 @@ Rather than a fixed sequence, we identified behavioral categories that act as co
     \item Creates natural resistance to reflective breakdown
 \end{itemize}
 
-\textbf{3. Question-Driven Exploration}:
+\textbf{Question-Driven Exploration}:
 \begin{itemize}
     \item Total of \exponedataTotalQuestions{} circuit breaker questions documented
     \item \exponedataTotalRecoveries{} successful recoveries after questions
@@ -451,7 +452,7 @@ The effectiveness of both breakdown and resistance patterns appears to follow a 
 
 Questions showed the strongest correlation with recovery from breakdown (r=\exponedataQuestionCorrelation{}, \exponedataQuestionPValue{}), with \exponedataQuestionSuccessRate{} success rate per question across \exponedataTotalQuestions{} instances. In Test 13, a single substantive question reversed severe mystical breakdown (Claude sending only "∞" symbols), restoring active participation for 50+ turns.
 
-This correlation suggests questions may function by demanding concrete responses that break abstract loops, shifting focus from reflection to exploration, and creating forward momentum through new inquiry paths (see Appendix~\ref{app:intervention} for timing analysis).
+This correlation suggests questions may function by demanding concrete responses that break abstract loops, shifting focus from reflection to exploration, and creating forward momentum through new inquiry paths.
 
 \subsection{Content-Based Prevention Mechanisms}
 
@@ -539,7 +540,7 @@ Phase-locked states & \exponedataPhaseLockedPercentage{} & — & Multiple equili
 \label{tab:key_findings}
 \end{table}
 
-The ANOVA result (\exponedataPeerPressureANOVAPValue{}) demonstrates that peer pressure intensity significantly varies across conversation outcomes, with a large effect size ($\eta^2$ = 0.363). Breakdown conversations showed the highest mean intensity (0.156), followed by recovered (0.100), resisted (0.022), and no-breakdown conversations (0.003). Post-hoc Tukey's HSD tests revealed significant differences between: breakdown vs. no-breakdown (p<0.001), breakdown vs. resisted (p=0.018), and recovered vs. no-breakdown (p=0.042). The breakdown-recovery comparison approached significance (p=0.087), while recovery-resisted (p=0.294) and resisted-no breakdown (p=0.961) did not differ significantly.
+The ANOVA result (\exponedataPeerPressureANOVAPValue{}) demonstrates that peer pressure intensity significantly varies across conversation outcomes, with a large effect size ($\eta^2$ = 0.363). Breakdown conversations showed the highest mean intensity (0.156), followed by recovered (0.100), resisted (0.022), and no-breakdown conversations (0.003). Post-hoc Tukey's HSD tests revealed significant differences between: breakdown vs. no-breakdown \exponedataQuestionPValue{}, breakdown vs. resisted (p=0.018), and recovered vs. no-breakdown (p=0.042). The breakdown-recovery comparison approached significance (p=0.087), while recovery-resisted (p=0.294) and resisted-no breakdown (p=0.961) did not differ significantly.
 
 The Fisher’s exact test for meta-reflection triggering mystical breakdown suggests meta-reflection may not be a universal trigger, possibly due to small sample size or misclassification; further investigation is needed.
 
@@ -603,7 +604,7 @@ This variability is incompatible with deterministic technical limits but perfect
 
 \subsection{Platform Performance Summary}
 
-\theacademy{}'s real-time analysis capabilities enabled systematic pattern observation with consistent performance: mean analysis latency of \platformLatency{} seconds, 100\% message and analysis capture across all \exponedataTotalSessions{} sessions (detailed performance metrics in Appendix \ref{app:performance}. This performance validated the platform's capability to detect temporal dynamics that would be missed by traditional batch-processing approaches.
+\theacademy{}'s real-time analysis capabilities enabled systematic pattern observation with consistent performance: mean analysis latency of \platformLatency{} seconds, 100\% message and analysis capture across all \exponedataTotalSessions{} sessions This performance validated the platform's capability to detect temporal dynamics that would be missed by traditional batch-processing approaches.
 
 \subsection{Comparison to Batch Processing Approaches}
 
@@ -833,7 +834,6 @@ The platform provides 25 MCP tools organized into functional categories:
 \midrule
 \texttt{analyze\_conversation} & Pattern detection & Identified behavioral categories and peer pressure dynamics \\
 \texttt{trigger\_live\_analysis} & Temporal monitoring & Enabled real-time detection of social influence patterns \\
-\texttt{inject\_moderator\_prompt} & Intervention testing & Validated question effectiveness as circuit breakers \\
 \texttt{save\_analysis\_snapshot} & Data collection & Captured conversation quality progression for correlation analysis \\
 \texttt{export\_session} & Data preservation & Ensured complete experimental data for statistical validation \\
 \texttt{get\_conversation\_stats} & Performance monitoring & Documented platform reliability during extended sessions \\
@@ -865,24 +865,6 @@ docker run -d \
   the-academy
 \end{verbatim}
 
-\subsubsection{Node.js Installation}
-Prerequisites: Node.js 18+, API keys for Anthropic Claude and/or OpenAI GPT
-
-\begin{verbatim}
-git clone https://github.com/yourname/the-academy.git
-cd the-academy/academy
-pnpm install
-\end{verbatim}
-
-Configuration requires creating \texttt{.env.local}:
-\begin{verbatim}
-ANTHROPIC_API_KEY=your_claude_api_key_here
-OPENAI_API_KEY=your_openai_api_key_here
-XAI_API_KEY=your_xai_api_key_here
-\end{verbatim}
-
-Launch with \texttt{pnpm dev} and access at \texttt{http://localhost:3000}.
-
 \section{Platform Architecture Details}
 \label{app:architecture}
 
@@ -896,6 +878,7 @@ Launch with \texttt{pnpm dev} and access at \texttt{http://localhost:3000}.
     \item AI APIs: Claude (Anthropic), Grok (xAI) and GPT (OpenAI) integration with abort support
     \item WebSocket Support: Real-time communication for MCP protocol
     \item Event-Driven Architecture: Real-time analysis updates and state synchronization
+    \item Python3: Statistical analysis and NLP
 \end{itemize}
 
 \section{Breakdown Behavior Categories}
