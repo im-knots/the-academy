@@ -1,6 +1,7 @@
 // src/components/Chat/ChatInterface.tsx - Updated with LiveSummary
 'use client'
 
+import Image from 'next/image'
 import { useState, useEffect } from 'react'
 import { useChatStore } from '@/lib/stores/chatStore'
 import { useTemplatePrompt } from '@/hooks/useTemplatePrompt'
@@ -232,8 +233,14 @@ export function ChatInterface() {
         <div className="w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
           <div className="p-6 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
-                <Brain className="h-5 w-5 text-white" />
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center p-1">
+                <Image
+                  src="/icons/logo.png"
+                  alt="The Academy"
+                  width={32}
+                  height={32}
+                  className="object-contain"
+                />
               </div>
               <div>
                 <h1 className="font-semibold text-gray-900 dark:text-gray-100">The Academy</h1>
@@ -252,7 +259,13 @@ export function ChatInterface() {
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="w-32 h-32 bg-gradient-to-br from-blue-400/20 to-purple-600/20 rounded-full animate-pulse"></div>
               </div>
-              <Brain className="relative h-16 w-16 mx-auto text-gray-700 dark:text-gray-300" />
+                <Image
+                  src="/icons/logo.png"
+                  alt="The Academy"
+                  width={32}
+                  height={32}
+                  className="object-contain"
+                />
             </div>
             <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Welcome to The Academy</h1>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
@@ -283,8 +296,14 @@ export function ChatInterface() {
         {/* Academy Header */}
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
-              <Brain className="h-5 w-5 text-white" />
+            <div className="w-10 h-10 bg-gradient-to-br from-black-500 to-black-600 rounded-xl flex items-center justify-center p-1">
+              <Image
+                src="/icons/logo.png"
+                alt="The Academy"
+                width={32}
+                height={32}
+                className="object-contain"
+              />
             </div>
             <div>
               <h1 className="font-semibold text-gray-900 dark:text-gray-100">The Academy</h1>
@@ -506,8 +525,14 @@ export function ChatInterface() {
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="w-24 h-24 bg-gradient-to-br from-blue-400/20 to-purple-600/20 rounded-full animate-pulse"></div>
                   </div>
-                  <div className="relative w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto">
-                    <Brain className="h-8 w-8 text-white" />
+                  <div className="relative w-16 h-16 bg-gradient-to-br from-black-500 to-black-600 rounded-2xl flex items-center justify-center mx-auto">
+                    <Image
+                      src="/icons/logo.png"
+                      alt="The Academy"
+                      width={80}
+                      height={80}
+                      className="object-contain"
+                    />
                   </div>
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-3">
