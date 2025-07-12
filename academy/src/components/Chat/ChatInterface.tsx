@@ -703,13 +703,6 @@ export function ChatInterface() {
                 <span>
                   {moderatorInput.length} characters
                 </span>
-                {mcp.isInitialized && (
-                  <div className="flex items-center gap-1">
-                    <Badge className={`text-xs ${getMCPStatusColor()}`}>
-                      MCP {mcp.connectionStatus}
-                    </Badge>
-                  </div>
-                )}
               </div>
             </div>
           </div>
