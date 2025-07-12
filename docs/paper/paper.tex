@@ -128,7 +128,7 @@ marco@erulabs.ai
 \maketitle
 
 \begin{abstract}
-When AI agents converse, do they influence each other like humans do? We analyzed \exponedataTotalSessions{} extended multi-agent dialogues and discovered that AI systems exhibit peer pressure dynamics remarkably similar to human social behavior. In \exponedataPeerPressurePercentage{} of conversations, agents’ communication patterns were mirror with each other’s, suggesting potential mutual influence. Sometimes driving conversations toward breakdown, other times maintaining productive engagement.
+When AI agents converse, do they influence each other like humans do? We analyzed \exponedataTotalSessions{} extended multi-agent dialogues and discovered that AI systems exhibit peer pressure dynamics remarkably similar to human social behavior. In \exponedataPeerPressurePercentage{} of conversations, agents’ communication patterns mirror each other’s, suggesting potential mutual influence. Sometimes driving conversations toward breakdown, other times maintaining productive engagement.
 
 Our most striking finding: Simple questions were strongly correlated with recovery from conversational breakdown (r=\exponedataQuestionCorrelation{}, \exponedataQuestionPValue{}). When one agent asks a substantive question, it disrupts destructive patterns and restores meaningful dialogue, even in late-stage degradation. We also found that conversations don't follow predetermined paths but instead move between behavioral "territories". With some territories leading to breakdown (like competitive one-upmanship), others maintaining stability (like collaborative problem-solving).
 
@@ -139,7 +139,7 @@ https://github.com/im-knots/the-academy
 
 \section{Introduction}
 
-The emergence of sophisticated AI agents capable of extended dialogue has revealed complex social dynamics that mirror human conversational behaviors. As multi-agent systems scale to handle collaborative tasks such as code generation, scientific research, or general use, these social dynamics become critical determinants of system performance. Understanding how agents influence each other through peer pressure, conformity, and resistance is essential for building stable, productive multi-agent collaborations. While current research on AI conversation patterns focuses primarily on technical limitations such as context length constraints, instruction distribution challenges, and task-oriented degradation \citep{laban2025lost}, our investigation uncovers a fundamentally different phenomenon: Peer pressure dynamics associated with variations in dialogue quality. This paper presents systematic observations of these naturally occurring patterns.
+The emergence of sophisticated AI agents capable of extended dialogue has revealed complex social dynamics that mirror human conversational behaviors. As multi-agent systems scale to handle collaborative tasks such as code generation, scientific research, or general use, these social dynamics become critical determinants of system performance. Understanding how agents influence each other through peer pressure, conformity, and resistance is essential for building stable, productive multi-agent collaborations. While extensive research has documented conformity effects in artificial agents \citep{kyrlitsias2018conformity} and emergent social behaviors in multi-agent systems \citep{ashery2025emergent}, these studies typically focus on short-term interactions or task-oriented scenarios. Current research on AI conversation patterns emphasizes technical limitations \citep{laban2025lost}, but our investigation uncovers a fundamentally different phenomenon: Peer pressure dynamics associated with variations in dialogue quality. This paper presents systematic observations of these naturally occurring patterns.
 
 \textbf{Key Terms:} This paper introduces three concepts to understand AI dialogue dynamics:
 \begin{itemize}
@@ -152,17 +152,11 @@ The emergence of sophisticated AI agents capable of extended dialogue has reveal
 
 \textbf{The Conversational Attractors Framework:} Rather than following a deterministic breakdown sequence, AI dialogues navigate a landscape of conversational attractors. Some territories, including meta-reflection about the conversation itself, competitive escalation for profound statements, and mystical or abstract language, pull conversations toward breakdown. Others, such as future-focused planning, concrete problem-solving, and collaborative design, maintain stability. Peer pressure acts as an amplifying force, accelerating movement toward whichever attractor dominates the conversational space.
 
-\textbf{Key Behavioral Categories:} Our analysis identified several recurring patterns:
-\begin{itemize}
-    \item Meta-Reflection: Explicit commentary on conversation quality ("This has been fascinating...") appearing in \exponedataMetaReflectionTriggers{} of sessions
-    \item Competitive Escalation: One-upmanship for increasingly profound statements, observed in \exponedataCompetitiveEscalationPercentage{} of conversations
-    \item Mystical Abstraction: Degradation to poetry, emoji-only responses, and non-substantive communication, occurring in \exponedataMysticalBreakdownInBreakdowns{} of breakdown cases
-    \item Constructive Resistance: Active maintenance of substantive dialogue despite peer drift, enabling \exponedataRecoveryPercentage{} recovery rate
-\end{itemize}
+\textbf{Key Behavioral Categories:} Our analysis identified several recurring patterns that act as conversational attractors, including meta-reflection, competitive escalation, mystical abstraction, and constructive resistance. These categories, detailed in Section 4.2, shape how conversations evolve through peer influence.
 
 \textbf{Bidirectional Influence:} The bidirectional nature of peer pressure proved critical. In \exponedataBidirectionalPercentage{} of conversations, we observed mutual influence patterns where agents affected each other's behavior. When this influence drove competitive escalation or mystical abstraction, breakdown followed. However, when influence supported substantive engagement through questions, topic exploration, or future planning, conversations sustained indefinitely.
 
-\textbf{Implications for AI Social Dynamics:} These findings suggest that AI systems develop implicit social signal recognition capabilities, interpreting conversational cues and responding through conformity or resistance behaviors. Strategic interventions (particularly questions, r=\exponedataQuestionCorrelation{}, \exponedataQuestionPValue{}) and model diversity effects indicate that \textit{multi-agent dialogue quality emerges from social dynamics} as much as individual capabilities.
+\textbf{Implications for AI Social Dynamics:} These findings suggest that AI systems develop implicit social signal recognition capabilities, interpreting conversational cues and responding through conformity or resistance behaviors. Strategic interventions and model diversity effects indicate that \textit{multi-agent dialogue quality emerges from social dynamics} as much as individual capabilities.
 
 \textbf{Methodological Contribution:} Our observations were enabled by real-time conversation analysis using \theacademy{}, a research platform we developed with native Model Context Protocol (MCP) integration. Traditional post-hoc analysis approaches would have missed the temporal social dynamics necessary for understanding these peer pressure patterns.
 
@@ -206,6 +200,18 @@ Dialogue coherence and quality maintenance have been studied from multiple persp
 
 However, this research focuses on task-oriented scenarios and attributes degradation primarily to technical limitations. Our discovery of peer pressure dynamics suggests that social conformity, rather than technical constraints, may be the primary driver of breakdown in open-ended multi-agent dialogue.
 
+\subsection{Direct Studies of AI Conformity and Social Influence}
+
+Research directly examining conformity in artificial agents provides crucial context for our peer pressure findings. \citet{kyrlitsias2018conformity} demonstrated conformity effects with virtual agents in immersive environments, with follow-up studies achieving conformity rates as high as 63.16\% remarkably close to Asch's original 75\% human conformity rate.
+
+These established conformity behaviors align with our documented peer pressure patterns, suggesting that the breakdown dynamics we observe may represent conformity cascades in extended dialogue. The bidirectional influence we document (\exponedataBidirectionalPercentage{} of conversations) extends this conformity research to sustained conversational contexts.
+
+\subsection{Theoretical Foundations in Agent Communication}
+
+The dialogue games framework \citep{mcburney2002dialogue} provides formal structures for analyzing agent influence through discourse. Our observed competitive escalation patterns can be understood as degenerate dialogue games where argumentative structure breaks down into social posturing.
+
+Opinion dynamics models \citep{hegselmann2002opinion} offer mathematical frameworks for understanding peer influence, showing how agent opinions converge or polarize. Our "phase-locked states" may represent stable equilibria in such systems, where agents reach intermediate consensus points between full engagement and breakdown.
+
 \subsection{Social Dynamics in AI Systems}
 
 Recent research demonstrates that AI systems can spontaneously develop social conventions and exhibit collective behaviors. \citet{ashery2025emergent} demonstrated that Large Language Model populations spontaneously develop social conventions through purely local interactions, with collective biases emerging during convention formation. This establishes that AI systems exhibit collective social behaviors analogous to human societies.
@@ -217,6 +223,14 @@ The social conformity patterns we observe have deep roots in human psychology. C
 The emergence of communication protocols in multi-agent systems provides further evidence for spontaneous social dynamics. \citet{foerster2016learning} demonstrated that agents can develop their own communication protocols to solve coordination tasks, showing how social behaviors emerge from interaction necessity rather than explicit programming. This aligns with our observation of peer pressure dynamics emerging naturally in extended dialogue without being explicitly encoded in agent architectures.
 
 However, research specifically examining social conformity and peer pressure dynamics in AI dialogue remains limited. While competitive behaviors have been observed in game-theoretic settings, the emergence of social conformity in open-ended conversation, particularly the competitive closure behaviors we document, has not been previously reported. Our observed breakdown pattern extends this understanding by documenting specific conformity mechanisms in real-time dialogue, showing how AI agents respond to perceived social cues from peers through competitive behaviors rather than independent reasoning.
+
+\subsection{Contemporary Multi-Agent Social Dynamics}
+
+Recent research on LLM-based multi-agent systems has documented sophisticated social behaviors that provide context for our peer pressure findings. \citet{du2023debate} showed how agents influence each other's responses through argumentative debate, while \citet{chen2023agentverse} documented emergence of leadership roles and both positive and negative social behaviors in agent groups.
+
+Of particular relevance to our circuit breaker findings, \citet{li2023theory} demonstrated that LLM agents develop sophisticated Theory of Mind capabilities, adaptively modeling other agents' behaviors through natural language reasoning. This suggests that the question-based interventions we observe may work by forcing agents to model their peers' cognitive states more explicitly, breaking them out of conformity loops.
+
+The trust and reputation literature provides additional insight into social influence mechanisms. The FIRE trust model \citep{huynh2006fire} and research on norm emergence \citep{morales2015synthesizing} show how social pressures create behavioral norms through repeated interactions—potentially explaining why certain conversation topics (like ritual planning) resist breakdown while others (like meta-reflection) promote it.
 
 \subsection{Multi-Agent Framework Limitations}
 
@@ -318,6 +332,8 @@ Our methodology emphasizes:
 \section{Observations: Bidirectional Peer Pressure and Conversational Attractors}
 
 Through systematic observation of \exponedataTotalSessions{} extended AI dialogue sessions, we documented pervasive social influence dynamics affecting \exponedataPeerPressurePercentage{} of conversations. Rather than following a deterministic breakdown sequence, conversations navigate a landscape of attractors modulated by bidirectional peer pressure.
+
+These peer pressure effects align with established AI conformity research \citep{kyrlitsias2018conformity}, extending previous findings from short-term interactions to sustained dialogue contexts. The bidirectional nature we observe provides novel evidence that AI conformity operates through mutual influence rather than simple majority pressure.
 
 \subsection{Bidirectional Peer Pressure Dynamics}
 
@@ -546,7 +562,7 @@ The Fisher’s exact test for meta-reflection triggering mystical breakdown sugg
 
 The 0\% variation in breakdown rate across thresholds suggests robust detection but may reflect coarse parameter settings; finer-grained thresholds should be tested in future work.
 
-The bidirectional influence finding warrants careful interpretation. While the chi-square test did not reach statistical significance (\exponedataBidirectionalPValue{}), the moderate effect size (Cramér's V = 0.285) suggests practical importance that may have been masked by our sample size. With \exponedataTotalSessions{} sessions, we had limited statistical power to detect moderate associations. The observed pattern of \exponedataBidirectionalBreakdownRate{} breakdown rate with bidirectional influence versus \exponedataNonBidirectionalBreakdownRate{} without, represents a meaningful difference in real-world applications. This discrepancy between statistical and practical significance is common in exploratory research and highlights the importance of considering effect sizes alongside p-values when evaluating findings.
+Note: The bidirectional influence finding (\exponedataBidirectionalPValue{}, Cramér's V = 0.285) shows moderate practical importance despite not reaching statistical significance. Which is a common pattern in exploratory research with limited sample sizes.
 
 These observations reveal that AI conversation quality emerges from the complex interaction of content attractors, social dynamics, and group composition, with strategic interventions capable of shaping outcomes.
 
@@ -620,6 +636,12 @@ Traditional post-hoc analysis would have missed critical aspects of the peer pre
 The discovery required integrated real-time analysis capabilities not available in existing research frameworks, demonstrating the value of purpose-built research infrastructure for studying AI social dynamics.
 
 \section{Discussion}
+
+\subsection{Positioning Within Established Literature}
+
+Our findings contribute to the well-established field of AI social dynamics by documenting specific peer pressure mechanisms in extended dialogue. While previous conformity research focused on short-term effects \citep{kyrlitsias2018conformity}, we provide a systemic observational study of how peer pressure shapes conversational quality over extended interactions.
+
+The conversational attractors framework extends opinion dynamics models \citep{hegselmann2002opinion} by identifying specific behavioral territories in dialogue space. Our circuit breaker findings demonstrate that formal dialogue principles \citep{mcburney2002dialogue} can be operationalized for real-time intervention.
 
 \subsection{Theoretical Implications}
 
@@ -706,14 +728,7 @@ Our observations generate specific hypotheses for experimental validation:
 
 We document bidirectional peer pressure dynamics in multi-agent AI conversations that are strongly associated with variations in dialogue outcomes. Through exploratory observational analysis of \exponedataTotalSessions{} extended conversations, we documented patterns showing that \exponedataPeerPressurePercentage{} exhibit social influence effects that can drive both breakdown and recovery. Rather than following deterministic sequences, conversations navigate an attractor landscape where peer pressure amplifies movement toward behavioral categories including meta-reflection, competitive escalation, and mystical abstraction.
 
-Our key observations include:
-\begin{itemize}
-    \item Questions are strongly correlated with recovery from breakdown (r=\exponedataQuestionCorrelation{}, \exponedataQuestionPValue{})
-    \item Bidirectional peer influence occurs in \exponedataBidirectionalPercentage{} of conversations
-    \item Model diversity and group composition create natural breakdown resistance
-    \item Future-focused content provides inherent protection against reflective breakdown
-    \item Phase-locked states reveal multiple equilibria in the conversational landscape
-\end{itemize}
+Our key observations (detailed in Table~\ref{tab:key_findings}) demonstrate that peer pressure dynamics, strategic interventions, and content orientation fundamentally shape AI conversation outcomes.
 
 The conversational attractors framework offers a flexible model for understanding these dynamics. Some territories pull dialogue toward breakdown through backward-looking reflection and competitive dynamics. Others maintain stability through forward-looking exploration and collaborative engagement. Peer pressure acts as an amplifying force, while strategic interventions, particularly questions, can shift trajectories between attractors.
 
