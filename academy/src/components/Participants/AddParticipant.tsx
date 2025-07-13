@@ -15,9 +15,19 @@ interface AddParticipantProps {
   onClose: () => void
 }
 
+const typeNames: Record<string, string> = {
+  claude: 'Claude',
+  gpt: 'GPT',
+  grok: 'Grok',
+  gemini: 'Gemini',
+  ollama: 'Ollama',
+  deepseek: 'DeepSeek',
+  mistral: 'Mistral'
+}
+
 export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
   const { addParticipant, currentSession } = useChatStore()
-  const [selectedType, setSelectedType] = useState<'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama' | null>(null)
+  const [selectedType, setSelectedType] = useState<'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama' | 'deepseek' | 'mistral' | null>(null)
   const [name, setName] = useState('')
   const [customSettings, setCustomSettings] = useState({
     temperature: 0.7,
@@ -83,6 +93,24 @@ export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
       { value: 'qwen2.5', label: 'Qwen 2.5' },
       { value: 'gemma2', label: 'Gemma 2' },
       { value: 'custom', label: 'Custom Model (Enter name)' }
+    ],
+    deepseek: [
+      { value: 'deepseek-chat', label: 'DeepSeek Chat (V3)' },
+      { value: 'deepseek-reasoner', label: 'DeepSeek Reasoner (R1)' },
+      { value: 'deepseek-coder', label: 'DeepSeek Coder' },
+    ],
+    mistral: [
+      { value: 'mistral-large-latest', label: 'Mistral Large (Latest)' },
+      { value: 'mistral-medium-latest', label: 'Mistral Medium (Latest)' },
+      { value: 'mistral-small-latest', label: 'Mistral Small (Latest)' },
+      { value: 'open-mixtral-8x22b', label: 'Mixtral 8x22B' },
+      { value: 'open-mixtral-8x7b', label: 'Mixtral 8x7B' },
+      { value: 'open-mistral-7b', label: 'Mistral 7B' },
+      { value: 'open-mistral-nemo', label: 'Mistral Nemo' },
+      { value: 'codestral-latest', label: 'Codestral (Latest)' },
+      { value: 'ministral-8b-2410', label: 'Ministral 8B' },
+      { value: 'ministral-3b-2410', label: 'Ministral 3B' },
+      { value: 'pixtral-large-2411', label: 'Pixtral Large' },
     ]
   }
 
@@ -116,6 +144,18 @@ export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
       name: 'Ollama',
       description: 'Run open-source models locally',
       badge: 'ollama'
+    },
+    {
+      type: 'deepseek' as const,
+      name: 'DeepSeek',
+      description: 'Specialized AI for coding and reasoning tasks',
+      badge: 'deepseek'
+    },
+    {
+      type: 'mistral' as const,
+      name: 'Mistral',
+      description: 'Efficient AI models with strong multilingual capabilities',
+      badge: 'mistral'
     }
   ]
 
@@ -123,12 +163,7 @@ export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
     if (!selectedType) return
 
     const participantName = name.trim() || 
-      `${selectedType === 'claude' ? 'Claude' : 
-        selectedType === 'gpt' ? 'GPT' : 
-        selectedType === 'grok' ? 'Grok' : 
-        selectedType === 'gemini' ? 'Gemini' : 
-        selectedType === 'ollama' ? 'Ollama' : 
-        'AI Agent'} ${(currentSession?.participants.length || 0) + 1}`
+      `${typeNames[selectedType] || 'AI Agent'} ${(currentSession?.participants.length || 0) + 1}`
 
     const newParticipant: Omit<Participant, 'id' | 'joinedAt' | 'messageCount'> = {
       name: participantName,
@@ -244,14 +279,7 @@ export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder={`${
-                      selectedType === 'claude' ? 'Claude' : 
-                      selectedType === 'gpt' ? 'GPT' : 
-                      selectedType === 'grok' ? 'Grok' : 
-                      selectedType === 'gemini' ? 'Gemini' : 
-                      selectedType === 'ollama' ? 'Ollama' :
-                      'AI Agent'
-                    } ${(currentSession?.participants.length || 0) + 1}`}
+                    placeholder={`${typeNames[selectedType] || 'AI Agent'} ${(currentSession?.participants.length || 0) + 1}`}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>

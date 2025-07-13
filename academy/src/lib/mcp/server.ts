@@ -89,7 +89,7 @@ export class MCPServer {
     operation: () => Promise<T>,
     config: Partial<RetryConfig> = {},
     context: {
-      provider: 'claude' | 'openai' | 'grok' | 'gemini' | 'ollama';
+      provider: 'claude' | 'openai' | 'grok' | 'gemini' | 'ollama' | 'deepseek' | 'mistral';
       operationName: string;
       sessionId?: string;
       participantId?: string;
@@ -458,6 +458,42 @@ export class MCPServer {
             participantId: { type: 'string', description: 'Participant ID for error tracking' },
             ollamaUrl: { type: 'string', description: 'Ollama server URL', default: 'http://localhost:11434' }
           }
+        }
+      },
+      {
+        name: 'deepseek_chat',
+        description: 'Send a message to Deepseek with direct API integration',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            message: { type: 'string', description: 'Message to send to Deepseek' },
+            messages: { type: 'array', description: 'Messages array for Deepseek API' },
+            systemPrompt: { type: 'string', description: 'Optional system prompt' },
+            model: { type: 'string', description: 'Deepseek model to use' },
+            sessionId: { type: 'string', description: 'Optional session ID for context' },
+            participantId: { type: 'string', description: 'Optional participant ID' },
+            temperature: { type: 'number', description: 'Temperature for response generation' },
+            maxTokens: { type: 'number', description: 'Maximum tokens for response' }
+          },
+          required: []
+        }
+      },
+      {
+        name: 'mistral_chat',
+        description: 'Send a message to Mistral with direct API integration',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            message: { type: 'string', description: 'Message to send to Mistral' },
+            messages: { type: 'array', description: 'Messages array for Mistral API' },
+            systemPrompt: { type: 'string', description: 'Optional system prompt' },
+            model: { type: 'string', description: 'Mistral model to use' },
+            sessionId: { type: 'string', description: 'Optional session ID for context' },
+            participantId: { type: 'string', description: 'Optional participant ID' },
+            temperature: { type: 'number', description: 'Temperature for response generation' },
+            maxTokens: { type: 'number', description: 'Maximum tokens for response' }
+          },
+          required: []
         }
       },
 
@@ -985,6 +1021,12 @@ export class MCPServer {
           break
         case 'ollama_chat':
           result = await this.callOllamaAPIDirect(args)
+          break
+        case 'deepseek_chat':
+          result = await this.callDeepseekAPIDirect(args)
+          break
+        case 'mistral_chat':
+          result = await this.callMistralAPIDirect(args)
           break
         case 'debug_store':
           result = await this.toolDebugStore()
@@ -1745,6 +1787,228 @@ export class MCPServer {
       {
         provider: 'ollama',
         operationName: 'ollama_chat',
+        sessionId,
+        participantId
+      }
+    );
+  }
+
+  private async callDeepseekAPIDirect(args: any): Promise<any> {
+    const { 
+      message, 
+      messages, 
+      systemPrompt, 
+      model = 'deepseek-chat', 
+      sessionId, 
+      participantId,
+      temperature = 0.7,
+      maxTokens = 2000
+    } = args;
+    
+    console.log('🔧 Using direct Deepseek API call with retry logic');
+    
+    return this.retryWithBackoff(
+      async () => {
+        // Handle both parameter formats
+        let processedMessages: any[];
+        
+        if (messages && Array.isArray(messages)) {
+          processedMessages = messages;
+        } else if (message && typeof message === 'string') {
+          processedMessages = [{ role: 'user', content: message }];
+          
+          // Add system prompt if provided
+          if (systemPrompt) {
+            processedMessages.unshift({ role: 'system', content: systemPrompt });
+          }
+        } else {
+          throw new Error('No valid message or messages provided to Deepseek API');
+        }
+        
+        if (!processedMessages || processedMessages.length === 0) {
+          throw new Error('Empty messages provided to Deepseek API');
+        }
+        
+        const apiKey = process.env.DEEPSEEK_API_KEY;
+        if (!apiKey) {
+          throw new Error('Deepseek API key not configured');
+        }
+        
+        // Filter out empty messages and ensure proper format
+        const validMessages = processedMessages.filter(msg => 
+          msg && msg.content && typeof msg.content === 'string' && msg.content.trim()
+        );
+
+        if (validMessages.length === 0) {
+          throw new Error('No valid messages provided');
+        }
+
+        const requestBody = {
+          model: model,
+          messages: validMessages,
+          temperature: Math.max(0, Math.min(2, temperature)),
+          max_tokens: Math.min(maxTokens, 4000)
+        };
+
+        console.log('🤖 Calling Deepseek API:', { 
+          model, 
+          messageCount: validMessages.length,
+          temperature,
+          maxTokens: requestBody.max_tokens
+        });
+
+        const response = await fetch('https://api.deepseek.com/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          },
+          body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          const error = new Error(`Deepseek API error: ${response.status} - ${errorText}`);
+          (error as any).status = response.status;
+          throw error;
+        }
+
+        const data = await response.json();
+        
+        if (!data.choices || !Array.isArray(data.choices) || data.choices.length === 0) {
+          throw new Error('Invalid response format from Deepseek');
+        }
+
+        const content = data.choices[0]?.message?.content;
+        if (!content) {
+          throw new Error('No content in Deepseek response');
+        }
+        
+        return {
+          success: true,
+          provider: 'deepseek',
+          model: data.model,
+          content: content,
+          response: content,
+          usage: data.usage,
+          message: 'Deepseek API call completed successfully'
+        };
+      },
+      {}, // Use default retry config
+      {
+        provider: 'deepseek',
+        operationName: 'deepseek_chat',
+        sessionId,
+        participantId
+      }
+    );
+  }
+
+  private async callMistralAPIDirect(args: any): Promise<any> {
+    const { 
+      message, 
+      messages, 
+      systemPrompt, 
+      model = 'mistral-large-latest', 
+      sessionId, 
+      participantId,
+      temperature = 0.7,
+      maxTokens = 2000
+    } = args;
+    
+    console.log('🔧 Using direct Mistral API call with retry logic');
+    
+    return this.retryWithBackoff(
+      async () => {
+        // Handle both parameter formats
+        let processedMessages: any[];
+        
+        if (messages && Array.isArray(messages)) {
+          processedMessages = messages;
+        } else if (message && typeof message === 'string') {
+          processedMessages = [{ role: 'user', content: message }];
+          
+          // Add system prompt if provided
+          if (systemPrompt) {
+            processedMessages.unshift({ role: 'system', content: systemPrompt });
+          }
+        } else {
+          throw new Error('No valid message or messages provided to Mistral API');
+        }
+        
+        if (!processedMessages || processedMessages.length === 0) {
+          throw new Error('Empty messages provided to Mistral API');
+        }
+        
+        const apiKey = process.env.MISTRAL_API_KEY;
+        if (!apiKey) {
+          throw new Error('Mistral API key not configured');
+        }
+        
+        // Filter out empty messages and ensure proper format
+        const validMessages = processedMessages.filter(msg => 
+          msg && msg.content && typeof msg.content === 'string' && msg.content.trim()
+        );
+
+        if (validMessages.length === 0) {
+          throw new Error('No valid messages provided');
+        }
+
+        const requestBody = {
+          model: model,
+          messages: validMessages,
+          temperature: Math.max(0, Math.min(2, temperature)),
+          max_tokens: Math.min(maxTokens, 4000)
+        };
+
+        console.log('🤖 Calling Mistral API:', { 
+          model, 
+          messageCount: validMessages.length,
+          temperature,
+          maxTokens: requestBody.max_tokens
+        });
+
+        const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          },
+          body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          const error = new Error(`Mistral API error: ${response.status} - ${errorText}`);
+          (error as any).status = response.status;
+          throw error;
+        }
+
+        const data = await response.json();
+        
+        if (!data.choices || !Array.isArray(data.choices) || data.choices.length === 0) {
+          throw new Error('Invalid response format from Mistral');
+        }
+
+        const content = data.choices[0]?.message?.content;
+        if (!content) {
+          throw new Error('No content in Mistral response');
+        }
+        
+        return {
+          success: true,
+          provider: 'mistral',
+          model: data.model,
+          content: content,
+          response: content,
+          usage: data.usage,
+          message: 'Mistral API call completed successfully'
+        };
+      },
+      {}, // Use default retry config
+      {
+        provider: 'mistral',
+        operationName: 'mistral_chat',
         sessionId,
         participantId
       }

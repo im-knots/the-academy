@@ -1319,6 +1319,52 @@ export function useMCP(): MCPHook {
     }
   }, [])
 
+  const callDeepseekViaMCP = useCallback(async (message: string, systemPrompt?: string, model?: string, sessionId?: string, participantId?: string) => {
+    if (!clientRef.current) throw new Error('MCP client not initialized')
+    
+    try {
+      const result = await clientRef.current.callDeepseekViaMCP(
+        message, 
+        systemPrompt || undefined, 
+        model || undefined, 
+        sessionId || undefined, 
+        participantId || undefined
+      )
+      return result
+    } catch (error) {
+      console.error('Failed to call Deepseek via MCP:', error)
+      setState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Failed to call OpenAI',
+        lastUpdate: new Date()
+      }))
+      throw error
+    }
+  }, [])
+
+  const callMistralViaMCP = useCallback(async (message: string, systemPrompt?: string, model?: string, sessionId?: string, participantId?: string) => {
+    if (!clientRef.current) throw new Error('MCP client not initialized')
+    
+    try {
+      const result = await clientRef.current.callMistralViaMCP(
+        message, 
+        systemPrompt || undefined, 
+        model || undefined, 
+        sessionId || undefined, 
+        participantId || undefined
+      )
+      return result
+    } catch (error) {
+      console.error('Failed to call Mistral via MCP:', error)
+      setState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Failed to call OpenAI',
+        lastUpdate: new Date()
+      }))
+      throw error
+    }
+  }, [])
+
   // ========================================
   // DEBUG METHODS
   // ========================================
@@ -1421,6 +1467,8 @@ export function useMCP(): MCPHook {
     callGrokViaMCP,
     callGeminiViaMCP,
     callOllamaViaMCP,
+    callDeepseekViaMCP,
+    callMistralViaMCP,
     
     // Debug Methods
     debugStoreViaMCP,
