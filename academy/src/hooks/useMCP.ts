@@ -1295,6 +1295,30 @@ export function useMCP(): MCPHook {
     }
   }, [])
 
+  const callOllamaViaMCP = useCallback(async (message: string, systemPrompt?: string, model?: string, ollamaUrl?: string, sessionId?: string, participantId?: string) => {
+    if (!clientRef.current) throw new Error('MCP client not initialized')
+    
+    try {
+      const result = await clientRef.current.callOllamaViaMCP(
+        message, 
+        systemPrompt || undefined, 
+        model || undefined,
+        ollamaUrl || undefined,
+        sessionId || undefined, 
+        participantId || undefined
+      )
+      return result
+    } catch (error) {
+      console.error('Failed to call Ollama via MCP:', error)
+      setState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Failed to call Ollama',
+        lastUpdate: new Date()
+      }))
+      throw error
+    }
+  }, [])
+
   // ========================================
   // DEBUG METHODS
   // ========================================
@@ -1396,6 +1420,7 @@ export function useMCP(): MCPHook {
     callOpenAIViaMCP,
     callGrokViaMCP,
     callGeminiViaMCP,
+    callOllamaViaMCP,
     
     // Debug Methods
     debugStoreViaMCP,

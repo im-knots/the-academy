@@ -87,7 +87,7 @@ export class MCPClient {
   // Log errors to the error tracking system - only log final failures
   private logError(error: any, context: {
     operation: string;
-    provider?: 'claude' | 'gpt' | 'grok' | 'gemini'; // ← Add provider parameter
+    provider?: 'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama'; 
     attempt: number;
     maxAttempts: number;
     sessionId?: string;
@@ -1085,6 +1085,34 @@ export class MCPClient {
       this.syncErrorsWithStore(sessionId, 'gemini') // ← Add provider parameter
       
       throw error
+    }
+  }
+
+  async callOllamaViaMCP(
+    message: string, 
+    systemPrompt?: string, 
+    model?: string, 
+    ollamaUrl?: string,
+    sessionId?: string, 
+    participantId?: string
+  ): Promise<any> {
+    const context = this.getCurrentSessionContext()
+    const result = await this.callTool('ollama_chat', {
+      message,
+      systemPrompt,
+      model: model || 'llama2',
+      ollamaUrl: ollamaUrl || 'http://localhost:11434',
+      temperature: 0.7,
+      maxTokens: 2000,
+      sessionId: sessionId || context.sessionId,
+      participantId: participantId || context.participantId
+    })
+    
+    if (result.success) {
+      console.log(`✅ Ollama response received via MCP (${result.content?.length || 0} chars)`)
+      return result
+    } else {
+      throw new Error('Failed to get Ollama response via MCP')
     }
   }
 

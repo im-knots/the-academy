@@ -17,14 +17,15 @@ interface AddParticipantProps {
 
 export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
   const { addParticipant, currentSession } = useChatStore()
-  const [selectedType, setSelectedType] = useState<'claude' | 'gpt' | 'grok' | 'gemini' | 'human' | null>(null)
+  const [selectedType, setSelectedType] = useState<'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama' | 'human' | null>(null)
   const [name, setName] = useState('')
   const [customSettings, setCustomSettings] = useState({
     temperature: 0.7,
     maxTokens: 1000,
     model: '',
     personality: '',
-    expertise: ''
+    expertise: '',
+    ollamaUrl: 'http://localhost:11434' 
   })
 
   const tokenSteps = [500, 1000, 2000, 4000]
@@ -61,6 +62,27 @@ export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
       { value: 'gemini-2.5-pro-preview-06-05', label: 'Gemini 2.5 Pro Preview' },
       { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
       { value: 'gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite' }
+    ],
+    ollama: [
+      { value: 'llama3.2', label: 'Llama 3.2' },
+      { value: 'llama3.2:1b', label: 'Llama 3.2 1B' },
+      { value: 'llama3.2:3b', label: 'Llama 3.2 3B' },
+      { value: 'llama3.1', label: 'Llama 3.1' },
+      { value: 'llama3.1:8b', label: 'Llama 3.1 8B' },
+      { value: 'llama3.1:70b', label: 'Llama 3.1 70B' },
+      { value: 'llama3.1:405b', label: 'Llama 3.1 405B' },
+      { value: 'llama3', label: 'Llama 3' },
+      { value: 'llama2', label: 'Llama 2' },
+      { value: 'llama2:7b', label: 'Llama 2 7B' },
+      { value: 'llama2:13b', label: 'Llama 2 13B' },
+      { value: 'llama2:70b', label: 'Llama 2 70B' },
+      { value: 'mistral', label: 'Mistral' },
+      { value: 'mixtral', label: 'Mixtral' },
+      { value: 'mixtral:8x7b', label: 'Mixtral 8x7B' },
+      { value: 'phi3', label: 'Phi-3' },
+      { value: 'qwen2.5', label: 'Qwen 2.5' },
+      { value: 'gemma2', label: 'Gemma 2' },
+      { value: 'custom', label: 'Custom Model (Enter name)' }
     ]
   }
 
@@ -90,6 +112,12 @@ export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
       badge: 'gemini'
     },
     {
+      type: 'ollama' as const,
+      name: 'Ollama',
+      description: 'Run open-source models locally',
+      badge: 'ollama'
+    },
+    {
       type: 'human' as const,
       name: 'Human',
       description: 'Add a human participant to the conversation',
@@ -100,7 +128,13 @@ export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
   const handleAdd = () => {
     if (!selectedType) return
 
-    const participantName = name.trim() || `${selectedType === 'claude' ? 'Claude' : selectedType === 'gpt' ? 'GPT' : selectedType === 'grok' ? 'Grok' : selectedType === 'gemini' ? 'Gemini' : 'Human'} ${(currentSession?.participants.length || 0) + 1}`
+    const participantName = name.trim() || 
+      `${selectedType === 'claude' ? 'Claude' : 
+        selectedType === 'gpt' ? 'GPT' : 
+        selectedType === 'grok' ? 'Grok' : 
+        selectedType === 'gemini' ? 'Gemini' : 
+        selectedType === 'ollama' ? 'Ollama' : 
+        'Human'} ${(currentSession?.participants.length || 0) + 1}`
 
     const newParticipant: Omit<Participant, 'id' | 'joinedAt' | 'messageCount'> = {
       name: participantName,
@@ -110,11 +144,14 @@ export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
         temperature: customSettings.temperature,
         maxTokens: customSettings.maxTokens,
         model: selectedType !== 'human' ? (customSettings.model || modelOptions[selectedType]?.[0]?.value) : undefined,
+        ollamaUrl: selectedType === 'ollama' ? customSettings.ollamaUrl : undefined, // New
       },
       characteristics: selectedType !== 'human' ? {
         personality: customSettings.personality || 'Curious and thoughtful',
-        expertise: customSettings.expertise ? [customSettings.expertise] : ['General conversation']
-      } : undefined
+        expertise: customSettings.expertise ? 
+          customSettings.expertise.split(',').map(e => e.trim()) : 
+          ['General knowledge']
+      } : {}
     }
 
     addParticipant(newParticipant)
@@ -127,7 +164,8 @@ export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
       maxTokens: 1000,
       model: '',
       personality: '',
-      expertise: ''
+      expertise: '',
+      ollamaUrl: 'http://localhost:11434'
     })
     
     onClose()
@@ -237,6 +275,23 @@ export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
                         ))}
                       </select>
                     </div>
+                    {selectedType === 'ollama' && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+                          Ollama Server URL
+                        </label>
+                        <input
+                          type="text"
+                          value={customSettings.ollamaUrl}
+                          onChange={(e) => setCustomSettings(prev => ({ ...prev, ollamaUrl: e.target.value }))}
+                          placeholder="http://localhost:11434"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          URL of your local Ollama server
+                        </div>
+                      </div>
+                    )}
                     
                     {/* Temperature and Tokens */}
                     <div className="grid grid-cols-2 gap-4">

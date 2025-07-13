@@ -5,7 +5,7 @@ export interface Message {
   timestamp: Date
   participantId: string
   participantName: string
-  participantType: 'claude' | 'gpt' | 'grok' | 'gemini' | 'human' | 'moderator'
+  type: 'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama' | 'human' | 'moderator'
   isThinking?: boolean
   metadata?: {
     temperature?: number
@@ -22,7 +22,7 @@ export interface AnalysisSnapshot {
   timestamp: Date
   messageCountAtAnalysis: number
   participantCountAtAnalysis: number
-  provider: 'claude' | 'gpt' | 'grok' | 'gemini'
+  provider: 'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama'
   conversationPhase: string
   analysis: {
     mainTopics: string[]
@@ -84,7 +84,7 @@ export interface ConversationThread {
 export interface Participant {
   id: string
   name: string
-  type: 'claude' | 'gpt' | 'grok' | 'gemini' | 'human' | 'moderator'
+  type: 'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama' | 'human' | 'moderator'
   status: 'active' | 'thinking' | 'idle' | 'error' | 'disconnected'
   systemPrompt?: string
   settings: AISettings
@@ -109,6 +109,7 @@ export interface AISettings {
   presencePenalty?: number
   responseDelay?: number
   customInstructions?: string
+  ollamaUrl?: string
 }
 
 export interface ModeratorSettings {
@@ -127,7 +128,7 @@ export interface SystemTemplate {
   category: 'consciousness' | 'creativity' | 'philosophy' | 'analysis' | 'custom'
   prompt: string
   suggestedParticipants: Array<{
-    type: 'claude' | 'gpt' | 'grok' | 'gemini' | 'human'
+    type: 'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama' | 'human'
     name?: string
     settings?: Partial<AISettings>
   }>

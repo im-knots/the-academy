@@ -57,7 +57,7 @@ export interface ConversationContext {
 }
 
 export interface AIProvider {
-  type: 'claude' | 'gpt' | 'grok' | 'gemini' | 'human'
+  type: 'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama' | 'human'
   generateResponse(context: ConversationContext): Promise<string>
   isAvailable(): boolean
 }
@@ -65,7 +65,7 @@ export interface AIProvider {
 export interface APIError {
   id: string;
   timestamp: Date;
-  provider: 'claude' | 'openai' | 'grok' | 'gemini';
+  provider: 'claude' | 'openai' | 'grok' | 'gemini' | 'ollama';
   operation: string;
   attempt: number;
   maxAttempts: number;

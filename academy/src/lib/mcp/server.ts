@@ -89,7 +89,7 @@ export class MCPServer {
     operation: () => Promise<T>,
     config: Partial<RetryConfig> = {},
     context: {
-      provider: 'claude' | 'openai' | 'grok' | 'gemini';
+      provider: 'claude' | 'openai' | 'grok' | 'gemini' | 'ollama';
       operationName: string;
       sessionId?: string;
       participantId?: string;
@@ -429,6 +429,34 @@ export class MCPServer {
             maxTokens: { type: 'number', description: 'Maximum response tokens', default: 2000 },
             sessionId: { type: 'string', description: 'Session ID for error tracking' },
             participantId: { type: 'string', description: 'Participant ID for error tracking' }
+          }
+        }
+      },
+      {
+        name: 'ollama_chat',
+        description: 'Direct Ollama API access for local models with exponential backoff retry',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            message: { type: 'string', description: 'Message to send to Ollama' },
+            messages: { 
+              type: 'array', 
+              description: 'Array of messages for conversation context',
+              items: {
+                type: 'object',
+                properties: {
+                  role: { type: 'string', enum: ['user', 'assistant', 'system'] },
+                  content: { type: 'string' }
+                }
+              }
+            },
+            systemPrompt: { type: 'string', description: 'System prompt for context' },
+            model: { type: 'string', description: 'Ollama model to use', default: 'llama2' },
+            temperature: { type: 'number', description: 'Response creativity (0-1)', default: 0.7 },
+            maxTokens: { type: 'number', description: 'Maximum response tokens', default: 2000 },
+            sessionId: { type: 'string', description: 'Session ID for error tracking' },
+            participantId: { type: 'string', description: 'Participant ID for error tracking' },
+            ollamaUrl: { type: 'string', description: 'Ollama server URL', default: 'http://localhost:11434' }
           }
         }
       },
@@ -954,6 +982,9 @@ export class MCPServer {
           break
         case 'gemini_chat':
           result = await this.callGeminiAPIDirect(args)
+          break
+        case 'ollama_chat':
+          result = await this.callOllamaAPIDirect(args)
           break
         case 'debug_store':
           result = await this.toolDebugStore()
@@ -1608,6 +1639,112 @@ export class MCPServer {
       {
         provider: 'gemini' as const,
         operationName: 'gemini_chat',
+        sessionId,
+        participantId
+      }
+    );
+  }
+
+  private async callOllamaAPIDirect(args: any): Promise<any> {
+    const { 
+      message, 
+      messages, 
+      systemPrompt, 
+      sessionId, 
+      participantId,
+      temperature = 0.7,
+      maxTokens = 2000,
+      model = 'llama2',
+      ollamaUrl = 'http://localhost:11434'
+    } = args;
+    
+    console.log('🦙 Using direct Ollama API call with retry logic');
+    
+    return this.retryWithBackoff(
+      async () => {
+        // Process messages
+        let processedMessages: any[];
+        
+        if (messages && Array.isArray(messages)) {
+          processedMessages = messages;
+        } else if (message && typeof message === 'string') {
+          processedMessages = [{ role: 'user', content: message }];
+          
+          // Add system prompt if provided
+          if (systemPrompt) {
+            processedMessages.unshift({ role: 'system', content: systemPrompt });
+          }
+        } else {
+          throw new Error('No valid message or messages provided to Ollama API');
+        }
+        
+        if (!processedMessages || processedMessages.length === 0) {
+          throw new Error('Empty messages provided to Ollama API');
+        }
+        
+        // Format messages for Ollama API
+        const formattedMessages = processedMessages.map(msg => ({
+          role: msg.role === 'user' ? 'user' : msg.role === 'system' ? 'system' : 'assistant',
+          content: msg.content
+        }));
+
+        const requestBody = {
+          model: model,
+          messages: formattedMessages,
+          stream: false,
+          options: {
+            temperature: Math.max(0, Math.min(1, temperature)),
+            num_predict: maxTokens
+          }
+        };
+
+        console.log('🦙 Calling Ollama API:', { 
+          model, 
+          messageCount: formattedMessages.length,
+          temperature,
+          maxTokens,
+          ollamaUrl
+        });
+
+        const response = await fetch(`${ollamaUrl}/api/chat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          const error = new Error(`Ollama API error: ${response.status} - ${errorText}`);
+          (error as any).status = response.status;
+          throw error;
+        }
+
+        const data = await response.json();
+        
+        if (!data.message || !data.message.content) {
+          throw new Error('Invalid response format from Ollama');
+        }
+        
+        return {
+          success: true,
+          provider: 'ollama',
+          model: data.model || model,
+          content: data.message.content,
+          response: data.message.content,
+          usage: {
+            prompt_tokens: data.prompt_eval_count,
+            completion_tokens: data.eval_count,
+            total_tokens: (data.prompt_eval_count || 0) + (data.eval_count || 0)
+          },
+          message: 'Ollama API call completed successfully'
+        };
+      },
+      {}, // Use default retry config
+      {
+        provider: 'ollama',
+        operationName: 'ollama_chat',
         sessionId,
         participantId
       }
