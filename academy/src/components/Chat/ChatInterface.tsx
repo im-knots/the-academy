@@ -56,7 +56,7 @@ export function ChatInterface() {
 
   const hasMessages = currentSession?.messages && currentSession.messages.length > 0
   const hasParticipants = currentSession?.participants && currentSession.participants.length > 0
-  const hasAIParticipants = (currentSession?.participants || []).filter(p => p.type !== 'human' && p.type !== 'moderator').length >= 2
+  const hasAIParticipants = (currentSession?.participants || []).filter(p => p.type !== 'moderator').length >= 2
 
   // Get the conversation manager instance
   const conversationManager = MCPConversationManager.getInstance()
@@ -736,7 +736,7 @@ export function ChatInterface() {
                   <div className="flex justify-between">
                     <span className="text-blue-700 dark:text-blue-300">AI Agents:</span>
                     <span className="font-medium text-blue-900 dark:text-blue-100">
-                      {currentSession.participants.filter(p => p.type !== 'human' && p.type !== 'moderator').length}
+                      {currentSession.participants.filter(p => p.type !== 'moderator').length}
                     </span>
                   </div>
                   <div className="flex justify-between">

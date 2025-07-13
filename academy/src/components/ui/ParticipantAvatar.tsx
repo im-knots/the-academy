@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { Settings, User } from 'lucide-react'
 
 interface ParticipantAvatarProps {
-  participantType: 'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama' | 'human' | 'moderator'
+  participantType: 'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama' | 'moderator'
   size?: 'sm' | 'md' | 'lg'
   className?: string
 }
@@ -155,13 +155,6 @@ export function ParticipantAvatar({
         return (
           <div className={`${sizeClasses[size]} rounded-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-sm ${className}`}>
             <Settings className="h-5 w-5 text-white" />
-          </div>
-        )
-      
-      case 'human':
-        return (
-          <div className={`${sizeClasses[size]} rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-sm ${className}`}>
-            <User className="h-5 w-5 text-white" />
           </div>
         )
       

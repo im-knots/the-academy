@@ -17,7 +17,7 @@ interface AddParticipantProps {
 
 export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
   const { addParticipant, currentSession } = useChatStore()
-  const [selectedType, setSelectedType] = useState<'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama' | 'human' | null>(null)
+  const [selectedType, setSelectedType] = useState<'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama' | null>(null)
   const [name, setName] = useState('')
   const [customSettings, setCustomSettings] = useState({
     temperature: 0.7,
@@ -116,12 +116,6 @@ export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
       name: 'Ollama',
       description: 'Run open-source models locally',
       badge: 'ollama'
-    },
-    {
-      type: 'human' as const,
-      name: 'Human',
-      description: 'Add a human participant to the conversation',
-      badge: 'human'
     }
   ]
 
@@ -134,7 +128,7 @@ export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
         selectedType === 'grok' ? 'Grok' : 
         selectedType === 'gemini' ? 'Gemini' : 
         selectedType === 'ollama' ? 'Ollama' : 
-        'Human'} ${(currentSession?.participants.length || 0) + 1}`
+        'AI Agent'} ${(currentSession?.participants.length || 0) + 1}`
 
     const newParticipant: Omit<Participant, 'id' | 'joinedAt' | 'messageCount'> = {
       name: participantName,
@@ -143,15 +137,15 @@ export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
       settings: {
         temperature: customSettings.temperature,
         maxTokens: customSettings.maxTokens,
-        model: selectedType !== 'human' ? (customSettings.model || modelOptions[selectedType]?.[0]?.value) : undefined,
+        model: customSettings.model || modelOptions[selectedType]?.[0]?.value,
         ollamaUrl: selectedType === 'ollama' ? customSettings.ollamaUrl : undefined, // New
       },
-      characteristics: selectedType !== 'human' ? {
+      characteristics: {
         personality: customSettings.personality || 'Curious and thoughtful',
         expertise: customSettings.expertise ? 
           customSettings.expertise.split(',').map(e => e.trim()) : 
           ['General knowledge']
-      } : {}
+      }
     }
 
     addParticipant(newParticipant)
@@ -250,118 +244,121 @@ export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder={`${selectedType === 'claude' ? 'Claude' : selectedType === 'gpt' ? 'GPT' : selectedType === 'grok' ? 'Grok' : selectedType === 'gemini' ? 'Gemini' : 'Human'} ${(currentSession?.participants.length || 0) + 1}`}
+                    placeholder={`${
+                      selectedType === 'claude' ? 'Claude' : 
+                      selectedType === 'gpt' ? 'GPT' : 
+                      selectedType === 'grok' ? 'Grok' : 
+                      selectedType === 'gemini' ? 'Gemini' : 
+                      selectedType === 'ollama' ? 'Ollama' :
+                      'AI Agent'
+                    } ${(currentSession?.participants.length || 0) + 1}`}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
 
                 {/* AI-specific settings */}
-                {selectedType !== 'human' && (
-                  <div className="space-y-4">
-                    {/* Model Selection */}
+                <div className="space-y-4">
+                  {/* Model Selection */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+                      Model
+                    </label>
+                    <select
+                      value={customSettings.model || modelOptions[selectedType]?.[0]?.value || ''}
+                      onChange={(e) => setCustomSettings(prev => ({ ...prev, model: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      {modelOptions[selectedType]?.map((model) => (
+                        <option key={model.value} value={model.value}>
+                          {model.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {selectedType === 'ollama' && (
                     <div>
                       <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                        Model
+                        Ollama Server URL
                       </label>
-                      <select
-                        value={customSettings.model || modelOptions[selectedType]?.[0]?.value || ''}
-                        onChange={(e) => setCustomSettings(prev => ({ ...prev, model: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      >
-                        {modelOptions[selectedType]?.map((model) => (
-                          <option key={model.value} value={model.value}>
-                            {model.label}
-                          </option>
-                        ))}
-                      </select>
+                      <input
+                        type="text"
+                        value={customSettings.ollamaUrl}
+                        onChange={(e) => setCustomSettings(prev => ({ ...prev, ollamaUrl: e.target.value }))}
+                        placeholder="http://localhost:11434"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        URL of your local Ollama server
+                      </div>
                     </div>
-                    {selectedType === 'ollama' && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                          Ollama Server URL
-                        </label>
-                        <input
-                          type="text"
-                          value={customSettings.ollamaUrl}
-                          onChange={(e) => setCustomSettings(prev => ({ ...prev, ollamaUrl: e.target.value }))}
-                          placeholder="http://localhost:11434"
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          URL of your local Ollama server
-                        </div>
+                  )}
+                  
+                  {/* Temperature and Tokens */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+                        Temperature
+                      </label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.1"
+                        value={customSettings.temperature}
+                        onChange={(e) => setCustomSettings(prev => ({ ...prev, temperature: parseFloat(e.target.value) }))}
+                        className="w-full"
+                      />
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {customSettings.temperature} (creativity)
                       </div>
-                    )}
-                    
-                    {/* Temperature and Tokens */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                          Temperature
-                        </label>
-                        <input
-                          type="range"
-                          min="0"
-                          max="1"
-                          step="0.1"
-                          value={customSettings.temperature}
-                          onChange={(e) => setCustomSettings(prev => ({ ...prev, temperature: parseFloat(e.target.value) }))}
-                          className="w-full"
-                        />
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          {customSettings.temperature} (creativity)
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                          Max Tokens
-                        </label>
-                        <input
-                          type="range"
-                          min="0"
-                          max="3"
-                          step="1"
-                          value={tokenSteps.indexOf(customSettings.maxTokens)}
-                          onChange={(e) => setCustomSettings(prev => ({ ...prev, maxTokens: tokenSteps[parseInt(e.target.value)] }))}
-                          className="w-full"
-                        />
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          {customSettings.maxTokens} tokens
-                        </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+                        Max Tokens
+                      </label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="3"
+                        step="1"
+                        value={tokenSteps.indexOf(customSettings.maxTokens)}
+                        onChange={(e) => setCustomSettings(prev => ({ ...prev, maxTokens: tokenSteps[parseInt(e.target.value)] }))}
+                        className="w-full"
+                      />
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {customSettings.maxTokens} tokens
                       </div>
                     </div>
                   </div>
-                )}
-
+                </div>
+                
                 {/* Characteristics */}
-                {selectedType !== 'human' && (
-                  <div className="grid grid-cols-1 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                        Personality (optional)
-                      </label>
-                      <input
-                        type="text"
-                        value={customSettings.personality}
-                        onChange={(e) => setCustomSettings(prev => ({ ...prev, personality: e.target.value }))}
-                        placeholder="e.g., Curious and analytical, Empathetic and philosophical"
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                        Expertise (optional)
-                      </label>
-                      <input
-                        type="text"
-                        value={customSettings.expertise}
-                        onChange={(e) => setCustomSettings(prev => ({ ...prev, expertise: e.target.value }))}
-                        placeholder="e.g., Philosophy, Science, Psychology"
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
+                <div className="grid grid-cols-1 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+                      Personality (optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={customSettings.personality}
+                      onChange={(e) => setCustomSettings(prev => ({ ...prev, personality: e.target.value }))}
+                      placeholder="e.g., Curious and analytical, Empathetic and philosophical"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
                   </div>
-                )}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+                      Expertise (optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={customSettings.expertise}
+                      onChange={(e) => setCustomSettings(prev => ({ ...prev, expertise: e.target.value }))}
+                      placeholder="e.g., Philosophy, Science, Psychology"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
               </div>
             )}
           </div>

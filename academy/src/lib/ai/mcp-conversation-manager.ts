@@ -72,7 +72,7 @@ export class MCPConversationManager {
       throw new Error(`Session ${sessionId} not found`)
     }
 
-    const aiParticipants = session.participants.filter(p => p.type !== 'human' && p.type !== 'moderator')
+    const aiParticipants = session.participants.filter(p => p.type !== 'moderator')
     if (aiParticipants.length < 2) {
       throw new Error('Need at least 2 AI participants to start conversation')
     }
@@ -151,7 +151,7 @@ export class MCPConversationManager {
 
         // Check if we have enough participants
         const activeAIParticipants = session.participants.filter(p => 
-          p.type !== 'human' && p.type !== 'moderator' && p.status !== 'error'
+          p.type !== 'moderator' && p.status !== 'error'
         )
         
         if (activeAIParticipants.length < 2) {
@@ -546,7 +546,7 @@ Remember: This is genuine exploration through dialogue facilitated by MCP. Each 
       isRunning: conversationState?.isRunning || false,
       isGenerating: conversationState?.isGenerating || false,
       messageCount: conversationState?.messageCount || 0,
-      participantCount: session?.participants.filter(p => p.type !== 'human').length || 0,
+      participantCount: session?.participants.length || 0,
       currentParticipant: conversationState ? 
         session?.participants.find(p => p.id === conversationState.participantQueue[conversationState.currentParticipantIndex])?.name 
         : null,

@@ -57,7 +57,7 @@ export interface ConversationContext {
 }
 
 export interface AIProvider {
-  type: 'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama' | 'human'
+  type: 'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama'
   generateResponse(context: ConversationContext): Promise<string>
   isAvailable(): boolean
 }

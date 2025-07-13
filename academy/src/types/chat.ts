@@ -5,7 +5,7 @@ export interface Message {
   timestamp: Date
   participantId: string
   participantName: string
-  type: 'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama' | 'human' | 'moderator'
+  type: 'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama' | 'moderator'
   isThinking?: boolean
   metadata?: {
     temperature?: number
@@ -84,7 +84,7 @@ export interface ConversationThread {
 export interface Participant {
   id: string
   name: string
-  type: 'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama' | 'human' | 'moderator'
+  type: 'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama' | 'moderator'
   status: 'active' | 'thinking' | 'idle' | 'error' | 'disconnected'
   systemPrompt?: string
   settings: AISettings
@@ -128,7 +128,7 @@ export interface SystemTemplate {
   category: 'consciousness' | 'creativity' | 'philosophy' | 'analysis' | 'custom'
   prompt: string
   suggestedParticipants: Array<{
-    type: 'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama' | 'human'
+    type: 'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama'
     name?: string
     settings?: Partial<AISettings>
   }>
