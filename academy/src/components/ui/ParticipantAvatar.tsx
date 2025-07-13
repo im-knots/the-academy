@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { Settings, User } from 'lucide-react'
 
 interface ParticipantAvatarProps {
-  participantType: 'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama' | 'deepseek' | 'mistral' | 'moderator'
+  participantType: 'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama' | 'deepseek' | 'mistral' | 'cohere' | 'moderator'
   size?: 'sm' | 'md' | 'lg'
   className?: string
 }
@@ -184,6 +184,30 @@ export function ParticipantAvatar({
               <Image
                 src="/icons/mistral-icon.png"
                 alt="Mistral"
+                width={iconSizes[size].width}
+                height={iconSizes[size].height}
+                className="object-contain"
+                onError={(e) => {
+                  // Fallback to text-based avatar if image fails
+                  e.currentTarget.style.display = 'none'
+                  const parent = e.currentTarget.parentElement
+                  if (parent) {
+                    parent.innerHTML = '<span class="font-bold text-white text-xs">AI</span>'
+                    parent.className += ' bg-gradient-to-br from-emerald-400 to-teal-500'
+                  }
+                }}
+              />
+            </div>
+          </div>
+        ) 
+      case 'cohere':
+        return (
+          <div className={`${sizeClasses[size]} rounded-full bg-white flex items-center justify-center border-2 border-orange-200 shadow-sm ${className}`}>
+            {/* Try to use company logo first, fallback to text */}
+            <div className="flex items-center justify-center w-full h-full">
+              <Image
+                src="/icons/cohere-icon.png"
+                alt="Cohere"
                 width={iconSizes[size].width}
                 height={iconSizes[size].height}
                 className="object-contain"

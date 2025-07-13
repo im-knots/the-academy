@@ -22,12 +22,13 @@ const typeNames: Record<string, string> = {
   gemini: 'Gemini',
   ollama: 'Ollama',
   deepseek: 'DeepSeek',
-  mistral: 'Mistral'
+  mistral: 'Mistral', 
+  cohere: 'Cohere'
 }
 
 export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
   const { addParticipant, currentSession } = useChatStore()
-  const [selectedType, setSelectedType] = useState<'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama' | 'deepseek' | 'mistral' | null>(null)
+  const [selectedType, setSelectedType] = useState<'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama' | 'deepseek' | 'mistral' | 'cohere' | null>(null)
   const [name, setName] = useState('')
   const [customSettings, setCustomSettings] = useState({
     temperature: 0.7,
@@ -111,6 +112,15 @@ export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
       { value: 'ministral-8b-2410', label: 'Ministral 8B' },
       { value: 'ministral-3b-2410', label: 'Ministral 3B' },
       { value: 'pixtral-large-2411', label: 'Pixtral Large' },
+    ],
+    cohere: [
+      { value: 'command-r-plus-08-2024', label: 'Command R+ (Latest)' },
+      { value: 'command-r-plus', label: 'Command R+' },
+      { value: 'command-r-08-2024', label: 'Command R (Latest)' },
+      { value: 'command-r', label: 'Command R' },
+      { value: 'command', label: 'Command' },
+      { value: 'command-light', label: 'Command Light' },
+      { value: 'custom', label: 'Custom Model (Enter name)' }
     ]
   }
 
@@ -156,6 +166,12 @@ export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
       name: 'Mistral',
       description: 'Efficient AI models with strong multilingual capabilities',
       badge: 'mistral'
+    },
+    {
+      type: 'cohere' as const,
+      name: 'Cohere',
+      description: 'Enterprise AI models with RAG capabilities',
+      badge: 'Cohere'
     }
   ]
 

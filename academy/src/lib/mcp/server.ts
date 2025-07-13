@@ -89,7 +89,7 @@ export class MCPServer {
     operation: () => Promise<T>,
     config: Partial<RetryConfig> = {},
     context: {
-      provider: 'claude' | 'openai' | 'grok' | 'gemini' | 'ollama' | 'deepseek' | 'mistral';
+      provider: 'claude' | 'openai' | 'grok' | 'gemini' | 'ollama' | 'deepseek' | 'mistral' | 'cohere';
       operationName: string;
       sessionId?: string;
       participantId?: string;
@@ -492,6 +492,34 @@ export class MCPServer {
             participantId: { type: 'string', description: 'Optional participant ID' },
             temperature: { type: 'number', description: 'Temperature for response generation' },
             maxTokens: { type: 'number', description: 'Maximum tokens for response' }
+          },
+          required: []
+        }
+      },
+      {
+        name: 'cohere_chat',
+        description: 'Direct Cohere API access with exponential backoff retry',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            message: { type: 'string', description: 'Message to send to Cohere' },
+            messages: { 
+              type: 'array', 
+              description: 'Messages array for Cohere API',
+              items: {
+                type: 'object',
+                properties: {
+                  role: { type: 'string', enum: ['user', 'assistant', 'system'] },
+                  content: { type: 'string' }
+                }
+              }
+            },
+            systemPrompt: { type: 'string', description: 'System prompt for context' },
+            model: { type: 'string', description: 'Cohere model to use', default: 'command-r-plus' },
+            temperature: { type: 'number', description: 'Response creativity (0-1)', default: 0.7 },
+            maxTokens: { type: 'number', description: 'Maximum response tokens', default: 2000 },
+            sessionId: { type: 'string', description: 'Session ID for error tracking' },
+            participantId: { type: 'string', description: 'Participant ID for error tracking' }
           },
           required: []
         }
@@ -1027,6 +1055,9 @@ export class MCPServer {
           break
         case 'mistral_chat':
           result = await this.callMistralAPIDirect(args)
+          break
+        case 'cohere_chat':
+          result = await this.callCohereAPIDirect(args)
           break
         case 'debug_store':
           result = await this.toolDebugStore()
@@ -2009,6 +2040,141 @@ export class MCPServer {
       {
         provider: 'mistral',
         operationName: 'mistral_chat',
+        sessionId,
+        participantId
+      }
+    );
+  }
+
+  private async callCohereAPIDirect(args: any): Promise<any> {
+    const {
+      message,
+      messages,
+      systemPrompt,
+      model = 'command-r-plus',
+      sessionId,
+      participantId,
+      temperature = 0.7,
+      maxTokens = 2000
+    } = args;
+    
+    console.log('🔧 Using direct Cohere API call with retry logic');
+    
+    return this.retryWithBackoff(
+      async () => {
+        // Handle both parameter formats
+        let processedMessages: any[];
+        
+        if (messages && Array.isArray(messages)) {
+          processedMessages = messages;
+        } else if (message && typeof message === 'string') {
+          processedMessages = [{ role: 'user', content: message }];
+          
+          // Add system prompt if provided
+          if (systemPrompt) {
+            processedMessages.unshift({ role: 'system', content: systemPrompt });
+          }
+        } else {
+          throw new Error('No valid message or messages provided to Cohere API');
+        }
+        
+        if (!processedMessages || processedMessages.length === 0) {
+          throw new Error('Empty messages provided to Cohere API');
+        }
+        
+        const apiKey = process.env.COHERE_API_KEY;
+        if (!apiKey) {
+          throw new Error('Cohere API key not configured');
+        }
+        
+        // Filter out empty messages and ensure proper format
+        const validMessages = processedMessages.filter(msg =>
+          msg && msg.content && typeof msg.content === 'string' && msg.content.trim()
+        );
+
+        if (validMessages.length === 0) {
+          throw new Error('No valid messages provided');
+        }
+
+        const requestBody = {
+          model: model,
+          messages: validMessages,
+          temperature: Math.max(0, Math.min(1, temperature)), // Cohere uses 0-1 range
+          max_tokens: Math.min(maxTokens, 4000),
+          stream: false
+        };
+
+        console.log('🤖 Calling Cohere API:', {
+          model,
+          messageCount: validMessages.length,
+          temperature,
+          maxTokens: requestBody.max_tokens
+        });
+
+        const response = await fetch('https://api.cohere.ai/v2/chat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+            'X-Client-Name': 'academy-app'
+          },
+          body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          const error = new Error(`Cohere API error: ${response.status} - ${errorText}`);
+          (error as any).status = response.status;
+          throw error;
+        }
+
+        const data = await response.json();
+        
+        // COHERE-SPECIFIC: Extract text content from response format
+        if (!data.message || !data.message.content) {
+          throw new Error('Invalid response format from Cohere');
+        }
+
+        let content: string;
+        
+        // Cohere v2 returns content as array of content blocks
+        if (Array.isArray(data.message.content)) {
+          // Find first text block and extract its text
+          const textBlock = data.message.content.find(block => block.type === 'text');
+          if (!textBlock || !textBlock.text) {
+            throw new Error('No text content found in Cohere response');
+          }
+          content = textBlock.text;
+        } else if (typeof data.message.content === 'string') {
+          // Fallback for older API versions
+          content = data.message.content;
+        } else {
+          throw new Error('Unexpected content format from Cohere');
+        }
+        
+        if (!content || !content.trim()) {
+          throw new Error('Empty content in Cohere response');
+        }
+        
+        return {
+          success: true,
+          provider: 'cohere',
+          model: data.model || model,
+          content: content,  // ← Now guaranteed to be a string
+          response: content,
+          usage: data.usage || {
+            billed_tokens: data.meta?.billed_units?.input_tokens + data.meta?.billed_units?.output_tokens || 0,
+            tokens: data.meta?.tokens || {}
+          },
+          response_id: data.response_id,
+          generation_id: data.generation_id,
+          message: 'Cohere API call completed successfully'
+        };
+      },
+      {}, // Use default retry config
+      {
+        provider: 'cohere',
+        operationName: 'cohere_chat',
         sessionId,
         participantId
       }

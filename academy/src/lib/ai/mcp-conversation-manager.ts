@@ -348,6 +348,7 @@ export class MCPConversationManager {
                 participant.type === 'ollama' ? 'ollama_chat' :
                 participant.type === 'deepseek' ? 'deepseek_chat' :
                 participant.type === 'mistral' ? 'mistral_chat' :
+                participant.type === 'cohere' ? 'cohere_chat' :
                 'openai_chat';
 
       // Prepare messages for the AI API
@@ -362,7 +363,7 @@ export class MCPConversationManager {
       // Prepare tool arguments
       const toolArgs = {
         messages:
-          (['gpt', 'grok', 'gemini', 'ollama', 'deepseek', 'mistral'].includes(participant.type) && systemPrompt)
+          (['gpt', 'grok', 'gemini', 'ollama', 'deepseek', 'mistral', 'cohere'].includes(participant.type) && systemPrompt)
             ? [{ role: 'system', content: systemPrompt }, ...messages]
             : messages,
         temperature: context.settings.temperature,

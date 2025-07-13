@@ -87,7 +87,7 @@ export class MCPClient {
   // Log errors to the error tracking system - only log final failures
   private logError(error: any, context: {
     operation: string;
-    provider?: 'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama' | 'deepseek' | 'mistral'; 
+    provider?: 'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama' | 'deepseek' | 'mistral' | 'cohere'; 
     attempt: number;
     maxAttempts: number;
     sessionId?: string;
@@ -1172,6 +1172,38 @@ export class MCPClient {
       }
     } catch (error) {
       console.error('Failed to call Mistral via MCP:', error)
+      
+      // Sync any errors that occurred during the call
+      this.syncErrorsWithStore(sessionId)
+      
+      throw error
+    }
+  }
+
+  async callCohereViaMCP(message: string, systemPrompt?: string, model?: string, sessionId?: string, participantId?: string): Promise<any> {
+    try {
+      // Extract context for proper error tracking
+      const context = {
+        sessionId: sessionId || this.getCurrentSessionContext().sessionId,
+        participantId
+      };
+
+      const result = await this.callTool('cohere_chat', {
+        message,
+        systemPrompt,
+        model,
+        sessionId: context.sessionId,
+        participantId: context.participantId
+      })
+      
+      if (result.success) {
+        console.log(`✅ Cohere API called via MCP (with retry support)`)
+        return result
+      } else {
+        throw new Error('Failed to call Cohere API via MCP')
+      }
+    } catch (error) {
+      console.error('Failed to call Cohere via MCP:', error)
       
       // Sync any errors that occurred during the call
       this.syncErrorsWithStore(sessionId)
