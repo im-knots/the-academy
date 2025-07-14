@@ -3,6 +3,7 @@ import { JSONRPCRequest, JSONRPCResponse, JSONRPCError } from './types'
 import { useChatStore } from '@/lib/stores/chatStore'
 import { mcpAnalysisHandler } from './analysis-handler'
 import { Participant, APIError, RetryConfig } from '@/types/chat'
+import { ExperimentConfig, ExperimentRun } from '@/types/experment'
 
 // Store reference for server-side access
 let mcpStoreReference: any = null
@@ -16,6 +17,9 @@ export function getMCPStoreReference(): any {
 }
 
 export class MCPServer {
+  private experimentConfigs = new Map<string, ExperimentConfig>()
+  private experimentRuns = new Map<string, ExperimentRun>()
+  private activeExperimentSessions = new Map<string, Set<string>>() 
   private errors: APIError[] = [];
   private defaultRetryConfig: RetryConfig = {
     maxRetries: 3,
@@ -1010,6 +1014,159 @@ export class MCPServer {
           },
           required: ['sessionId']
         }
+      },
+      // Experiment Management Tools
+      {
+        name: 'create_experiment',
+        description: 'Create a new bulk experiment configuration',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            config: { 
+              type: 'object', 
+              description: 'Experiment configuration object',
+              properties: {
+                name: { type: 'string', description: 'Experiment name' },
+                participants: { 
+                  type: 'array', 
+                  description: 'Array of participant configurations',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      type: { type: 'string', description: 'Participant type (claude, gpt, etc.)' },
+                      name: { type: 'string', description: 'Participant name' },
+                      model: { type: 'string', description: 'AI model to use' },
+                      temperature: { type: 'number', description: 'Temperature setting' },
+                      maxTokens: { type: 'number', description: 'Max tokens setting' },
+                      personality: { type: 'string', description: 'Personality description' },
+                      expertise: { type: 'string', description: 'Expertise description' }
+                    }
+                  }
+                },
+                systemPrompt: { type: 'string', description: 'System prompt for conversations' },
+                totalSessions: { type: 'number', description: 'Total number of sessions to run' },
+                concurrentSessions: { type: 'number', description: 'Number of concurrent sessions' },
+                maxMessageCount: { type: 'number', description: 'Maximum messages per session' },
+                sessionNamePattern: { type: 'string', description: 'Pattern for session names' },
+                analysisProvider: { type: 'string', description: 'Analysis provider (claude or gpt)' },
+                analysisContextSize: { type: 'number', description: 'Analysis context size' },
+                errorRateThreshold: { type: 'number', description: 'Error rate threshold (0-1)' }
+              }
+            }
+          },
+          required: ['config']
+        }
+      },
+      {
+        name: 'get_experiments',
+        description: 'Retrieve all experiment configurations',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+          additionalProperties: false
+        }
+      },
+      {
+        name: 'get_experiment',
+        description: 'Get a specific experiment configuration and run status',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            experimentId: { type: 'string', description: 'Experiment ID' }
+          },
+          required: ['experimentId']
+        }
+      },
+      {
+        name: 'update_experiment',
+        description: 'Update an experiment configuration',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            experimentId: { type: 'string', description: 'Experiment ID' },
+            updates: { type: 'object', description: 'Updates to apply to the experiment' }
+          },
+          required: ['experimentId', 'updates']
+        }
+      },
+      {
+        name: 'delete_experiment',
+        description: 'Delete an experiment configuration and stop if running',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            experimentId: { type: 'string', description: 'Experiment ID' }
+          },
+          required: ['experimentId']
+        }
+      },
+
+      // Experiment Execution Tools
+      {
+        name: 'execute_experiment',
+        description: 'Execute a bulk experiment - creates multiple sessions and runs conversations',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            experimentId: { type: 'string', description: 'Experiment ID to execute' }
+          },
+          required: ['experimentId']
+        }
+      },
+      {
+        name: 'get_experiment_status',
+        description: 'Get the current status and progress of an experiment run',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            experimentId: { type: 'string', description: 'Experiment ID' }
+          },
+          required: ['experimentId']
+        }
+      },
+      {
+        name: 'pause_experiment',
+        description: 'Pause a running experiment',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            experimentId: { type: 'string', description: 'Experiment ID' }
+          },
+          required: ['experimentId']
+        }
+      },
+      {
+        name: 'resume_experiment',
+        description: 'Resume a paused experiment',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            experimentId: { type: 'string', description: 'Experiment ID' }
+          },
+          required: ['experimentId']
+        }
+      },
+      {
+        name: 'stop_experiment',
+        description: 'Stop a running experiment',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            experimentId: { type: 'string', description: 'Experiment ID' }
+          },
+          required: ['experimentId']
+        }
+      },
+      {
+        name: 'get_experiment_results',
+        description: 'Get aggregated results and analytics for a completed experiment',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            experimentId: { type: 'string', description: 'Experiment ID' }
+          },
+          required: ['experimentId']
+        }
       }
     ]
 
@@ -1190,6 +1347,41 @@ export class MCPServer {
           break
         case 'analyze_conversation':
           result = await this.toolAnalyzeConversation(args)
+          break
+
+        // Experiment tools
+        case 'create_experiment':
+          result = await this.toolCreateExperiment(args)
+          break
+        case 'get_experiments':
+          result = await this.toolGetExperiments(args)
+          break
+        case 'get_experiment':
+          result = await this.toolGetExperiment(args)
+          break
+        case 'update_experiment':
+          result = await this.toolUpdateExperiment(args)
+          break
+        case 'delete_experiment':
+          result = await this.toolDeleteExperiment(args)
+          break
+        case 'execute_experiment':
+          result = await this.toolExecuteExperiment(args)
+          break
+        case 'get_experiment_status':
+          result = await this.toolGetExperimentStatus(args)
+          break
+        case 'pause_experiment':
+          result = await this.toolPauseExperiment(args)
+          break
+        case 'resume_experiment':
+          result = await this.toolResumeExperiment(args)
+          break
+        case 'stop_experiment':
+          result = await this.toolStopExperiment(args)
+          break
+        case 'get_experiment_results':
+          result = await this.toolGetExperimentResults(args)
           break
 
         default:
@@ -3707,6 +3899,504 @@ private async toolSendMessage(args: any): Promise<any> {
       console.error('Analyze conversation failed:', error)
       throw new Error(`Failed to analyze conversation: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
+  }
+
+  // ========================================
+  // EXPERIMENT MANAGEMENT TOOLS
+  // ========================================
+
+  private async toolCreateExperiment(args: any): Promise<any> {
+    try {
+      const { config } = args
+      
+      if (!config || !config.name || !config.systemPrompt || !config.participants?.length) {
+        throw new Error('Invalid experiment configuration')
+      }
+
+      // Generate ID if not provided
+      const experimentId = config.id || `exp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      
+      const experimentConfig: ExperimentConfig = {
+        ...config,
+        id: experimentId,
+        createdAt: config.createdAt ? new Date(config.createdAt) : new Date(),
+        lastModified: new Date()
+      }
+
+      this.experimentConfigs.set(experimentId, experimentConfig) // <- ADD this.
+
+      return {
+        success: true,
+        experimentId,
+        config: experimentConfig,
+        message: 'Experiment configuration saved successfully'
+      }
+    } catch (error) {
+      console.error('Create experiment failed:', error)
+      throw new Error(`Failed to create experiment: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  private async toolGetExperiments(args: any): Promise<any> {
+    try {
+      const experiments = Array.from(this.experimentConfigs.values()) // <- ADD this.
+      
+      return {
+        success: true,
+        experiments,
+        total: experiments.length
+      }
+    } catch (error) {
+      console.error('Get experiments failed:', error)
+      throw new Error(`Failed to get experiments: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  private async toolGetExperiment(args: any): Promise<any> {
+    try {
+      const { experimentId } = args
+      
+      if (!experimentId) {
+        throw new Error('Experiment ID is required')
+      }
+
+      const config = this.experimentConfigs.get(experimentId) // <- ADD this.
+      const run = this.experimentRuns.get(experimentId) // <- ADD this.
+      
+      if (!config) {
+        throw new Error(`Experiment ${experimentId} not found`)
+      }
+
+      return {
+        success: true,
+        config,
+        run: run || null
+      }
+    } catch (error) {
+      console.error('Get experiment failed:', error)
+      throw new Error(`Failed to get experiment: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  private async toolUpdateExperiment(args: any): Promise<any> {
+    try {
+      const { experimentId, updates } = args
+      
+      if (!experimentId) {
+        throw new Error('Experiment ID is required')
+      }
+
+      const config = this.experimentConfigs.get(experimentId) // <- ADD this.
+      if (!config) {
+        throw new Error(`Experiment ${experimentId} not found`)
+      }
+
+      const updatedConfig = {
+        ...config,
+        ...updates,
+        id: experimentId, // Preserve ID
+        lastModified: new Date()
+      }
+
+      this.experimentConfigs.set(experimentId, updatedConfig) // <- ADD this.
+
+      return {
+        success: true,
+        config: updatedConfig,
+        message: 'Experiment updated successfully'
+      }
+    } catch (error) {
+      console.error('Update experiment failed:', error)
+      throw new Error(`Failed to update experiment: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  private async toolDeleteExperiment(args: any): Promise<any> {
+    try {
+      const { experimentId } = args
+      
+      if (!experimentId) {
+        throw new Error('Experiment ID is required')
+      }
+
+      // Stop experiment if running
+      if (this.experimentRuns.has(experimentId)) { // <- ADD this.
+        await this.toolStopExperiment({ experimentId })
+      }
+
+      this.experimentConfigs.delete(experimentId) // <- ADD this.
+      this.experimentRuns.delete(experimentId) // <- ADD this.
+      this.activeExperimentSessions.delete(experimentId) // <- ADD this.
+
+      return {
+        success: true,
+        experimentId,
+        message: 'Experiment deleted successfully'
+      }
+    } catch (error) {
+      console.error('Delete experiment failed:', error)
+      throw new Error(`Failed to delete experiment: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  private async toolExecuteExperiment(args: any): Promise<any> {
+    try {
+      const { experimentId } = args
+      
+      if (!experimentId) {
+        throw new Error('Experiment ID is required')
+      }
+
+      const config = this.experimentConfigs.get(experimentId) // <- ADD this.
+      if (!config) {
+        throw new Error(`Experiment ${experimentId} not found`)
+      }
+
+      // Check if already running
+      if (this.experimentRuns.has(experimentId) && this.experimentRuns.get(experimentId)!.status === 'running') { // <- ADD this.
+        throw new Error('Experiment is already running')
+      }
+
+      // Initialize experiment run
+      const run: ExperimentRun = {
+        id: `run-${Date.now()}`,
+        configId: experimentId,
+        status: 'pending',
+        startedAt: new Date(),
+        totalSessions: config.totalSessions,
+        completedSessions: 0,
+        failedSessions: 0,
+        activeSessions: 0,
+        sessionIds: [],
+        errorRate: 0,
+        errors: [],
+        progress: 0
+      }
+
+      this.experimentRuns.set(experimentId, run) // <- ADD this.
+      this.activeExperimentSessions.set(experimentId, new Set()) // <- ADD this.
+
+      // Start execution asynchronously
+      this.executeExperimentAsync(experimentId, config, run)
+
+      return {
+        success: true,
+        experimentId,
+        runId: run.id,
+        status: 'pending',
+        message: 'Experiment execution started'
+      }
+    } catch (error) {
+      console.error('Execute experiment failed:', error)
+      throw new Error(`Failed to execute experiment: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  private async toolGetExperimentStatus(args: any): Promise<any> {
+    try {
+      const { experimentId } = args
+      
+      if (!experimentId) {
+        throw new Error('Experiment ID is required')
+      }
+
+      const run = this.experimentRuns.get(experimentId)
+      
+      return {
+        success: true,
+        status: run || null
+      }
+    } catch (error) {
+      console.error('Get experiment status failed:', error)
+      throw new Error(`Failed to get experiment status: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  private async toolPauseExperiment(args: any): Promise<any> {
+    try {
+      const { experimentId } = args
+      
+      if (!experimentId) {
+        throw new Error('Experiment ID is required')
+      }
+
+      const run = this.experimentRuns.get(experimentId)
+      if (!run) {
+        throw new Error(`Experiment run ${experimentId} not found`)
+      }
+
+      if (run.status !== 'running') {
+        throw new Error(`Cannot pause experiment with status: ${run.status}`)
+      }
+
+      run.status = 'paused'
+      run.pausedAt = new Date()
+      this.experimentRuns.set(experimentId, run)
+
+      // Pause all active sessions
+      const sessionIds = this.activeExperimentSessions.get(experimentId) || new Set()
+      for (const sessionId of sessionIds) {
+        try {
+          await this.toolPauseConversation({ sessionId })
+        } catch (error) {
+          console.warn(`Failed to pause session ${sessionId}:`, error)
+        }
+      }
+
+      return {
+        success: true,
+        experimentId,
+        status: 'paused',
+        message: 'Experiment paused successfully'
+      }
+    } catch (error) {
+      console.error('Pause experiment failed:', error)
+      throw new Error(`Failed to pause experiment: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  private async toolResumeExperiment(args: any): Promise<any> {
+    try {
+      const { experimentId } = args
+      
+      if (!experimentId) {
+        throw new Error('Experiment ID is required')
+      }
+
+      const run = this.experimentRuns.get(experimentId)
+      if (!run) {
+        throw new Error(`Experiment run ${experimentId} not found`)
+      }
+
+      if (run.status !== 'paused') {
+        throw new Error(`Cannot resume experiment with status: ${run.status}`)
+      }
+
+      run.status = 'running'
+      run.resumedAt = new Date()
+      this.experimentRuns.set(experimentId, run)
+
+      // Resume all paused sessions
+      const sessionIds = this.activeExperimentSessions.get(experimentId) || new Set()
+      for (const sessionId of sessionIds) {
+        try {
+          await this.toolResumeConversation({ sessionId })
+        } catch (error) {
+          console.warn(`Failed to resume session ${sessionId}:`, error)
+        }
+      }
+
+      return {
+        success: true,
+        experimentId,
+        status: 'running',
+        message: 'Experiment resumed successfully'
+      }
+    } catch (error) {
+      console.error('Resume experiment failed:', error)
+      throw new Error(`Failed to resume experiment: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  private async toolStopExperiment(args: any): Promise<any> {
+    try {
+      const { experimentId } = args
+      
+      if (!experimentId) {
+        throw new Error('Experiment ID is required')
+      }
+
+      const run = this.experimentRuns.get(experimentId)
+      if (!run) {
+        throw new Error(`Experiment run ${experimentId} not found`)
+      }
+
+      run.status = 'completed'
+      run.completedAt = new Date()
+      this.experimentRuns.set(experimentId, run)
+
+      // Stop all active sessions
+      const sessionIds = this.activeExperimentSessions.get(experimentId) || new Set()
+      for (const sessionId of sessionIds) {
+        try {
+          await this.toolStopConversation({ sessionId })
+        } catch (error) {
+          console.warn(`Failed to stop session ${sessionId}:`, error)
+        }
+      }
+
+      return {
+        success: true,
+        experimentId,
+        status: 'completed',
+        message: 'Experiment stopped successfully'
+      }
+    } catch (error) {
+      console.error('Stop experiment failed:', error)
+      throw new Error(`Failed to stop experiment: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  private async toolGetExperimentResults(args: any): Promise<any> {
+    try {
+      const { experimentId } = args
+      
+      if (!experimentId) {
+        throw new Error('Experiment ID is required')
+      }
+
+      const config = this.experimentConfigs.get(experimentId)
+      const run = this.experimentRuns.get(experimentId)
+      
+      if (!config || !run) {
+        throw new Error(`Experiment ${experimentId} not found`)
+      }
+
+      this.updateStoreReference()
+      const store = useChatStore.getState()
+
+      // Get all sessions for this experiment
+      const experimentSessions = store.sessions.filter(s => 
+        s.experimentId === experimentId || 
+        (run.sessionIds && run.sessionIds.includes(s.id))
+      )
+
+      // Calculate aggregate statistics
+      const totalMessages = experimentSessions.reduce((sum, session) => sum + (session.messages?.length || 0), 0)
+      const avgMessagesPerSession = experimentSessions.length > 0 ? totalMessages / experimentSessions.length : 0
+      
+      const participantStats = new Map<string, { messageCount: number, avgResponseTime: number }>()
+      
+      experimentSessions.forEach(session => {
+        session.participants?.forEach(participant => {
+          const key = `${participant.type}-${participant.model || 'default'}`
+          if (!participantStats.has(key)) {
+            participantStats.set(key, { messageCount: 0, avgResponseTime: 0 })
+          }
+          const stats = participantStats.get(key)!
+          stats.messageCount += participant.messageCount || 0
+        })
+      })
+
+      return {
+        success: true,
+        results: {
+          config,
+          run,
+          sessions: experimentSessions.map(s => ({
+            id: s.id,
+            name: s.name,
+            messageCount: s.messages?.length || 0,
+            participantCount: s.participants?.length || 0,
+            status: s.status,
+            createdAt: s.createdAt,
+            lastActivity: s.lastActivity
+          })),
+          aggregateStats: {
+            totalSessions: experimentSessions.length,
+            totalMessages,
+            avgMessagesPerSession,
+            participantStats: Object.fromEntries(participantStats)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Get experiment results failed:', error)
+      throw new Error(`Failed to get experiment results: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  private async createAndRunExperimentSession(
+    experimentId: string, 
+    config: ExperimentConfig, 
+    sessionIndex: number,
+    sessionIds: Set<string>
+  ): Promise<void> {
+    this.updateStoreReference()
+    const store = useChatStore.getState()
+
+    // Generate session name from pattern
+    const date = new Date().toISOString().split('T')[0]
+    const sessionName = config.sessionNamePattern
+      .replace('<date>', date)
+      .replace('<n>', (sessionIndex + 1).toString().padStart(3, '0'))
+
+    // Create session
+    const sessionId = `${experimentId}-session-${sessionIndex + 1}`
+    sessionIds.add(sessionId)
+
+    // Use existing toolCreateSession method
+    await this.toolCreateSession({
+      name: sessionName,
+      description: `Experiment session ${sessionIndex + 1} for ${config.name}`
+    })
+
+    // Add participants using existing toolAddParticipant
+    for (const participantConfig of config.participants) {
+      await this.toolAddParticipant({
+        sessionId,
+        name: participantConfig.name,
+        type: participantConfig.type,
+        model: participantConfig.model,
+        settings: {
+          temperature: participantConfig.temperature || 0.7,
+          maxTokens: participantConfig.maxTokens || 1000
+        },
+        characteristics: {
+          personality: participantConfig.personality || '',
+          expertise: participantConfig.expertise || ''
+        }
+      })
+    }
+
+    // Start conversation
+    await this.toolStartConversation({
+      sessionId,
+      initialPrompt: config.systemPrompt
+    })
+
+    // Run until maxMessageCount is reached (simplified)
+    let messageCount = 0
+    while (messageCount < config.maxMessageCount) {
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+      const updatedStore = useChatStore.getState()
+      const session = updatedStore.sessions.find(s => s.id === sessionId)
+      const newMessageCount = session?.messages?.length || 0
+      
+      if (newMessageCount > messageCount) {
+        messageCount = newMessageCount
+      } else {
+        break // No new messages, conversation finished
+      }
+    }
+
+    // Stop conversation
+    await this.toolStopConversation({ sessionId })
+  }
+
+  private addExperimentError(experimentId: string, type: string, message: string, sessionId?: string) {
+    const run = this.experimentRuns.get(experimentId)
+    if (!run) return
+
+    const existingError = run.errors.find(e => e.type === type && e.message === message)
+    if (existingError) {
+      existingError.count++
+      existingError.lastOccurred = new Date()
+      if (sessionId && !existingError.sessionId) {
+        existingError.sessionId = sessionId
+      }
+    } else {
+      run.errors.push({
+        type,
+        message,
+        sessionId,
+        count: 1,
+        lastOccurred: new Date()
+      })
+    }
+
+    this.experimentRuns.set(experimentId, run)
   }
 
   // ========================================
