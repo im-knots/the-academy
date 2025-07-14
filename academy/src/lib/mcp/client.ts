@@ -1212,6 +1212,130 @@ export class MCPClient {
     }
   }
 
+  // ========================================
+  // EXPERIMENT MANAGEMENT METHODS
+  // ========================================
+
+  async createExperimentViaMCP(config: any): Promise<any> {
+    const result = await this.callTool('create_experiment', { config })
+    
+    if (result.success) {
+      console.log(`✅ Experiment created via MCP: ${result.experimentId}`)
+      return result
+    } else {
+      throw new Error('Failed to create experiment via MCP')
+    }
+  }
+
+  async getExperimentsViaMCP(): Promise<any> {
+    const result = await this.callTool('get_experiments', {})
+    
+    if (result.success) {
+      console.log(`✅ Retrieved ${result.total} experiments via MCP`)
+      return result
+    } else {
+      throw new Error('Failed to get experiments via MCP')
+    }
+  }
+
+  async getExperimentViaMCP(experimentId: string): Promise<any> {
+    const result = await this.callTool('get_experiment', { experimentId })
+    
+    if (result.success) {
+      console.log(`✅ Retrieved experiment via MCP: ${experimentId}`)
+      return result
+    } else {
+      throw new Error('Failed to get experiment via MCP')
+    }
+  }
+
+  async updateExperimentViaMCP(experimentId: string, updates: any): Promise<any> {
+    const result = await this.callTool('update_experiment', { experimentId, updates })
+    
+    if (result.success) {
+      console.log(`✅ Experiment updated via MCP: ${experimentId}`)
+      return result
+    } else {
+      throw new Error('Failed to update experiment via MCP')
+    }
+  }
+
+  async deleteExperimentViaMCP(experimentId: string): Promise<any> {
+    const result = await this.callTool('delete_experiment', { experimentId })
+    
+    if (result.success) {
+      console.log(`✅ Experiment deleted via MCP: ${experimentId}`)
+      return result
+    } else {
+      throw new Error('Failed to delete experiment via MCP')
+    }
+  }
+
+  async executeExperimentViaMCP(experimentId: string): Promise<any> {
+    const result = await this.callTool('execute_experiment', { experimentId })
+    
+    if (result.success) {
+      console.log(`✅ Experiment execution started via MCP: ${experimentId}`)
+      return result
+    } else {
+      throw new Error('Failed to execute experiment via MCP')
+    }
+  }
+
+  async getExperimentStatusViaMCP(experimentId: string): Promise<any> {
+    const result = await this.callTool('get_experiment_status', { experimentId })
+    
+    if (result.success) {
+      return result.status
+    } else {
+      throw new Error('Failed to get experiment status via MCP')
+    }
+  }
+
+  async pauseExperimentViaMCP(experimentId: string): Promise<any> {
+    const result = await this.callTool('pause_experiment', { experimentId })
+    
+    if (result.success) {
+      console.log(`✅ Experiment paused via MCP: ${experimentId}`)
+      return result
+    } else {
+      throw new Error('Failed to pause experiment via MCP')
+    }
+  }
+
+  async resumeExperimentViaMCP(experimentId: string): Promise<any> {
+    const result = await this.callTool('resume_experiment', { experimentId })
+    
+    if (result.success) {
+      console.log(`✅ Experiment resumed via MCP: ${experimentId}`)
+      return result
+    } else {
+      throw new Error('Failed to resume experiment via MCP')
+    }
+  }
+
+  async stopExperimentViaMCP(experimentId: string): Promise<any> {
+    const result = await this.callTool('stop_experiment', { experimentId })
+    
+    if (result.success) {
+      console.log(`✅ Experiment stopped via MCP: ${experimentId}`)
+      return result
+    } else {
+      throw new Error('Failed to stop experiment via MCP')
+    }
+  }
+
+  async getExperimentResultsViaMCP(experimentId: string): Promise<any> {
+    const result = await this.callTool('get_experiment_results', { experimentId })
+    
+    if (result.success) {
+      console.log(`✅ Experiment results retrieved via MCP: ${experimentId}`)
+      return result.results
+    } else {
+      throw new Error('Failed to get experiment results via MCP')
+    }
+  }
+
   // Debug Methods
   async debugStoreViaMCP(): Promise<any> {
     const result = await this.callTool('debug_store', {})

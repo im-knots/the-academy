@@ -3,7 +3,7 @@ import { JSONRPCRequest, JSONRPCResponse, JSONRPCError } from './types'
 import { useChatStore } from '@/lib/stores/chatStore'
 import { mcpAnalysisHandler } from './analysis-handler'
 import { Participant, APIError, RetryConfig } from '@/types/chat'
-import { ExperimentConfig, ExperimentRun } from '@/types/experment'
+import { ExperimentConfig, ExperimentRun } from '@/types/experiment'
 
 // Store reference for server-side access
 let mcpStoreReference: any = null
@@ -20,6 +20,7 @@ export class MCPServer {
   private experimentConfigs = new Map<string, ExperimentConfig>()
   private experimentRuns = new Map<string, ExperimentRun>()
   private activeExperimentSessions = new Map<string, Set<string>>() 
+  private experimentIntervals = new Map<string, NodeJS.Timeout>()
   private errors: APIError[] = [];
   private defaultRetryConfig: RetryConfig = {
     maxRetries: 3,
@@ -256,6 +257,12 @@ export class MCPServer {
         name: 'Session Analysis',
         description: 'Analysis data for the current session',
         mimeType: 'application/json'
+      },
+      {
+        uri: 'academy://experiments',
+        name: 'Experiments',
+        description: 'Bulk experiment configurations and runs',
+        mimeType: 'application/json'
       }
     ]
 
@@ -310,6 +317,15 @@ export class MCPServer {
           content = this.isAnalysisHandlerAvailable() ? 
             mcpAnalysisHandler.getAnalysisHistory(this.store?.currentSession?.id || '') : 
             { error: 'Analysis handler not available' }
+          break
+          
+        case 'academy://experiments':
+          content = {
+            configs: Array.from(this.experimentConfigs.values()),
+            runs: Array.from(this.experimentRuns.values()),
+            totalConfigs: this.experimentConfigs.size,
+            totalRuns: this.experimentRuns.size
+          }
           break
           
         default:
@@ -2414,6 +2430,11 @@ export class MCPServer {
           mcpAnalysisHandler.getAnalysisHistory(this.store?.currentSession?.id || '') : 
           null
       },
+      experiments: {
+        configsCount: this.experimentConfigs.size,
+        runsCount: this.experimentRuns.size,
+        activeSessionsCount: this.activeExperimentSessions.size
+      },
       timestamp: new Date().toISOString()
     }
   }
@@ -2514,7 +2535,7 @@ export class MCPServer {
 
       return {
         success: true,
-        sessionId: newSession.id,
+        sessionId: sessionId,
         sessionData: newSession,
         message: `Session "${name}" created successfully`
       }
@@ -3071,6 +3092,34 @@ private async toolSendMessage(args: any): Promise<any> {
           'gpt-4',
           'gpt-4-turbo',
           'gpt-3.5-turbo'
+        ],
+        grok: [
+          'grok-3-latest',
+          'grok-beta'
+        ],
+        gemini: [
+          'gemini-2.0-flash',
+          'gemini-1.5-pro',
+          'gemini-1.5-flash'
+        ],
+        ollama: [
+          'llama2',
+          'mistral',
+          'codellama'
+        ],
+        deepseek: [
+          'deepseek-chat',
+          'deepseek-coder'
+        ],
+        mistral: [
+          'mistral-large-latest',
+          'mistral-medium-latest',
+          'mistral-small-latest'
+        ],
+        cohere: [
+          'command-r-plus',
+          'command-r',
+          'command'
         ]
       }
 
@@ -3270,7 +3319,7 @@ private async toolSendMessage(args: any): Promise<any> {
       }
 
       // Update session status
-      store.updateSession(sessionId, { status: 'active' as const,})
+      store.updateSession(sessionId, { status: 'completed' as const,})
 
       // Update MCP store reference
       setMCPStoreReference(useChatStore.getState())
@@ -3278,7 +3327,7 @@ private async toolSendMessage(args: any): Promise<any> {
       return {
         success: true,
         sessionId: sessionId,
-        status: 'idle',
+        status: 'completed',
         message: 'Conversation stopped successfully'
       }
     } catch (error) {
@@ -3763,7 +3812,6 @@ private async toolSendMessage(args: any): Promise<any> {
   // ANALYSIS MANAGEMENT TOOLS
   // ========================================
 
-
   private async toolSaveAnalysisSnapshot(args: any): Promise<any> {
     try {
       const { sessionId, analysis, analysisType = 'manual', messageCountAtAnalysis, participantCountAtAnalysis, provider, conversationPhase, conversationContext } = args
@@ -3923,7 +3971,7 @@ private async toolSendMessage(args: any): Promise<any> {
         lastModified: new Date()
       }
 
-      this.experimentConfigs.set(experimentId, experimentConfig) // <- ADD this.
+      this.experimentConfigs.set(experimentId, experimentConfig)
 
       return {
         success: true,
@@ -3939,7 +3987,7 @@ private async toolSendMessage(args: any): Promise<any> {
 
   private async toolGetExperiments(args: any): Promise<any> {
     try {
-      const experiments = Array.from(this.experimentConfigs.values()) // <- ADD this.
+      const experiments = Array.from(this.experimentConfigs.values())
       
       return {
         success: true,
@@ -3960,8 +4008,8 @@ private async toolSendMessage(args: any): Promise<any> {
         throw new Error('Experiment ID is required')
       }
 
-      const config = this.experimentConfigs.get(experimentId) // <- ADD this.
-      const run = this.experimentRuns.get(experimentId) // <- ADD this.
+      const config = this.experimentConfigs.get(experimentId)
+      const run = this.experimentRuns.get(experimentId)
       
       if (!config) {
         throw new Error(`Experiment ${experimentId} not found`)
@@ -3986,7 +4034,7 @@ private async toolSendMessage(args: any): Promise<any> {
         throw new Error('Experiment ID is required')
       }
 
-      const config = this.experimentConfigs.get(experimentId) // <- ADD this.
+      const config = this.experimentConfigs.get(experimentId)
       if (!config) {
         throw new Error(`Experiment ${experimentId} not found`)
       }
@@ -3998,7 +4046,7 @@ private async toolSendMessage(args: any): Promise<any> {
         lastModified: new Date()
       }
 
-      this.experimentConfigs.set(experimentId, updatedConfig) // <- ADD this.
+      this.experimentConfigs.set(experimentId, updatedConfig)
 
       return {
         success: true,
@@ -4020,13 +4068,13 @@ private async toolSendMessage(args: any): Promise<any> {
       }
 
       // Stop experiment if running
-      if (this.experimentRuns.has(experimentId)) { // <- ADD this.
+      if (this.experimentRuns.has(experimentId)) {
         await this.toolStopExperiment({ experimentId })
       }
 
-      this.experimentConfigs.delete(experimentId) // <- ADD this.
-      this.experimentRuns.delete(experimentId) // <- ADD this.
-      this.activeExperimentSessions.delete(experimentId) // <- ADD this.
+      this.experimentConfigs.delete(experimentId)
+      this.experimentRuns.delete(experimentId)
+      this.activeExperimentSessions.delete(experimentId)
 
       return {
         success: true,
@@ -4047,13 +4095,13 @@ private async toolSendMessage(args: any): Promise<any> {
         throw new Error('Experiment ID is required')
       }
 
-      const config = this.experimentConfigs.get(experimentId) // <- ADD this.
+      const config = this.experimentConfigs.get(experimentId)
       if (!config) {
         throw new Error(`Experiment ${experimentId} not found`)
       }
 
       // Check if already running
-      if (this.experimentRuns.has(experimentId) && this.experimentRuns.get(experimentId)!.status === 'running') { // <- ADD this.
+      if (this.experimentRuns.has(experimentId) && this.experimentRuns.get(experimentId)!.status === 'running') {
         throw new Error('Experiment is already running')
       }
 
@@ -4073,8 +4121,8 @@ private async toolSendMessage(args: any): Promise<any> {
         progress: 0
       }
 
-      this.experimentRuns.set(experimentId, run) // <- ADD this.
-      this.activeExperimentSessions.set(experimentId, new Set()) // <- ADD this.
+      this.experimentRuns.set(experimentId, run)
+      this.activeExperimentSessions.set(experimentId, new Set())
 
       // Start execution asynchronously
       this.executeExperimentAsync(experimentId, config, run)
@@ -4089,6 +4137,240 @@ private async toolSendMessage(args: any): Promise<any> {
     } catch (error) {
       console.error('Execute experiment failed:', error)
       throw new Error(`Failed to execute experiment: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  private async executeExperimentAsync(
+    experimentId: string,
+    config: ExperimentConfig,
+    run: ExperimentRun
+  ): Promise<void> {
+    console.log(`🚀 Starting experiment execution: ${experimentId}`)
+    
+    try {
+      // Update status to running
+      run.status = 'running'
+      this.experimentRuns.set(experimentId, run)
+
+      const sessionIds = this.activeExperimentSessions.get(experimentId) || new Set()
+      const concurrentLimit = config.concurrentSessions || 1
+      
+      // Create session execution promises
+      const sessionPromises: Promise<void>[] = []
+      
+      for (let i = 0; i < config.totalSessions; i++) {
+        // Check if experiment was stopped
+        const currentRun = this.experimentRuns.get(experimentId)
+        if (!currentRun || currentRun.status !== 'running') {
+          console.log(`🛑 Experiment ${experimentId} stopped, aborting execution`)
+          break
+        }
+
+        // Wait if we're at the concurrent limit
+        while (sessionPromises.length >= concurrentLimit) {
+          await Promise.race(sessionPromises)
+          // Remove completed promises
+          sessionPromises.splice(0, sessionPromises.length - concurrentLimit + 1)
+        }
+
+        // Create and start a new session
+        const sessionPromise = this.createAndRunExperimentSession(
+          experimentId,
+          config,
+          i,
+          sessionIds
+        ).then(() => {
+          // Update completed count
+          run.completedSessions++
+          run.progress = (run.completedSessions / config.totalSessions) * 100
+          this.experimentRuns.set(experimentId, run)
+        }).catch((error) => {
+          console.error(`Session ${i + 1} failed:`, error)
+          run.failedSessions++
+          run.errorRate = run.failedSessions / (run.completedSessions + run.failedSessions)
+          this.addExperimentError(experimentId, 'session_error', error.message)
+        })
+
+        sessionPromises.push(sessionPromise)
+        
+        // Update active sessions count
+        run.activeSessions = sessionPromises.length
+        this.experimentRuns.set(experimentId, run)
+      }
+
+      // Wait for all remaining sessions to complete
+      await Promise.allSettled(sessionPromises)
+
+      // Final update
+      run.status = 'completed'
+      run.completedAt = new Date()
+      run.activeSessions = 0
+      this.experimentRuns.set(experimentId, run)
+
+      console.log(`✅ Experiment ${experimentId} completed: ${run.completedSessions}/${config.totalSessions} sessions`)
+
+    } catch (error) {
+      console.error(`❌ Experiment ${experimentId} failed:`, error)
+      run.status = 'failed'
+      run.completedAt = new Date()
+      run.activeSessions = 0
+      this.addExperimentError(experimentId, 'experiment_error', error instanceof Error ? error.message : 'Unknown error')
+      this.experimentRuns.set(experimentId, run)
+    }
+  }
+
+  private async createAndRunExperimentSession(
+    experimentId: string,
+    config: ExperimentConfig,
+    sessionIndex: number,
+    sessionIds: Set<string>
+  ): Promise<void> {
+    this.updateStoreReference()
+    const store = useChatStore.getState()
+
+    try {
+      // Generate session name from pattern
+      const date = new Date().toISOString().split('T')[0]
+      const sessionName = config.sessionNamePattern
+        .replace('<date>', date)
+        .replace('<n>', (sessionIndex + 1).toString().padStart(3, '0'))
+
+      console.log(`📋 Creating experiment session ${sessionIndex + 1}: ${sessionName}`)
+
+      // Create session
+      const sessionResult = await this.toolCreateSession({
+        name: sessionName,
+        description: `Experiment session ${sessionIndex + 1} for ${config.name}`,
+        metadata: {
+          experimentId,
+          experimentName: config.name,
+          sessionIndex
+        }
+      })
+
+      const sessionId = sessionResult.sessionId
+      sessionIds.add(sessionId)
+
+      // Update run with session ID
+      const run = this.experimentRuns.get(experimentId)
+      if (run) {
+        run.sessionIds.push(sessionId)
+        this.experimentRuns.set(experimentId, run)
+      }
+
+      // Switch to the new session
+      await this.toolSwitchCurrentSession({ sessionId })
+
+      // Add participants
+      for (const participantConfig of config.participants) {
+        await this.toolAddParticipant({
+          sessionId,
+          name: participantConfig.name,
+          type: participantConfig.type,
+          model: participantConfig.model,
+          settings: {
+            temperature: participantConfig.temperature || 0.7,
+            maxTokens: participantConfig.maxTokens || 2000,
+            responseDelay: 3000
+          },
+          characteristics: {
+            personality: participantConfig.personality || '',
+            expertise: participantConfig.expertise ? [participantConfig.expertise] : []
+          }
+        })
+      }
+
+      // Set system prompts for participants if provided
+      if (config.systemPrompt) {
+        const updatedStore = useChatStore.getState()
+        const session = updatedStore.sessions.find(s => s.id === sessionId)
+        if (session) {
+          for (const participant of session.participants) {
+            await this.toolUpdateParticipant({
+              sessionId,
+              participantId: participant.id,
+              updates: {
+                systemPrompt: config.systemPrompt
+              }
+            })
+          }
+        }
+      }
+
+      console.log(`🎯 Starting conversation for session ${sessionId}`)
+
+      // Start the conversation using the MCPConversationManager
+      // We'll need to access it through the client-side infrastructure
+      await this.toolStartConversation({
+        sessionId,
+        initialPrompt: config.systemPrompt
+      })
+
+      // Monitor conversation progress
+      let messageCount = 0
+      let noProgressCount = 0
+      const maxNoProgress = 10 // Stop if no progress for 10 checks
+
+      while (messageCount < config.maxMessageCount) {
+        await new Promise(resolve => setTimeout(resolve, 3000)) // Check every 3 seconds
+
+        const currentStore = useChatStore.getState()
+        const currentSession = currentStore.sessions.find(s => s.id === sessionId)
+        
+        if (!currentSession) {
+          console.error(`Session ${sessionId} not found`)
+          break
+        }
+
+        const newMessageCount = currentSession.messages?.length || 0
+        
+        if (newMessageCount > messageCount) {
+          messageCount = newMessageCount
+          noProgressCount = 0
+          console.log(`📈 Session ${sessionId}: ${messageCount}/${config.maxMessageCount} messages`)
+        } else {
+          noProgressCount++
+          if (noProgressCount >= maxNoProgress) {
+            console.log(`⚠️ Session ${sessionId} appears stuck, stopping`)
+            break
+          }
+        }
+
+        // Check if session status changed
+        if (currentSession.status === 'completed' || currentSession.status === 'error') {
+          console.log(`Session ${sessionId} ended with status: ${currentSession.status}`)
+          break
+        }
+
+        // Check if experiment was stopped
+        const currentRun = this.experimentRuns.get(experimentId)
+        if (!currentRun || currentRun.status !== 'running') {
+          console.log(`Experiment ${experimentId} stopped, ending session`)
+          break
+        }
+      }
+
+      // Stop the conversation
+      await this.toolStopConversation({ sessionId })
+
+      // Run analysis if configured
+      if (config.analysisProvider && config.analysisContextSize > 0) {
+        try {
+          await this.toolTriggerLiveAnalysis({
+            sessionId,
+            analysisType: 'full'
+          })
+        } catch (error) {
+          console.error(`Analysis failed for session ${sessionId}:`, error)
+          this.addExperimentError(experimentId, 'analysis_error', error instanceof Error ? error.message : 'Unknown error', sessionId)
+        }
+      }
+
+      console.log(`✅ Completed experiment session ${sessionId}`)
+
+    } catch (error) {
+      console.error(`Failed to create/run experiment session ${sessionIndex + 1}:`, error)
+      throw error
     }
   }
 
@@ -4186,6 +4468,12 @@ private async toolSendMessage(args: any): Promise<any> {
         }
       }
 
+      // Continue the experiment execution
+      const config = this.experimentConfigs.get(experimentId)
+      if (config) {
+        this.executeExperimentAsync(experimentId, config, run)
+      }
+
       return {
         success: true,
         experimentId,
@@ -4257,7 +4545,7 @@ private async toolSendMessage(args: any): Promise<any> {
 
       // Get all sessions for this experiment
       const experimentSessions = store.sessions.filter(s => 
-        s.experimentId === experimentId || 
+        s.metadata?.experimentId === experimentId || 
         (run.sessionIds && run.sessionIds.includes(s.id))
       )
 
@@ -4265,16 +4553,18 @@ private async toolSendMessage(args: any): Promise<any> {
       const totalMessages = experimentSessions.reduce((sum, session) => sum + (session.messages?.length || 0), 0)
       const avgMessagesPerSession = experimentSessions.length > 0 ? totalMessages / experimentSessions.length : 0
       
-      const participantStats = new Map<string, { messageCount: number, avgResponseTime: number }>()
+      const participantStats = new Map<string, { messageCount: number, sessions: number }>()
       
       experimentSessions.forEach(session => {
         session.participants?.forEach(participant => {
-          const key = `${participant.type}-${participant.model || 'default'}`
+          const key = `${participant.type}-${participant.settings?.model || 'default'}`
           if (!participantStats.has(key)) {
-            participantStats.set(key, { messageCount: 0, avgResponseTime: 0 })
+            participantStats.set(key, { messageCount: 0, sessions: 0 })
           }
           const stats = participantStats.get(key)!
-          stats.messageCount += participant.messageCount || 0
+          const messages = session.messages?.filter(m => m.participantId === participant.id).length || 0
+          stats.messageCount += messages
+          stats.sessions++
         })
       })
 
@@ -4290,13 +4580,15 @@ private async toolSendMessage(args: any): Promise<any> {
             participantCount: s.participants?.length || 0,
             status: s.status,
             createdAt: s.createdAt,
-            lastActivity: s.lastActivity
+            lastActivity: s.updatedAt
           })),
           aggregateStats: {
             totalSessions: experimentSessions.length,
             totalMessages,
             avgMessagesPerSession,
-            participantStats: Object.fromEntries(participantStats)
+            participantStats: Object.fromEntries(participantStats),
+            errorRate: run.errorRate,
+            successRate: run.totalSessions > 0 ? run.completedSessions / run.totalSessions : 0
           }
         }
       }
@@ -4304,75 +4596,6 @@ private async toolSendMessage(args: any): Promise<any> {
       console.error('Get experiment results failed:', error)
       throw new Error(`Failed to get experiment results: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
-  }
-
-  private async createAndRunExperimentSession(
-    experimentId: string, 
-    config: ExperimentConfig, 
-    sessionIndex: number,
-    sessionIds: Set<string>
-  ): Promise<void> {
-    this.updateStoreReference()
-    const store = useChatStore.getState()
-
-    // Generate session name from pattern
-    const date = new Date().toISOString().split('T')[0]
-    const sessionName = config.sessionNamePattern
-      .replace('<date>', date)
-      .replace('<n>', (sessionIndex + 1).toString().padStart(3, '0'))
-
-    // Create session
-    const sessionId = `${experimentId}-session-${sessionIndex + 1}`
-    sessionIds.add(sessionId)
-
-    // Use existing toolCreateSession method
-    await this.toolCreateSession({
-      name: sessionName,
-      description: `Experiment session ${sessionIndex + 1} for ${config.name}`
-    })
-
-    // Add participants using existing toolAddParticipant
-    for (const participantConfig of config.participants) {
-      await this.toolAddParticipant({
-        sessionId,
-        name: participantConfig.name,
-        type: participantConfig.type,
-        model: participantConfig.model,
-        settings: {
-          temperature: participantConfig.temperature || 0.7,
-          maxTokens: participantConfig.maxTokens || 1000
-        },
-        characteristics: {
-          personality: participantConfig.personality || '',
-          expertise: participantConfig.expertise || ''
-        }
-      })
-    }
-
-    // Start conversation
-    await this.toolStartConversation({
-      sessionId,
-      initialPrompt: config.systemPrompt
-    })
-
-    // Run until maxMessageCount is reached (simplified)
-    let messageCount = 0
-    while (messageCount < config.maxMessageCount) {
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      const updatedStore = useChatStore.getState()
-      const session = updatedStore.sessions.find(s => s.id === sessionId)
-      const newMessageCount = session?.messages?.length || 0
-      
-      if (newMessageCount > messageCount) {
-        messageCount = newMessageCount
-      } else {
-        break // No new messages, conversation finished
-      }
-    }
-
-    // Stop conversation
-    await this.toolStopConversation({ sessionId })
   }
 
   private addExperimentError(experimentId: string, type: string, message: string, sessionId?: string) {

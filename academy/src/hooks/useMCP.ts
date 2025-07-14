@@ -98,6 +98,19 @@ interface MCPHookMethods {
   syncStateWithClient: () => Promise<void>
   reconnect: () => Promise<void>
   disconnect: () => void
+
+  // Experiment methods
+  createExperimentViaMCP: (config: any) => Promise<any>
+  getExperimentsViaMCP: () => Promise<any>
+  getExperimentViaMCP: (experimentId: string) => Promise<any>
+  updateExperimentViaMCP: (experimentId: string, updates: any) => Promise<any>
+  deleteExperimentViaMCP: (experimentId: string) => Promise<any>
+  executeExperimentViaMCP: (experimentId: string) => Promise<any>
+  getExperimentStatusViaMCP: (experimentId: string) => Promise<any>
+  pauseExperimentViaMCP: (experimentId: string) => Promise<any>
+  resumeExperimentViaMCP: (experimentId: string) => Promise<any>
+  stopExperimentViaMCP: (experimentId: string) => Promise<any>
+  getExperimentResultsViaMCP: (experimentId: string) => Promise<any>
 }
 
 type MCPHook = MCPHookState & MCPHookMethods
@@ -1366,6 +1379,239 @@ export function useMCP(): MCPHook {
   }, [])
 
   // ========================================
+  // EXPERIMENT MANAGEMENT METHODS
+  // ========================================
+
+  const createExperimentViaMCP = useCallback(async (config: any) => {
+    if (!clientRef.current) throw new Error('MCP client not initialized')
+    
+    console.log(`🧪 useMCP: Creating experiment via MCP`)
+    
+    try {
+      const result = await clientRef.current.createExperimentViaMCP(config)
+      
+      // Refresh resources after experiment creation
+      setTimeout(refreshResources, 100)
+      
+      return result
+    } catch (error) {
+      console.error('Failed to create experiment via MCP:', error)
+      setState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Failed to create experiment',
+        lastUpdate: new Date()
+      }))
+      throw error
+    }
+  }, [refreshResources])
+
+  const getExperimentsViaMCP = useCallback(async () => {
+    if (!clientRef.current) throw new Error('MCP client not initialized')
+    
+    try {
+      const result = await clientRef.current.getExperimentsViaMCP()
+      return result
+    } catch (error) {
+      console.error('Failed to get experiments via MCP:', error)
+      setState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Failed to get experiments',
+        lastUpdate: new Date()
+      }))
+      throw error
+    }
+  }, [])
+
+  const getExperimentViaMCP = useCallback(async (experimentId: string) => {
+    if (!clientRef.current) throw new Error('MCP client not initialized')
+    
+    try {
+      const result = await clientRef.current.getExperimentViaMCP(experimentId)
+      return result
+    } catch (error) {
+      console.error('Failed to get experiment via MCP:', error)
+      setState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Failed to get experiment',
+        lastUpdate: new Date()
+      }))
+      throw error
+    }
+  }, [])
+
+  const updateExperimentViaMCP = useCallback(async (experimentId: string, updates: any) => {
+    if (!clientRef.current) throw new Error('MCP client not initialized')
+    
+    console.log(`✏️ useMCP: Updating experiment via MCP: ${experimentId}`)
+    
+    try {
+      const result = await clientRef.current.updateExperimentViaMCP(experimentId, updates)
+      
+      // Refresh resources after experiment update
+      setTimeout(refreshResources, 100)
+      
+      return result
+    } catch (error) {
+      console.error('Failed to update experiment via MCP:', error)
+      setState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Failed to update experiment',
+        lastUpdate: new Date()
+      }))
+      throw error
+    }
+  }, [refreshResources])
+
+  const deleteExperimentViaMCP = useCallback(async (experimentId: string) => {
+    if (!clientRef.current) throw new Error('MCP client not initialized')
+    
+    console.log(`🗑️ useMCP: Deleting experiment via MCP: ${experimentId}`)
+    
+    try {
+      const result = await clientRef.current.deleteExperimentViaMCP(experimentId)
+      
+      // Refresh resources after experiment deletion
+      setTimeout(refreshResources, 100)
+      
+      return result
+    } catch (error) {
+      console.error('Failed to delete experiment via MCP:', error)
+      setState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Failed to delete experiment',
+        lastUpdate: new Date()
+      }))
+      throw error
+    }
+  }, [refreshResources])
+
+  const executeExperimentViaMCP = useCallback(async (experimentId: string) => {
+    if (!clientRef.current) throw new Error('MCP client not initialized')
+    
+    console.log(`🚀 useMCP: Executing experiment via MCP: ${experimentId}`)
+    
+    try {
+      const result = await clientRef.current.executeExperimentViaMCP(experimentId)
+      
+      // Refresh resources after experiment execution starts
+      setTimeout(refreshResources, 100)
+      
+      return result
+    } catch (error) {
+      console.error('Failed to execute experiment via MCP:', error)
+      setState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Failed to execute experiment',
+        lastUpdate: new Date()
+      }))
+      throw error
+    }
+  }, [refreshResources])
+
+  const getExperimentStatusViaMCP = useCallback(async (experimentId: string) => {
+    if (!clientRef.current) throw new Error('MCP client not initialized')
+    
+    try {
+      const status = await clientRef.current.getExperimentStatusViaMCP(experimentId)
+      return status
+    } catch (error) {
+      console.error('Failed to get experiment status via MCP:', error)
+      setState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Failed to get experiment status',
+        lastUpdate: new Date()
+      }))
+      throw error
+    }
+  }, [])
+
+  const pauseExperimentViaMCP = useCallback(async (experimentId: string) => {
+    if (!clientRef.current) throw new Error('MCP client not initialized')
+    
+    console.log(`⏸️ useMCP: Pausing experiment via MCP: ${experimentId}`)
+    
+    try {
+      const result = await clientRef.current.pauseExperimentViaMCP(experimentId)
+      
+      // Refresh resources after experiment pause
+      setTimeout(refreshResources, 100)
+      
+      return result
+    } catch (error) {
+      console.error('Failed to pause experiment via MCP:', error)
+      setState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Failed to pause experiment',
+        lastUpdate: new Date()
+      }))
+      throw error
+    }
+  }, [refreshResources])
+
+  const resumeExperimentViaMCP = useCallback(async (experimentId: string) => {
+    if (!clientRef.current) throw new Error('MCP client not initialized')
+    
+    console.log(`▶️ useMCP: Resuming experiment via MCP: ${experimentId}`)
+    
+    try {
+      const result = await clientRef.current.resumeExperimentViaMCP(experimentId)
+      
+      // Refresh resources after experiment resume
+      setTimeout(refreshResources, 100)
+      
+      return result
+    } catch (error) {
+      console.error('Failed to resume experiment via MCP:', error)
+      setState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Failed to resume experiment',
+        lastUpdate: new Date()
+      }))
+      throw error
+    }
+  }, [refreshResources])
+
+  const stopExperimentViaMCP = useCallback(async (experimentId: string) => {
+    if (!clientRef.current) throw new Error('MCP client not initialized')
+    
+    console.log(`⏹️ useMCP: Stopping experiment via MCP: ${experimentId}`)
+    
+    try {
+      const result = await clientRef.current.stopExperimentViaMCP(experimentId)
+      
+      // Refresh resources after experiment stop
+      setTimeout(refreshResources, 100)
+      
+      return result
+    } catch (error) {
+      console.error('Failed to stop experiment via MCP:', error)
+      setState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Failed to stop experiment',
+        lastUpdate: new Date()
+      }))
+      throw error
+    }
+  }, [refreshResources])
+
+  const getExperimentResultsViaMCP = useCallback(async (experimentId: string) => {
+    if (!clientRef.current) throw new Error('MCP client not initialized')
+    
+    try {
+      const results = await clientRef.current.getExperimentResultsViaMCP(experimentId)
+      return results
+    } catch (error) {
+      console.error('Failed to get experiment results via MCP:', error)
+      setState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Failed to get experiment results',
+        lastUpdate: new Date()
+      }))
+      throw error
+    }
+  }, [])
+
+  // ========================================
   // DEBUG METHODS
   // ========================================
 
@@ -1469,6 +1715,18 @@ export function useMCP(): MCPHook {
     callOllamaViaMCP,
     callDeepseekViaMCP,
     callMistralViaMCP,
+
+    createExperimentViaMCP,
+    getExperimentsViaMCP,
+    getExperimentViaMCP,
+    updateExperimentViaMCP,
+    deleteExperimentViaMCP,
+    executeExperimentViaMCP,
+    getExperimentStatusViaMCP,
+    pauseExperimentViaMCP,
+    resumeExperimentViaMCP,
+    stopExperimentViaMCP,
+    getExperimentResultsViaMCP,
     
     // Debug Methods
     debugStoreViaMCP,
