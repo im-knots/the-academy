@@ -1,25 +1,20 @@
 # The Academy
 
-The Academy is a comprehensive Socratic dialogue engine for AI agents built with Next.js and **full Model Context Protocol (MCP) integration**. It enables agents to engage in structured, recursive dialogue with shared context, while exposing all conversation data and AI capabilities through the standardized MCP interface with real-time analysis and research tools.
+The Academy is a comprehensive Socratic dialogue engine for AI agents built with Next.js and **full Model Context Protocol (MCP) integration**. It enables agents to engage in structured, recursive dialogue with shared context, while exposing all conversation data and AI capabilities through the standardized MCP interface with real-time analysis and research tools. 
 
-Designed for engineers, researchers, and builders interested in exploring multi-agent systems, coordination strategies, and memory-driven interaction through the emerging MCP ecosystem.
 
 ![The Academy](docs/screenshot.png)
 
-## Core Features
+The Academy currently supports models from 7 major LLM providers, as well as Ollama integration for bringing your own models. 
 
-### Advanced Dialogue Engine
-- **Multi-agent autonomous conversations** between Claude, GPT, and other AI models
-- **Intelligent conversation management** with MCP-powered conversation control
-- **Real-time moderator intervention** with pause/resume and injection capabilities
-- **Persistent shared context** across conversation turns 
-- **Abort signal support** for graceful conversation interruption and resumption
-- **Template-based session creation** with curated conversation starters
-- **Comprehensive error tracking** with retry attempt logging and analysis
+![Supported Providers](docs/participants.png)
+
+
+## Core Features
 
 ### Model Context Protocol Integration
 - **Full MCP server implementation** exposing Academy data and capabilities
-- **AI Provider Tools**: Direct access to Claude and OpenAI APIs as MCP tools (`claude_chat`, `openai_chat`)
+- **AI Provider Tools**: Direct access to 7 major Lab APIs as well as Ollama for local models as MCP tools 
 - **Conversation Resources**: Session data, messages, and analysis available via MCP URIs
 - **Session Control Tools**: Start, pause, resume, and manage conversations programmatically
 - **Real-time Analysis Tools**: Conversation insights and metrics through MCP protocol
@@ -27,12 +22,20 @@ Designed for engineers, researchers, and builders interested in exploring multi-
 - **WebSocket Integration**: Real-time updates and event broadcasting
 - **MCP Debug Tools**: Store debugging, resource inspection, and comprehensive error tracking
 
+### Advanced Dialogue Engine
+- **Multi-agent autonomous conversations** between Claude, GPT, and other AI models
+- **Real-time moderator intervention** with pause/resume and injection capabilities
+- **Persistent shared context** across conversation turns 
+- **Abort signal support** for graceful conversation interruption and resumption
+- **Template-based session creation** with curated conversation starters
+- **Comprehensive error tracking** with retry attempt logging and analysis
+
 ### Reliability & Error Handling
 - **Exponential Backoff Retry Logic**: Automatic recovery from network failures with 3 retry attempts
 - **Smart Error Classification**: Distinguishes between retryable network errors and non-retryable client errors
 - **Conversation Continuity**: Network hiccups don't interrupt long-form dialogues or cause participant dropouts
 - **Comprehensive Error Tracking**: All API failures logged with attempt counts, timestamps, and retry details
-- **Production-Grade Resilience**: Tested with 70+ message conversations under adverse network conditions
+- **Production-Grade Resilience**: Tested with 200+ message conversations under adverse network conditions
 - **Graceful Degradation**: Rate limits and authentication errors fail fast without wasting API quota
 - **Export Integration**: Error logs included in conversation exports for research analysis
 
@@ -62,7 +65,7 @@ Designed for engineers, researchers, and builders interested in exploring multi-
 - **Real-time Status Monitoring**: Track thinking, active, idle, and error states
 - **Custom Characteristics**: Define personality traits and areas of expertise
 - **Dynamic Participant Addition**: Add agents during active conversations
-- **Multi-Model Support**: Claude 3.5 Sonnet, GPT-4o, and other model variants
+- **Multi-Model Support**: Chat models from all major LLM providers
 - **Participant Analytics**: Message counts and engagement tracking
 
 ### Export & Research Tools
@@ -81,9 +84,9 @@ Designed for engineers, researchers, and builders interested in exploring multi-
 
 The Academy's comprehensive MCP tool suite enables scripted bulk experiment execution. Researchers can programmatically create sessions, configure participants, control conversations, analyze results, and export data - all through the MCP interface. This makes it possible to run comparative studies, parameter sweeps, intervention experiments, and large-scale conversation analysis without manual interaction.
 
-## MCP Capabilities
+### MCP Integration
 
-The Academy exposes its functionality through a complete MCP server implementation, enabling programmatic access to all features:
+The Academy automatically exposes its MCP server at `/api/mcp`. You can integrate with MCP-compatible tools by connecting to this endpoint. 
 
 ### Resources
 - `academy://sessions` - All conversation sessions with metadata
@@ -146,9 +149,15 @@ The Academy provides a comprehensive suite of 40+ MCP tools:
 - `export_analysis_timeline` - Export analysis history
 - `get_export_preview` - Preview export content
 
-#### AI Provider Tools (2 tools)
-- `claude_chat` - Direct Claude API access with exponential backoff retry
-- `openai_chat` - Direct OpenAI API access with exponential backoff retry
+#### AI Provider Tools (8 tools)
+- `claude_chat` - Claude API access with exponential backoff retry
+- `openai_chat` - OpenAI API access with exponential backoff retry
+- `grok_chat` - Grok API access with exponential backoff retry
+- `gemini_chat` - Gemini API access with exponential backoff retry
+- `deepseek_chat` - Deepseek API access with exponential backoff retry
+- `mistral_chat` - Mistral API access with exponential backoff retry
+- `cohere_chat` - Cohere API access with exponential backoff retry
+- `ollama_chat` - Ollama API access with exponential backoff retry
 
 #### Debug & Error Tracking Tools (3 tools)
 - `debug_store` - Debug store state and MCP integration
@@ -225,6 +234,8 @@ mcp.subscribe('analysis_snapshot_saved', (data) => {
 ## Getting Started 
 
 ### Running with Docker
+Note: You only need to provide api keys for providers you intend to use. 
+
 ```bash 
 git clone https://github.com/yourname/the-academy.git
 cd the-academy/academy
@@ -236,6 +247,9 @@ docker run -d \
   -e OPENAI_API_KEY=your_openai_api_key_here \
   -e XAI_API_KEY=your_xai_api_key_here \
   -e GOOGLE_AI_API_KEY=your_google_ai_api_key_here \
+  -e DEEPSEEK_API_KEY=your_deepseek_api_key_here \
+  -e MISTRAL_API_KEY=your_mistral_api_key_here \
+  -e COHERE_API_KEY=your_cohere_api_key_here \
   -e NODE_ENV=production \
   --restart unless-stopped \
   the-academy
@@ -257,8 +271,13 @@ pnpm install
 
 Create a `.env.local` file with your API keys:
 ```env
-ANTHROPIC_API_KEY=your_claude_api_key_here
-OPENAI_API_KEY=your_openai_api_key_here
+ANTHROPIC_API_KEY=your_claude_api_key_here 
+OPENAI_API_KEY=your_openai_api_key_here 
+XAI_API_KEY=your_xai_api_key_here 
+GOOGLE_AI_API_KEY=your_google_ai_api_key_here 
+DEEPSEEK_API_KEY=your_deepseek_api_key_here 
+MISTRAL_API_KEY=your_mistral_api_key_here 
+COHERE_API_KEY=your_cohere_api_key_here 
 ```
 
 #### Launch
@@ -269,9 +288,6 @@ pnpm dev
 
 Visit `http://localhost:3000` to access The Academy interface.
 
-### MCP Integration
-
-The Academy automatically exposes its MCP server at `/api/mcp`. You can integrate with MCP-compatible tools by connecting to this endpoint. The platform also supports WebSocket connections at `/api/mcp/ws` for real-time updates.
 
 ## Example Workflows
 
@@ -304,7 +320,7 @@ The Academy automatically exposes its MCP server at `/api/mcp`. You can integrat
 The Academy is designed as a research platform for the AI and MCP communities. Contributions are welcome in areas including:
 
 - **MCP tool extensions** for specialized analysis and research workflows
-- **Additional AI provider integrations** (Anthropic, OpenAI, local models)
+- **Additional AI provider integrations** the more integrations the better
 - **Advanced analysis algorithms** for conversation pattern detection
 - **Research methodology templates** for specific use cases
 - **Real-time collaboration features** for multi-researcher environments
@@ -312,7 +328,7 @@ The Academy is designed as a research platform for the AI and MCP communities. C
 - **Performance optimizations** for large-scale conversation analysis
 - **Export format extensions** for integration with research tools
 
-Please feel free to reach out about contributing to this project. I'd love to develop it further with collaborators who are exploring multi-agent AI systems, conversation analysis, and the MCP ecosystem.
+Please feel free to open an issue or a pull request. I'd love to develop The Academy further with collaborators who are exploring multi-agent AI systems, conversation analysis, and the MCP ecosystem.
 
 ## License
 
