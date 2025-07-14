@@ -1,4 +1,4 @@
-// src/components/Chat/ChatInterface.tsx - Updated with LiveSummary
+// src/components/Chat/ChatInterface.tsx - Updated with LiveSummary and Experiments
 'use client'
 
 import Image from 'next/image'
@@ -16,12 +16,34 @@ import { ExportModal } from '@/components/Export/ExportModal'
 import { MCPModal } from '@/components/MCP/MCPModal'
 import { LiveSummary } from '@/components/Research/LiveSummary'
 import { SessionsSection } from '@/components/Sessions/SessionsSection'
+import { ExperimentsInterface } from '@/components/Research/ExperimentsInterface'
+import { ExperimentsList } from '@/components/Research/ExperimentsList'
 import { 
   Brain, Users, Settings, Play, Pause, Plus, Sparkles, MessageSquare, 
   Zap, Send, Hand, Square, AlertCircle, Clock, CheckCircle2, Loader2,
   Download, FileDown, ChevronLeft, History,
   Wifi, WifiOff, Terminal, Monitor
 } from 'lucide-react'
+
+interface ExperimentConfig {
+  id: string
+  name: string
+  participants: Array<{
+    type: 'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama' | 'deepseek' | 'mistral' | 'cohere'
+    name: string
+    model?: string
+  }>
+  systemPrompt: string
+  analysisContextSize: number
+  analysisProvider: 'claude' | 'gpt'
+  maxMessageCount: number
+  totalSessions: number
+  concurrentSessions: number
+  sessionNamePattern: string
+  errorRateThreshold: number
+  createdAt: Date
+  lastModified: Date
+}
 
 export function ChatInterface() {
   const [showAddParticipant, setShowAddParticipant] = useState(false)
@@ -32,6 +54,12 @@ export function ChatInterface() {
   const [conversationState, setConversationState] = useState<'idle' | 'starting' | 'running' | 'pausing' | 'stopping'>('idle')
   const [error, setError] = useState<string | null>(null)
   const [wasRunningBeforeInterjection, setWasRunningBeforeInterjection] = useState(false)
+  const [viewMode, setViewMode] = useState<'chat' | 'experiment'>('chat')
+  
+  // Experiments state
+  const [experiments, setExperiments] = useState<ExperimentConfig[]>([])
+  const [selectedExperiment, setSelectedExperiment] = useState<ExperimentConfig | null>(null)
+
   
   // Combined left panel state
   const [showLeftPanel, setShowLeftPanel] = useState(true)
@@ -76,6 +104,12 @@ export function ChatInterface() {
       return () => clearTimeout(timer)
     }
   }, [error])
+
+  // Handlers for experiments
+  const handleCreateExperiment = (experiment: ExperimentConfig) => {
+    setExperiments(prev => [...prev, experiment])
+    setSelectedExperiment(experiment)
+  }
 
   const handleStartConversation = async () => {
     if (!currentSession || !hasAIParticipants || !moderatorInput.trim()) return
@@ -226,6 +260,78 @@ export function ChatInterface() {
     return 'text-red-600 bg-red-50 border-red-200'
   }
 
+  // Render experiments interface if in experiment mode
+  if (viewMode === 'experiment') {
+    return (
+      <div className="h-screen w-screen flex bg-gray-50 dark:bg-gray-900">
+        {/* Combined Left Panel */}
+        <div className={`${showLeftPanel ? 'w-80' : 'w-0'} transition-all duration-300 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden`}>
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center p-1">
+                <Image
+                  src="/icons/logo.png"
+                  alt="The Academy"
+                  width={32}
+                  height={32}
+                  className="object-contain"
+                />
+              </div>
+              <div>
+                <h1 className="font-semibold text-gray-900 dark:text-gray-100">The Academy</h1>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Socratic Dialogue Engine</p>
+              </div>
+            </div>
+          </div>
+          
+          {/* View Mode Switcher */}
+          <div className="p-4">
+            <div className="flex items-center border border-gray-200 dark:border-gray-600 rounded-md">
+              <Button
+                variant={viewMode === 'chat' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('chat')}
+                className="rounded-r-none border-r flex-1"
+              >
+                <MessageSquare className="h-4 w-4 mr-1" />
+                Chat
+              </Button>
+              <Button
+                variant={viewMode === 'experiment' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('experiment')}
+                className="rounded-l-none flex-1"
+              >
+                <Terminal className="h-4 w-4 mr-1" />
+                Experiments
+              </Button>
+            </div>
+          </div>
+          
+          {/* Experiments List */}
+          <div className="flex-1 overflow-hidden flex flex-col">
+            <ExperimentsList
+              experiments={experiments}
+              selectedExperiment={selectedExperiment}
+              onSelectExperiment={setSelectedExperiment}
+              onNewExperiment={() => {/* Let ExperimentsInterface handle modal */}}
+            />
+          </div>
+        </div>
+
+        {/* Experiments Interface */}
+        <ExperimentsInterface 
+          sessionId={currentSession?.id}
+          experiments={experiments}
+          selectedExperiment={selectedExperiment}
+          onSelectExperiment={setSelectedExperiment}
+          onCreateExperiment={handleCreateExperiment}
+        />
+      </div>
+    )
+  }
+
+  // Original chat interface code continues unchanged below...
   if (!currentSession) {
     return (
       <div className="h-screen w-screen flex bg-gray-50 dark:bg-gray-900">
@@ -249,16 +355,52 @@ export function ChatInterface() {
             </div>
           </div>
           
-          <SessionsSection />
+          {/* View Mode Switcher */}
+          <div className="p-4">
+            <div className="flex items-center border border-gray-200 dark:border-gray-600 rounded-md">
+              <Button
+                variant={viewMode === 'chat' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('chat')}
+                className="rounded-r-none border-r flex-1"
+              >
+                <MessageSquare className="h-4 w-4 mr-1" />
+                Chat
+              </Button>
+              <Button
+                variant={viewMode === 'experiment' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('experiment')}
+                className="rounded-l-none flex-1"
+              >
+                <Terminal className="h-4 w-4 mr-1" />
+                Experiments
+              </Button>
+            </div>
+          </div>
+          
+          {viewMode === 'chat' ? (
+            <SessionsSection />
+          ) : (
+            <div className="flex-1 overflow-hidden flex flex-col">
+              <ExperimentsList
+                experiments={experiments}
+                selectedExperiment={selectedExperiment}
+                onSelectExperiment={setSelectedExperiment}
+                onNewExperiment={() => {/* Let ExperimentsInterface handle modal */}}
+              />
+            </div>
+          )}
         </div>
 
         {/* Main Area - No Session Selected */}
         <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <div className="relative mb-8">
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-32 h-32 bg-gradient-to-br from-blue-400/20 to-purple-600/20 rounded-full animate-pulse"></div>
-              </div>
+          {viewMode === 'chat' ? (
+            <div className="text-center">
+              <div className="relative mb-8">
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-32 h-32 bg-gradient-to-br from-blue-400/20 to-purple-600/20 rounded-full animate-pulse"></div>
+                </div>
                 <Image
                   src="/icons/logo.png"
                   alt="The Academy"
@@ -266,22 +408,31 @@ export function ChatInterface() {
                   height={32}
                   className="object-contain"
                 />
-            </div>
-            <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Welcome to The Academy</h1>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Select a session from the sidebar or create a new one to begin
-            </p>
-            <div className="flex justify-center gap-3">
-              <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                <MessageSquare className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                <span className="text-sm font-medium text-blue-900 dark:text-blue-100">AI Dialogue</span>
               </div>
-              <div className="flex items-center gap-2 px-3 py-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                <Zap className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                <span className="text-sm font-medium text-purple-900 dark:text-purple-100">Research</span>
+              <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Welcome to The Academy</h1>
+              <p className="text-gray-600 dark:text-gray-400 mb-6">
+                Select a session from the sidebar or create a new one to begin
+              </p>
+              <div className="flex justify-center gap-3">
+                <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <MessageSquare className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  <span className="text-sm font-medium text-blue-900 dark:text-blue-100">AI Dialogue</span>
+                </div>
+                <div className="flex items-center gap-2 px-3 py-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                  <Zap className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                  <span className="text-sm font-medium text-purple-900 dark:text-purple-100">Research</span>
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <ExperimentsInterface 
+              sessionId={undefined}
+              experiments={experiments}
+              selectedExperiment={selectedExperiment}
+              onSelectExperiment={setSelectedExperiment}
+              onCreateExperiment={handleCreateExperiment}
+            />
+          )}
         </div>
       </div>
     )
@@ -309,6 +460,30 @@ export function ChatInterface() {
               <h1 className="font-semibold text-gray-900 dark:text-gray-100">The Academy</h1>
               <p className="text-sm text-gray-500 dark:text-gray-400">Socratic Dialogue Engine</p>
             </div>
+          </div>
+        </div>
+
+        {/* View Mode Switcher */}
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center border border-gray-200 dark:border-gray-600 rounded-md">
+            <Button
+              variant={viewMode === 'chat' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('chat')}
+              className="rounded-r-none border-r flex-1"
+            >
+              <MessageSquare className="h-4 w-4 mr-1" />
+              Chat
+            </Button>
+            <Button
+              variant={viewMode === 'experiment' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('experiment')}
+              className="rounded-l-none flex-1"
+            >
+              <Terminal className="h-4 w-4 mr-1" />
+              Experiments
+            </Button>
           </div>
         </div>
 
