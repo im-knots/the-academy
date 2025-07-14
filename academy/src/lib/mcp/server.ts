@@ -4018,7 +4018,7 @@ private async toolSendMessage(args: any): Promise<any> {
     try {
       const { config } = args
       
-      if (!config || !config.name || !config.systemPrompt || !config.participants?.length) {
+      if (!config || !config.name || !config.startingPrompt || !config.participants?.length) {
         throw new Error('Invalid experiment configuration')
       }
 
@@ -4359,7 +4359,7 @@ private async toolSendMessage(args: any): Promise<any> {
       // Create the session
       const createResult = await this.toolCreateSession({
         name: sessionName,
-        systemPrompt: config.systemPrompt,
+        startingPrompt: config.startingPrompt,
         analysisProvider: config.analysisProvider,
         analysisContextSize: config.analysisContextSize
       })

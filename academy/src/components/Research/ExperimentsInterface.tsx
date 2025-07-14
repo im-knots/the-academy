@@ -29,7 +29,7 @@ interface ExperimentConfig {
     expertise?: string
     ollamaUrl?: string
   }>
-  systemPrompt: string
+  startingPrompt: string
   analysisContextSize: number
   analysisProvider: 'claude' | 'gpt'
   maxMessageCount: number
@@ -630,10 +630,10 @@ export function ExperimentsInterface({
 
                         <div>
                           <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            System Prompt
+                            Moderator Starting Prompt
                           </h4>
                           <div className="bg-gray-50 dark:bg-gray-800 rounded p-3 text-sm text-gray-600 dark:text-gray-400 max-h-32 overflow-y-auto">
-                            {selectedExperiment.systemPrompt}
+                            {selectedExperiment.startingPrompt}
                           </div>
                         </div>
                       </div>

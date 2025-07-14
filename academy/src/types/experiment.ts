@@ -47,3 +47,4 @@ export interface ExperimentRun {
   progress: number // 0-100
   estimatedTimeRemaining?: number // milliseconds
 }
+

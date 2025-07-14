@@ -13,7 +13,7 @@ interface ExperimentConfig {
     name: string
     model?: string
   }>
-  systemPrompt: string
+  startingPrompt: string
   analysisContextSize: number
   analysisProvider: 'claude' | 'gpt'
   maxMessageCount: number

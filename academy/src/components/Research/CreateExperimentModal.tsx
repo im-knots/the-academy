@@ -25,7 +25,7 @@ interface ExperimentConfig {
   id: string
   name: string
   participants: ParticipantConfig[]
-  systemPrompt: string
+  startingPrompt: string
   analysisContextSize: number
   analysisProvider: 'claude' | 'gpt'
   maxMessageCount: number
@@ -105,7 +105,7 @@ export function CreateExperimentModal({ isOpen, onClose, onSave }: CreateExperim
   const [formData, setFormData] = useState<Partial<ExperimentConfig>>({
     name: '',
     participants: [],
-    systemPrompt: '',
+    startingPrompt: '',
     analysisContextSize: 10,
     analysisProvider: 'claude',
     maxMessageCount: 50,
@@ -229,7 +229,7 @@ export function CreateExperimentModal({ isOpen, onClose, onSave }: CreateExperim
   }
 
   const handleCreate = () => {
-    if (!formData.name || !formData.systemPrompt || formData.participants?.length === 0) {
+    if (!formData.name || !formData.startingPrompt || formData.participants?.length === 0) {
       return
     }
     
@@ -246,7 +246,7 @@ export function CreateExperimentModal({ isOpen, onClose, onSave }: CreateExperim
     setFormData({
       name: '',
       participants: [],
-      systemPrompt: '',
+      startingPrompt: '',
       analysisContextSize: 10,
       analysisProvider: 'claude',
       maxMessageCount: 50,
@@ -314,11 +314,11 @@ export function CreateExperimentModal({ isOpen, onClose, onSave }: CreateExperim
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  System Prompt
+                  Moderator Starting Prompt
                 </label>
                 <textarea
-                  value={formData.systemPrompt}
-                  onChange={(e) => setFormData(prev => ({ ...prev, systemPrompt: e.target.value }))}
+                  value={formData.startingPrompt}
+                  onChange={(e) => setFormData(prev => ({ ...prev, startingPrompt: e.target.value }))}
                   placeholder="Enter the initial prompt that will start each conversation..."
                   rows={4}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
@@ -672,7 +672,7 @@ export function CreateExperimentModal({ isOpen, onClose, onSave }: CreateExperim
             </Button>
             <Button 
               onClick={handleCreate}
-              disabled={!formData.name || !formData.systemPrompt || !formData.participants || formData.participants.length < 2}
+              disabled={!formData.name || !formData.startingPrompt || !formData.participants || formData.participants.length < 2}
               className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700"
             >
               Create Experiment
