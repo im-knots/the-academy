@@ -2498,45 +2498,74 @@ export class MCPServer {
 
   private async toolCreateSession(args: any): Promise<any> {
     try {
-      const { name, description, template, participants } = args
+      const { name, systemPrompt, analysisProvider, analysisContextSize } = args
       
-      if (!name || typeof name !== 'string') {
+      if (!name) {
         throw new Error('Session name is required')
       }
 
-      this.updateStoreReference()
+      const store = getMCPStoreReference()
+      if (!store) {
+        throw new Error('Store reference not available')
+      }
+
+      console.log(`📋 Creating new session: ${name}`)
       
-      // Create new session data
-      const newSession = {
-        id: `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        name: name.trim(),
-        description: description || '',
-        template: template || null,
-        participants: participants || [],
-        messages: [],
-        status: 'idle' as const,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        metadata: {}
+      // Create the session with optional parameters
+      const sessionData: any = {
+        template: args.template || 'custom',
+        initialPrompt: systemPrompt
+      }
+      
+      const participants = args.participants || []
+
+      const sessionId = store.createSession(
+        name,
+        args.description || '',
+        sessionData,
+        participants
+      )
+
+      console.log(`✅ Session created with ID: ${sessionId}`)
+
+      // IMPORTANT: Don't try to switch to the session immediately
+      // Just return the session ID and let the caller handle switching if needed
+      
+      // Get the created session directly from the store state
+      const createdSession = store.getSessionById(sessionId)
+      
+      if (!createdSession) {
+        // If we still can't find it, wait a bit and try again
+        await new Promise(resolve => setTimeout(resolve, 100))
+        const retrySession = store.getSessionById(sessionId)
+        
+        if (!retrySession) {
+          throw new Error(`Session ${sessionId} was created but cannot be found in store`)
+        }
       }
 
-      // Apply to store
-      const store = useChatStore.getState()
-      const sessionId = store.createSession(newSession.name, newSession.description, newSession.template, newSession.participants)
-      const sessionToSwitch = store.sessions.find(s => s.id === sessionId)
-      if (!sessionToSwitch) {
-        throw new Error(`Session ${sessionId} not found`)
+      // Update analysis settings if provided
+      if (analysisProvider || analysisContextSize) {
+        const updates: any = {}
+        if (analysisProvider) {
+          updates.analysisProvider = analysisProvider
+        }
+        if (analysisContextSize) {
+          updates.analysisContextSize = analysisContextSize
+        }
+        
+        store.updateSession(sessionId, {
+          moderatorSettings: {
+            ...createdSession?.moderatorSettings,
+            ...updates
+          }
+        })
       }
-
-      store.setCurrentSession(sessionToSwitch)
-
-      // Update MCP store reference
-      setMCPStoreReference(useChatStore.getState())
 
       return {
         success: true,
         sessionId: sessionId,
-        sessionData: newSession,
+        session: store.getSessionById(sessionId),
         message: `Session "${name}" created successfully`
       }
     } catch (error) {
@@ -2544,6 +2573,7 @@ export class MCPServer {
       throw new Error(`Failed to create session: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
+
 
   private async toolDeleteSession(args: any): Promise<any> {
     try {
@@ -2627,26 +2657,35 @@ export class MCPServer {
         throw new Error('Session ID is required')
       }
 
-      this.updateStoreReference()
-      
-      const store = useChatStore.getState()
-      const session = store.sessions.find(s => s.id === sessionId)
-      
-      if (!session) {
-        throw new Error(`Session ${sessionId} not found`)
+      const store = getMCPStoreReference()
+      if (!store) {
+        throw new Error('Store reference not available')
       }
 
-      // Switch to the session
-      store.setCurrentSession(sessionId)
+      // Try to find the session with retry
+      let sessionToSwitch = store.sessions.find((s: any) => s.id === sessionId)
+      
+      if (!sessionToSwitch) {
+        // Wait and retry once
+        await new Promise(resolve => setTimeout(resolve, 100))
+        
+        // Re-get the store reference in case it was updated
+        const updatedStore = getMCPStoreReference()
+        sessionToSwitch = updatedStore.sessions.find((s: any) => s.id === sessionId)
+        
+        if (!sessionToSwitch) {
+          throw new Error(`Session ${sessionId} not found after retry`)
+        }
+      }
 
-      // Update MCP store reference
-      setMCPStoreReference(useChatStore.getState())
+      store.setCurrentSession(sessionToSwitch)
+      console.log(`✅ Switched to session: ${sessionToSwitch.name}`)
 
       return {
         success: true,
         sessionId: sessionId,
-        sessionName: session.name,
-        message: `Switched to session "${session.name}"`
+        sessionName: sessionToSwitch.name,
+        message: 'Session switched successfully'
       }
     } catch (error) {
       console.error('Switch session failed:', error)
@@ -4157,8 +4196,10 @@ private async toolSendMessage(args: any): Promise<any> {
       
       // Create session execution promises
       const sessionPromises: Promise<void>[] = []
+      let sessionStartIndex = 0
       
-      for (let i = 0; i < config.totalSessions; i++) {
+      // Process sessions in batches to avoid overwhelming the system
+      while (sessionStartIndex < config.totalSessions) {
         // Check if experiment was stopped
         const currentRun = this.experimentRuns.get(experimentId)
         if (!currentRun || currentRun.status !== 'running') {
@@ -4168,16 +4209,39 @@ private async toolSendMessage(args: any): Promise<any> {
 
         // Wait if we're at the concurrent limit
         while (sessionPromises.length >= concurrentLimit) {
+          // Wait for at least one to complete
           await Promise.race(sessionPromises)
+          
           // Remove completed promises
-          sessionPromises.splice(0, sessionPromises.length - concurrentLimit + 1)
+          const stillRunning = await Promise.all(
+            sessionPromises.map(async (p, idx) => {
+              try {
+                // Check if promise is settled using Promise.race with immediate resolution
+                await Promise.race([p, Promise.resolve('check')])
+                return false // Promise is settled
+              } catch {
+                return true // Promise is still pending
+              }
+            })
+          )
+          
+          sessionPromises.splice(0, sessionPromises.length)
+          stillRunning.forEach((running, idx) => {
+            if (running) sessionPromises.push(sessionPromises[idx])
+          })
+        }
+
+        // Add a small delay between starting new sessions to avoid overwhelming the store
+        if (sessionStartIndex > 0) {
+          await new Promise(resolve => setTimeout(resolve, 500)) // 500ms delay between session starts
         }
 
         // Create and start a new session
+        const sessionIndex = sessionStartIndex
         const sessionPromise = this.createAndRunExperimentSession(
           experimentId,
           config,
-          i,
+          sessionIndex,
           sessionIds
         ).then(() => {
           // Update completed count
@@ -4185,13 +4249,15 @@ private async toolSendMessage(args: any): Promise<any> {
           run.progress = (run.completedSessions / config.totalSessions) * 100
           this.experimentRuns.set(experimentId, run)
         }).catch((error) => {
-          console.error(`Session ${i + 1} failed:`, error)
+          console.error(`Session ${sessionIndex + 1} failed:`, error)
           run.failedSessions++
           run.errorRate = run.failedSessions / (run.completedSessions + run.failedSessions)
           this.addExperimentError(experimentId, 'session_error', error.message)
+          this.experimentRuns.set(experimentId, run)
         })
 
         sessionPromises.push(sessionPromise)
+        sessionStartIndex++
         
         // Update active sessions count
         run.activeSessions = sessionPromises.length
@@ -4225,152 +4291,123 @@ private async toolSendMessage(args: any): Promise<any> {
     sessionIndex: number,
     sessionIds: Set<string>
   ): Promise<void> {
-    this.updateStoreReference()
-    const store = useChatStore.getState()
-
+    console.log(`🔬 Creating experiment session ${sessionIndex + 1}/${config.totalSessions}`)
+    
     try {
-      // Generate session name from pattern
-      const date = new Date().toISOString().split('T')[0]
+      // Generate session name
       const sessionName = config.sessionNamePattern
-        .replace('<date>', date)
-        .replace('<n>', (sessionIndex + 1).toString().padStart(3, '0'))
-
-      console.log(`📋 Creating experiment session ${sessionIndex + 1}: ${sessionName}`)
-
-      // Create session
-      const sessionResult = await this.toolCreateSession({
+        .replace('{index}', (sessionIndex + 1).toString())
+        .replace('{date}', new Date().toISOString().split('T')[0])
+        .replace('{experiment}', config.name)
+      
+      // Create the session
+      const createResult = await this.toolCreateSession({
         name: sessionName,
-        description: `Experiment session ${sessionIndex + 1} for ${config.name}`,
-        metadata: {
-          experimentId,
-          experimentName: config.name,
-          sessionIndex
-        }
+        systemPrompt: config.systemPrompt,
+        analysisProvider: config.analysisProvider,
+        analysisContextSize: config.analysisContextSize
       })
-
-      const sessionId = sessionResult.sessionId
+      
+      if (!createResult.success || !createResult.sessionId) {
+        throw new Error(`Failed to create session ${sessionIndex + 1}`)
+      }
+      
+      const sessionId = createResult.sessionId
       sessionIds.add(sessionId)
-
-      // Update run with session ID
+      
+      // Update run with new session ID
       const run = this.experimentRuns.get(experimentId)
       if (run) {
         run.sessionIds.push(sessionId)
         this.experimentRuns.set(experimentId, run)
       }
-
+      
+      // Wait a bit before switching to ensure store is synced
+      await new Promise(resolve => setTimeout(resolve, 200))
+      
       // Switch to the new session
       await this.toolSwitchCurrentSession({ sessionId })
-
+      
       // Add participants
       for (const participantConfig of config.participants) {
-        await this.toolAddParticipant({
+        const addResult = await this.toolAddParticipant({
           sessionId,
-          name: participantConfig.name,
-          type: participantConfig.type,
-          model: participantConfig.model,
-          settings: {
-            temperature: participantConfig.temperature || 0.7,
-            maxTokens: participantConfig.maxTokens || 2000,
-            responseDelay: 3000
-          },
-          characteristics: {
-            personality: participantConfig.personality || '',
-            expertise: participantConfig.expertise ? [participantConfig.expertise] : []
+          participant: {
+            name: participantConfig.name,
+            type: participantConfig.type,
+            model: participantConfig.model,
+            temperature: participantConfig.temperature,
+            maxTokens: participantConfig.maxTokens,
+            personality: participantConfig.personality,
+            expertise: participantConfig.expertise,
+            ollamaUrl: participantConfig.ollamaUrl
           }
         })
-      }
-
-      // Set system prompts for participants if provided
-      if (config.systemPrompt) {
-        const updatedStore = useChatStore.getState()
-        const session = updatedStore.sessions.find(s => s.id === sessionId)
-        if (session) {
-          for (const participant of session.participants) {
-            await this.toolUpdateParticipant({
-              sessionId,
-              participantId: participant.id,
-              updates: {
-                systemPrompt: config.systemPrompt
-              }
-            })
-          }
+        
+        if (!addResult.success) {
+          throw new Error(`Failed to add participant ${participantConfig.name} to session ${sessionIndex + 1}`)
         }
       }
-
-      console.log(`🎯 Starting conversation for session ${sessionId}`)
-
-      // Start the conversation using the MCPConversationManager
-      // We'll need to access it through the client-side infrastructure
-      await this.toolStartConversation({
+      
+      // Start the conversation
+      const startResult = await this.toolStartConversation({
         sessionId,
         initialPrompt: config.systemPrompt
       })
-
-      // Monitor conversation progress
+      
+      if (!startResult.success) {
+        throw new Error(`Failed to start conversation for session ${sessionIndex + 1}`)
+      }
+      
+      // Monitor conversation until completion or max messages reached
       let messageCount = 0
-      let noProgressCount = 0
-      const maxNoProgress = 10 // Stop if no progress for 10 checks
-
-      while (messageCount < config.maxMessageCount) {
-        await new Promise(resolve => setTimeout(resolve, 3000)) // Check every 3 seconds
-
-        const currentStore = useChatStore.getState()
-        const currentSession = currentStore.sessions.find(s => s.id === sessionId)
-        
-        if (!currentSession) {
-          console.error(`Session ${sessionId} not found`)
-          break
-        }
-
-        const newMessageCount = currentSession.messages?.length || 0
-        
-        if (newMessageCount > messageCount) {
-          messageCount = newMessageCount
-          noProgressCount = 0
-          console.log(`📈 Session ${sessionId}: ${messageCount}/${config.maxMessageCount} messages`)
-        } else {
-          noProgressCount++
-          if (noProgressCount >= maxNoProgress) {
-            console.log(`⚠️ Session ${sessionId} appears stuck, stopping`)
-            break
-          }
-        }
-
-        // Check if session status changed
-        if (currentSession.status === 'completed' || currentSession.status === 'error') {
-          console.log(`Session ${sessionId} ended with status: ${currentSession.status}`)
-          break
-        }
-
+      let conversationActive = true
+      const checkInterval = 5000 // Check every 5 seconds
+      
+      while (conversationActive && messageCount < config.maxMessageCount) {
         // Check if experiment was stopped
         const currentRun = this.experimentRuns.get(experimentId)
-        if (!currentRun || currentRun.status !== 'running') {
-          console.log(`Experiment ${experimentId} stopped, ending session`)
+        if (!currentRun || (currentRun.status !== 'running' && currentRun.status !== 'pending')) {
+          console.log(`🛑 Experiment ${experimentId} stopped, ending session ${sessionId}`)
+          await this.toolStopConversation({ sessionId })
           break
         }
-      }
-
-      // Stop the conversation
-      await this.toolStopConversation({ sessionId })
-
-      // Run analysis if configured
-      if (config.analysisProvider && config.analysisContextSize > 0) {
-        try {
-          await this.toolTriggerLiveAnalysis({
-            sessionId,
-            analysisType: 'full'
-          })
-        } catch (error) {
-          console.error(`Analysis failed for session ${sessionId}:`, error)
-          this.addExperimentError(experimentId, 'analysis_error', error instanceof Error ? error.message : 'Unknown error', sessionId)
+        
+        // Get conversation status
+        const statusResult = await this.toolGetConversationStatus({ sessionId })
+        
+        if (!statusResult.success) {
+          throw new Error(`Failed to get conversation status for session ${sessionIndex + 1}`)
+        }
+        
+        const { status, messageCount: currentMessageCount } = statusResult
+        messageCount = currentMessageCount || 0
+        
+        // Check if conversation is still active
+        if (status === 'completed' || status === 'error' || status === 'stopped') {
+          conversationActive = false
+        } else if (status === 'paused' && currentRun.status === 'paused') {
+          // Keep checking while both are paused
+          await new Promise(resolve => setTimeout(resolve, checkInterval))
+        } else if (messageCount >= config.maxMessageCount) {
+          // Stop conversation if max messages reached
+          await this.toolStopConversation({ sessionId })
+          conversationActive = false
+        } else {
+          // Wait before next check
+          await new Promise(resolve => setTimeout(resolve, checkInterval))
         }
       }
-
-      console.log(`✅ Completed experiment session ${sessionId}`)
-
+      
+      // Session completed
+      console.log(`✅ Experiment session ${sessionIndex + 1} completed with ${messageCount} messages`)
+      
     } catch (error) {
-      console.error(`Failed to create/run experiment session ${sessionIndex + 1}:`, error)
+      console.error(`❌ Experiment session ${sessionIndex + 1} failed:`, error)
       throw error
+    } finally {
+      // Remove session from active sessions
+      sessionIds.delete(sessionIds.values().next().value)
     }
   }
 

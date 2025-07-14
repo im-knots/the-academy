@@ -32,6 +32,11 @@ interface ExperimentConfig {
     type: 'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama' | 'deepseek' | 'mistral' | 'cohere'
     name: string
     model?: string
+    temperature?: number
+    maxTokens?: number
+    personality?: string
+    expertise?: string
+    ollamaUrl?: string
   }>
   systemPrompt: string
   analysisContextSize: number
@@ -60,7 +65,6 @@ export function ChatInterface() {
   const [experiments, setExperiments] = useState<ExperimentConfig[]>([])
   const [selectedExperiment, setSelectedExperiment] = useState<ExperimentConfig | null>(null)
 
-  
   // Combined left panel state
   const [showLeftPanel, setShowLeftPanel] = useState(true)
   
@@ -69,6 +73,12 @@ export function ChatInterface() {
   
   // MCP integration
   const mcp = useMCP()
+  const {
+    createExperimentViaMCP,
+    getExperimentsViaMCP,
+    updateExperimentViaMCP,
+    deleteExperimentViaMCP
+  } = mcp
   
   const { 
     currentSession, 
@@ -89,6 +99,69 @@ export function ChatInterface() {
   // Get the conversation manager instance
   const conversationManager = MCPConversationManager.getInstance()
 
+  // Load experiments on mount
+  useEffect(() => {
+    loadExperiments()
+  }, [])
+
+  const loadExperiments = async () => {
+    try {
+      const result = await getExperimentsViaMCP()
+      if (result.success && result.experiments) {
+        // Convert date strings to Date objects
+        const experimentsWithDates = result.experiments.map((exp: any) => ({
+          ...exp,
+          createdAt: new Date(exp.createdAt),
+          lastModified: new Date(exp.lastModified)
+        }))
+        setExperiments(experimentsWithDates)
+      }
+    } catch (error) {
+      console.error('Failed to load experiments:', error)
+    }
+  }
+
+  const handleCreateExperiment = async (config: ExperimentConfig) => {
+    try {
+      const result = await createExperimentViaMCP(config)
+      if (result.success) {
+        // Reload experiments to get the new one
+        await loadExperiments()
+        
+        // Select the newly created experiment
+        const newExperiment = {
+          ...result.config,
+          createdAt: new Date(result.config.createdAt),
+          lastModified: new Date(result.config.lastModified)
+        }
+        setSelectedExperiment(newExperiment)
+      }
+    } catch (error) {
+      console.error('Failed to create experiment:', error)
+      alert('Failed to create experiment. Please try again.')
+    }
+  }
+
+  const handleSelectExperiment = (experiment: ExperimentConfig | null) => {
+    setSelectedExperiment(experiment)
+  }
+
+  const handleDeleteExperiment = async (experimentId: string) => {
+    try {
+      await deleteExperimentViaMCP(experimentId)
+      
+      // Clear selection if deleting the selected experiment
+      if (selectedExperiment?.id === experimentId) {
+        setSelectedExperiment(null)
+      }
+      
+      // Reload experiments
+      await loadExperiments()
+    } catch (error) {
+      console.error('Failed to delete experiment:', error)
+    }
+  }
+
   // Auto-populate moderator input from template prompt
   const messageCount = currentSession?.messages?.length || 0
   useEffect(() => {
@@ -104,12 +177,6 @@ export function ChatInterface() {
       return () => clearTimeout(timer)
     }
   }, [error])
-
-  // Handlers for experiments
-  const handleCreateExperiment = (experiment: ExperimentConfig) => {
-    setExperiments(prev => [...prev, experiment])
-    setSelectedExperiment(experiment)
-  }
 
   const handleStartConversation = async () => {
     if (!currentSession || !hasAIParticipants || !moderatorInput.trim()) return
@@ -313,8 +380,8 @@ export function ChatInterface() {
             <ExperimentsList
               experiments={experiments}
               selectedExperiment={selectedExperiment}
-              onSelectExperiment={setSelectedExperiment}
-              onNewExperiment={() => {/* Let ExperimentsInterface handle modal */}}
+              onSelectExperiment={handleSelectExperiment}
+              onNewExperiment={() => setSelectedExperiment(null)}
             />
           </div>
         </div>
@@ -324,7 +391,7 @@ export function ChatInterface() {
           sessionId={currentSession?.id}
           experiments={experiments}
           selectedExperiment={selectedExperiment}
-          onSelectExperiment={setSelectedExperiment}
+          onSelectExperiment={handleSelectExperiment}
           onCreateExperiment={handleCreateExperiment}
         />
       </div>
@@ -386,8 +453,8 @@ export function ChatInterface() {
               <ExperimentsList
                 experiments={experiments}
                 selectedExperiment={selectedExperiment}
-                onSelectExperiment={setSelectedExperiment}
-                onNewExperiment={() => {/* Let ExperimentsInterface handle modal */}}
+                onSelectExperiment={handleSelectExperiment}
+                onNewExperiment={() => setSelectedExperiment(null)}
               />
             </div>
           )}
@@ -401,13 +468,15 @@ export function ChatInterface() {
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="w-32 h-32 bg-gradient-to-br from-blue-400/20 to-purple-600/20 rounded-full animate-pulse"></div>
                 </div>
-                <Image
-                  src="/icons/logo.png"
-                  alt="The Academy"
-                  width={32}
-                  height={32}
-                  className="object-contain"
-                />
+                <div className="relative w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto">
+                  <Image
+                    src="/icons/logo.png"
+                    alt="The Academy"
+                    width={64}
+                    height={64}
+                    className="object-contain"
+                  />
+                </div>
               </div>
               <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Welcome to The Academy</h1>
               <p className="text-gray-600 dark:text-gray-400 mb-6">
@@ -429,7 +498,7 @@ export function ChatInterface() {
               sessionId={undefined}
               experiments={experiments}
               selectedExperiment={selectedExperiment}
-              onSelectExperiment={setSelectedExperiment}
+              onSelectExperiment={handleSelectExperiment}
               onCreateExperiment={handleCreateExperiment}
             />
           )}
@@ -447,7 +516,7 @@ export function ChatInterface() {
         {/* Academy Header */}
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-black-500 to-black-600 rounded-xl flex items-center justify-center p-1">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center p-1">
               <Image
                 src="/icons/logo.png"
                 alt="The Academy"
@@ -700,12 +769,12 @@ export function ChatInterface() {
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="w-24 h-24 bg-gradient-to-br from-blue-400/20 to-purple-600/20 rounded-full animate-pulse"></div>
                   </div>
-                  <div className="relative w-16 h-16 bg-gradient-to-br from-black-500 to-black-600 rounded-2xl flex items-center justify-center mx-auto">
+                  <div className="relative w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto">
                     <Image
                       src="/icons/logo.png"
                       alt="The Academy"
-                      width={80}
-                      height={80}
+                      width={48}
+                      height={48}
                       className="object-contain"
                     />
                   </div>
