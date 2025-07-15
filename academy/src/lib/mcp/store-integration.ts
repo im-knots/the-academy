@@ -2,7 +2,6 @@
 'use client'
 
 import { useChatStore } from '../stores/chatStore'
-import { setMCPStoreReference } from './server'
 import { MCPClient } from './client'
 import { mcpAnalysisHandler } from './analysis-handler'
 
