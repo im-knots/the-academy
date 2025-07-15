@@ -1,6 +1,6 @@
 // src/hooks/useTemplatePrompt.ts
-import { useEffect, useState } from 'react'
-import { useChatStore } from '@/lib/stores/chatStore'
+import { useEffect, useState, useCallback } from 'react'
+import { MCPClient } from '@/lib/mcp/client'
 
 const TEMPLATE_PROMPTS: Record<string, string> = {
   consciousness: 'Let\'s explore the fundamental question: What does it mean to be conscious? I\'d like to hear your perspectives on the nature of awareness, subjective experience, and what it might mean for an AI to have consciousness.',
@@ -11,9 +11,47 @@ const TEMPLATE_PROMPTS: Record<string, string> = {
 }
 
 export function useTemplatePrompt() {
-  const { currentSession } = useChatStore()
+  const [currentSession, setCurrentSession] = useState<any>(null)
   const [suggestedPrompt, setSuggestedPrompt] = useState<string>('')
+  const mcpClient = MCPClient.getInstance()
 
+  // Fetch current session
+  const fetchCurrentSession = useCallback(async () => {
+    try {
+      // Get current session ID
+      const sessionIdResult = await mcpClient.callTool('get_current_session_id', {})
+      
+      if (sessionIdResult.success && sessionIdResult.sessionId) {
+        // Get session details
+        const sessionResult = await mcpClient.callTool('get_session', { 
+          sessionId: sessionIdResult.sessionId 
+        })
+        
+        if (sessionResult.success && sessionResult.session) {
+          setCurrentSession(sessionResult.session)
+        } else {
+          setCurrentSession(null)
+        }
+      } else {
+        setCurrentSession(null)
+      }
+    } catch (error) {
+      console.error('Failed to fetch current session for template prompt:', error)
+      setCurrentSession(null)
+    }
+  }, [mcpClient])
+
+  // Poll for current session updates
+  useEffect(() => {
+    fetchCurrentSession()
+    
+    // Poll every 2 seconds for updates
+    const interval = setInterval(fetchCurrentSession, 2000)
+    
+    return () => clearInterval(interval)
+  }, [fetchCurrentSession])
+
+  // Update suggested prompt based on session template
   useEffect(() => {
     if (currentSession?.metadata?.template && 
         currentSession.metadata.template !== 'blank' && 

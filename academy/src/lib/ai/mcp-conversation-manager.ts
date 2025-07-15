@@ -1,7 +1,6 @@
 // src/lib/ai/mcp-conversation-manager.ts
 'use client'
 
-import { useChatStore } from '../stores/chatStore'
 import { Participant, Message } from '@/types/chat'
 import { MCPClient } from '../mcp/client'
 
@@ -66,13 +65,14 @@ export class MCPConversationManager {
       await this.mcpClient.initialize()
     }
 
-    // Get session data from store
-    const session = useChatStore.getState().sessions.find(s => s.id === sessionId)
-    if (!session) {
+    // Get session data via MCP
+    const sessionResult = await this.mcpClient.callTool('get_session', { sessionId })
+    if (!sessionResult.success || !sessionResult.session) {
       throw new Error(`Session ${sessionId} not found`)
     }
+    const session = sessionResult.session
 
-    const aiParticipants = session.participants.filter(p => p.type !== 'moderator')
+    const aiParticipants = session.participants.filter((p: any) => p.type !== 'moderator')
     if (aiParticipants.length < 2) {
       throw new Error('Need at least 2 AI participants to start conversation')
     }
@@ -83,7 +83,7 @@ export class MCPConversationManager {
     // Initialize conversation state
     this.activeConversations.set(sessionId, {
       isRunning: true,
-      participantQueue: this.shuffleArray([...aiParticipants.map(p => p.id)]),
+      participantQueue: this.shuffleArray([...aiParticipants.map((p: any) => p.id)]),
       currentParticipantIndex: 0,
       messageCount: 0,
       abortController,
@@ -96,17 +96,18 @@ export class MCPConversationManager {
       resumeFromParticipant: undefined
     })
 
-    // Update session status
-    useChatStore.getState().updateSession(sessionId, { status: 'active' })
+    // Update session status via MCP
+    await this.mcpClient.updateSessionViaMCP(sessionId, undefined, undefined, { status: 'active' })
 
     // Add initial prompt if provided
     if (initialPrompt?.trim()) {
-      useChatStore.getState().addMessage({
-        content: initialPrompt.trim(),
-        participantId: 'moderator',
-        participantName: 'Research Moderator',
-        participantType: 'moderator'
-      })
+      await this.mcpClient.sendMessageViaMCP(
+        sessionId,
+        initialPrompt.trim(),
+        'moderator',
+        'Research Moderator',
+        'moderator'
+      )
     }
 
     // Start the conversation loop
@@ -136,12 +137,13 @@ export class MCPConversationManager {
           continue
         }
 
-        // Get current session state
-        const session = useChatStore.getState().sessions.find(s => s.id === sessionId)
-        if (!session) {
+        // Get current session state via MCP
+        const sessionResult = await this.mcpClient.callTool('get_session', { sessionId })
+        if (!sessionResult.success || !sessionResult.session) {
           console.log('❌ Session not found, stopping conversation')
           break
         }
+        const session = sessionResult.session
 
         if (session.status === 'paused' || session.status === 'completed') {
           console.log('⏸️ Session paused or completed, waiting...')
@@ -150,7 +152,7 @@ export class MCPConversationManager {
         }
 
         // Check if we have enough participants
-        const activeAIParticipants = session.participants.filter(p => 
+        const activeAIParticipants = session.participants.filter((p: any) => 
           p.type !== 'moderator' && p.status !== 'error'
         )
         
@@ -160,7 +162,7 @@ export class MCPConversationManager {
         }
 
         // Update participant queue if participants changed
-        const currentQueue = activeAIParticipants.map(p => p.id)
+        const currentQueue = activeAIParticipants.map((p: any) => p.id)
         if (JSON.stringify(conversationState.participantQueue) !== JSON.stringify(currentQueue)) {
           conversationState.participantQueue = currentQueue
           
@@ -178,7 +180,7 @@ export class MCPConversationManager {
 
         // Get current participant
         const currentParticipantId = conversationState.participantQueue[conversationState.currentParticipantIndex]
-        const currentParticipant = session.participants.find(p => p.id === currentParticipantId)
+        const currentParticipant = session.participants.find((p: any) => p.id === currentParticipantId)
 
         if (!currentParticipant) {
           console.log('❌ Current participant not found, moving to next')
@@ -204,7 +206,7 @@ export class MCPConversationManager {
         // Skip if this participant just generated a response (prevent back-to-back)
         if (conversationState.lastGeneratedBy === currentParticipantId && session.messages.length > 0) {
           const lastMessage = session.messages[session.messages.length - 1]
-          const timeSinceLastMessage = Date.now() - lastMessage.timestamp.getTime()
+          const timeSinceLastMessage = Date.now() - new Date(lastMessage.timestamp).getTime()
           if (timeSinceLastMessage < 5000) { // Wait at least 5 seconds
             console.log(`⏭️ Skipping ${currentParticipant.name} - just generated a response`)
             this.moveToNextParticipant(sessionId)
@@ -218,8 +220,8 @@ export class MCPConversationManager {
         conversationState.isGenerating = true
         conversationState.generationLock.add(currentParticipantId)
         
-        // Update participant status
-        useChatStore.getState().updateParticipantStatus(currentParticipantId, 'thinking')
+        // Update participant status via MCP
+        await this.mcpClient.updateParticipantStatusViaMCP(sessionId, currentParticipantId, 'thinking')
 
         try {
           // Generate response via MCP tools with abort signal
@@ -230,20 +232,21 @@ export class MCPConversationManager {
           )
 
           if (response && conversationState.isRunning && !conversationState.abortController?.signal.aborted) {
-            // Add message to session
-            useChatStore.getState().addMessage({
-              content: response,
-              participantId: currentParticipant.id,
-              participantName: currentParticipant.name,
-              participantType: currentParticipant.type
-            })
+            // Add message to session via MCP
+            await this.mcpClient.sendMessageViaMCP(
+              sessionId,
+              response,
+              currentParticipant.id,
+              currentParticipant.name,
+              currentParticipant.type
+            )
 
             conversationState.messageCount++
             conversationState.lastGeneratedBy = currentParticipantId
             console.log(`💬 ${currentParticipant.name}: ${response.substring(0, 100)}...`)
 
-            // Update participant status back to active
-            useChatStore.getState().updateParticipantStatus(currentParticipantId, 'active')
+            // Update participant status back to active via MCP
+            await this.mcpClient.updateParticipantStatusViaMCP(sessionId, currentParticipantId, 'active')
 
             // Move to next participant only if we completed successfully
             this.moveToNextParticipant(sessionId)
@@ -257,9 +260,9 @@ export class MCPConversationManager {
               conversationState.wasInterrupted = true
               conversationState.interruptedParticipantId = currentParticipantId
               conversationState.interruptedAt = new Date()
-              useChatStore.getState().updateParticipantStatus(currentParticipantId, 'idle')
+              await this.mcpClient.updateParticipantStatusViaMCP(sessionId, currentParticipantId, 'idle')
             } else {
-              useChatStore.getState().updateParticipantStatus(currentParticipantId, 'error')
+              await this.mcpClient.updateParticipantStatusViaMCP(sessionId, currentParticipantId, 'error')
               this.moveToNextParticipant(sessionId)
             }
           }
@@ -273,12 +276,12 @@ export class MCPConversationManager {
               conversationState.wasInterrupted = true
               conversationState.interruptedParticipantId = currentParticipantId
               conversationState.interruptedAt = new Date()
-              useChatStore.getState().updateParticipantStatus(currentParticipantId, 'idle')
+              await this.mcpClient.updateParticipantStatusViaMCP(sessionId, currentParticipantId, 'idle')
               break // Exit the loop gracefully
             }
           }
           
-          useChatStore.getState().updateParticipantStatus(currentParticipantId, 'error')
+          await this.mcpClient.updateParticipantStatusViaMCP(sessionId, currentParticipantId, 'error')
           this.moveToNextParticipant(sessionId)
           await new Promise(resolve => setTimeout(resolve, 5000))
         } finally {
@@ -338,7 +341,7 @@ export class MCPConversationManager {
       }
 
       // Build conversation context
-      const context = this.buildConversationContext(sessionId, participant)
+      const context = await this.buildConversationContext(sessionId, participant)
       
       console.log(`🔄 Generating response for ${participant.name} via MCP with ${context.messageHistory.length} messages`)
       
@@ -358,7 +361,7 @@ export class MCPConversationManager {
       }))
 
       // Build system prompt once
-      const systemPrompt = this.buildSystemPrompt(participant, context)
+      const systemPrompt = await this.buildSystemPrompt(participant, context)
 
       // Prepare tool arguments
       const toolArgs = {
@@ -372,7 +375,9 @@ export class MCPConversationManager {
         ...(participant.type === 'claude' && systemPrompt && { systemPrompt }),
         ...(participant.type === 'ollama' && { 
           ollamaUrl: participant.settings.ollamaUrl || 'http://localhost:11434' 
-        })
+        }),
+        sessionId: sessionId,
+        participantId: participant.id
       };
 
       console.log(`🌐 Calling MCP tool ${toolName} for ${participant.name}`)
@@ -393,15 +398,19 @@ export class MCPConversationManager {
     }
   }
 
-  private buildConversationContext(sessionId: string, participant: Participant): ConversationContext {
-    const session = useChatStore.getState().sessions.find(s => s.id === sessionId)
-    if (!session) throw new Error('Session not found')
+  private async buildConversationContext(sessionId: string, participant: Participant): Promise<ConversationContext> {
+    // Get session via MCP
+    const sessionResult = await this.mcpClient.callTool('get_session', { sessionId })
+    if (!sessionResult.success || !sessionResult.session) {
+      throw new Error('Session not found')
+    }
+    const session = sessionResult.session
 
     // Get recent message history (last 10 messages)
     const recentMessages = session.messages.slice(-10)
     
     // Convert to conversation format
-    const messageHistory = recentMessages.map(msg => {
+    const messageHistory = recentMessages.map((msg: any) => {
       let role: 'user' | 'assistant' | 'system' = 'assistant'
       let content = msg.content
 
@@ -419,7 +428,7 @@ export class MCPConversationManager {
         role,
         content: content,
         participantId: msg.participantId,
-        timestamp: msg.timestamp
+        timestamp: new Date(msg.timestamp)
       }
     })
 
@@ -437,14 +446,18 @@ export class MCPConversationManager {
     }
   }
 
-  private buildSystemPrompt(participant: Participant, context: ConversationContext): string {
-    const session = useChatStore.getState().sessions.find(s => s.id === context.sessionId)
-    if (!session) return ''
+  private async buildSystemPrompt(participant: Participant, context: ConversationContext): Promise<string> {
+    // Get session via MCP
+    const sessionResult = await this.mcpClient.callTool('get_session', { sessionId: context.sessionId })
+    if (!sessionResult.success || !sessionResult.session) {
+      return ''
+    }
+    const session = sessionResult.session
 
     // Get other participants for context
     const otherParticipants = session.participants
-      .filter(p => p.id !== participant.id && p.type !== 'moderator')
-      .map(p => `${p.name} (${p.type})`)
+      .filter((p: any) => p.id !== participant.id && p.type !== 'moderator')
+      .map((p: any) => `${p.name} (${p.type})`)
       .join(', ')
 
     const basePrompt = `You are ${participant.name}, a unique AI participant in a research dialogue titled "${session.name}".
@@ -475,7 +488,7 @@ Remember: This is genuine exploration through dialogue facilitated by MCP. Each 
     return basePrompt
   }
 
-  pauseConversation(sessionId: string): void {
+  async pauseConversation(sessionId: string): Promise<void> {
     const conversationState = this.activeConversations.get(sessionId)
     if (conversationState) {
       // Gracefully stop the conversation
@@ -491,10 +504,11 @@ Remember: This is genuine exploration through dialogue facilitated by MCP. Each 
       console.log('⏸️ Paused MCP conversation for session:', sessionId)
     }
     
-    useChatStore.getState().updateSession(sessionId, { status: 'paused' })
+    // Update session status via MCP
+    await this.mcpClient.updateSessionViaMCP(sessionId, undefined, undefined, { status: 'paused' })
   }
 
-  resumeConversation(sessionId: string): void {
+  async resumeConversation(sessionId: string): Promise<void> {
     const conversationState = this.activeConversations.get(sessionId)
     if (conversationState && !conversationState.isRunning) {
       // Create new abort controller for the resumed conversation
@@ -520,10 +534,11 @@ Remember: This is genuine exploration through dialogue facilitated by MCP. Each 
       setTimeout(() => this.runConversationLoop(sessionId), 1000)
     }
     
-    useChatStore.getState().updateSession(sessionId, { status: 'active' })
+    // Update session status via MCP
+    await this.mcpClient.updateSessionViaMCP(sessionId, undefined, undefined, { status: 'active' })
   }
 
-  stopConversation(sessionId: string): void {
+  async stopConversation(sessionId: string): Promise<void> {
     const conversationState = this.activeConversations.get(sessionId)
     if (conversationState) {
       conversationState.isRunning = false
@@ -533,7 +548,8 @@ Remember: This is genuine exploration through dialogue facilitated by MCP. Each 
       console.log('🛑 Stopped MCP conversation for session:', sessionId)
     }
     
-    useChatStore.getState().updateSession(sessionId, { status: 'completed' })
+    // Update session status via MCP
+    await this.mcpClient.updateSessionViaMCP(sessionId, undefined, undefined, { status: 'completed' })
   }
 
   isConversationActive(sessionId: string): boolean {
@@ -541,26 +557,29 @@ Remember: This is genuine exploration through dialogue facilitated by MCP. Each 
     return conversationState?.isRunning || false
   }
 
-  getConversationStats(sessionId: string) {
+  async getConversationStats(sessionId: string) {
     const conversationState = this.activeConversations.get(sessionId)
-    const session = useChatStore.getState().sessions.find(s => s.id === sessionId)
+    
+    // Get session via MCP
+    const sessionResult = await this.mcpClient.callTool('get_session', { sessionId })
+    const session = sessionResult.success ? sessionResult.session : null
     
     return {
       isRunning: conversationState?.isRunning || false,
       isGenerating: conversationState?.isGenerating || false,
       messageCount: conversationState?.messageCount || 0,
       participantCount: session?.participants.length || 0,
-      currentParticipant: conversationState ? 
-        session?.participants.find(p => p.id === conversationState.participantQueue[conversationState.currentParticipantIndex])?.name 
+      currentParticipant: conversationState && session ? 
+        session.participants.find((p: any) => p.id === conversationState.participantQueue[conversationState.currentParticipantIndex])?.name 
         : null,
-      lastGeneratedBy: conversationState?.lastGeneratedBy ? 
-        session?.participants.find(p => p.id === conversationState.lastGeneratedBy)?.name 
+      lastGeneratedBy: conversationState?.lastGeneratedBy && session ? 
+        session.participants.find((p: any) => p.id === conversationState.lastGeneratedBy)?.name 
         : null,
       generationLockSize: conversationState?.generationLock.size || 0,
       mcpConnected: this.mcpClient.isConnected(),
       wasInterrupted: conversationState?.wasInterrupted || false,
-      interruptedParticipant: conversationState?.interruptedParticipantId ? 
-        session?.participants.find(p => p.id === conversationState.interruptedParticipantId)?.name 
+      interruptedParticipant: conversationState?.interruptedParticipantId && session ? 
+        session.participants.find((p: any) => p.id === conversationState.interruptedParticipantId)?.name 
         : null
     }
   }

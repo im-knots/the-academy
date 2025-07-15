@@ -3,7 +3,6 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { MCPClient } from '@/lib/mcp/client'
-import { useChatStore } from '@/lib/stores/chatStore'
 
 interface MCPHookState {
   isConnected: boolean
@@ -1740,7 +1739,32 @@ export function useMCP(): MCPHook {
 
 export function useSessionMCP() {
   const mcp = useMCP()
-  const { currentSession } = useChatStore()
+  const [currentSession, setCurrentSession] = useState<any>(null)
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
+
+  // Fetch current session
+  useEffect(() => {
+    const fetchCurrentSession = async () => {
+      try {
+        const result = await mcp.callTool('get_current_session_id', {})
+        if (result.success && result.sessionId) {
+          setCurrentSessionId(result.sessionId)
+          
+          const sessionResult = await mcp.callTool('get_session', { sessionId: result.sessionId })
+          if (sessionResult.success && sessionResult.session) {
+            setCurrentSession(sessionResult.session)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch current session:', error)
+      }
+    }
+
+    fetchCurrentSession()
+    // Poll for updates
+    const interval = setInterval(fetchCurrentSession, 2000)
+    return () => clearInterval(interval)
+  }, [mcp])
 
   // Session-specific convenience methods
   const analyzeConversation = useCallback(async (analysisType: string = 'full') => {

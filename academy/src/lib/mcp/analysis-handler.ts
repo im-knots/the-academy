@@ -1,19 +1,19 @@
 // src/lib/mcp/analysis-handler.ts - Universal Analysis Handler (Server & Client Compatible)
 
 import { AnalysisSnapshot } from '@/types/chat'
+import { MCPClient } from './client'
 
 // Check if we're in browser or server context
 const isBrowser = typeof window !== 'undefined'
 
-// Universal storage - use Map for both contexts
-const analysisStore: Map<string, AnalysisSnapshot[]> = new Map()
-
 export class MCPAnalysisHandler {
   private static instance: MCPAnalysisHandler
   private subscribers: Map<string, Array<(data: any) => void>> = new Map()
+  private mcpClient: MCPClient
 
   private constructor() {
     console.log(`🔧 MCPAnalysisHandler: Initializing... (${isBrowser ? 'client' : 'server'} context)`)
+    this.mcpClient = MCPClient.getInstance()
   }
 
   static getInstance(): MCPAnalysisHandler {
@@ -38,32 +38,41 @@ export class MCPAnalysisHandler {
       timestamp: new Date()
     }
 
-    // Get existing snapshots for this session
-    const existingSnapshots = analysisStore.get(sessionId) || []
-    
-    // Add new snapshot
-    const updatedSnapshots = [...existingSnapshots, snapshot]
-    analysisStore.set(sessionId, updatedSnapshots)
+    try {
+      // Save snapshot via MCP
+      const result = await this.mcpClient.saveAnalysisSnapshotViaMCP(sessionId, snapshot)
+      
+      if (result.success) {
+        console.log(`✅ MCP Analysis Handler: Saved snapshot ${snapshot.id} via MCP`)
+        
+        // Get updated history for broadcast
+        const historyResult = await this.mcpClient.getAnalysisHistoryViaMCP(sessionId)
+        const updatedSnapshots = historyResult.success ? historyResult.snapshots : []
+        
+        // Only broadcast events in browser context
+        if (isBrowser) {
+          this.broadcast('analysis_snapshot_saved', {
+            sessionId,
+            snapshotId: snapshot.id,
+            totalSnapshots: updatedSnapshots.length,
+            snapshot
+          })
 
-    console.log(`✅ MCP Analysis Handler: Saved snapshot ${snapshot.id}. Session ${sessionId} now has ${updatedSnapshots.length} snapshots`)
-
-    // Only broadcast events in browser context
-    if (isBrowser) {
-      this.broadcast('analysis_snapshot_saved', {
-        sessionId,
-        snapshotId: snapshot.id,
-        totalSnapshots: updatedSnapshots.length,
-        snapshot
-      })
-
-      this.broadcast('analysis_history_updated', {
-        sessionId,
-        snapshots: updatedSnapshots,
-        count: updatedSnapshots.length
-      })
+          this.broadcast('analysis_history_updated', {
+            sessionId,
+            snapshots: updatedSnapshots,
+            count: updatedSnapshots.length
+          })
+        }
+        
+        return snapshot.id
+      } else {
+        throw new Error('Failed to save analysis snapshot via MCP')
+      }
+    } catch (error) {
+      console.error(`❌ MCP Analysis Handler: Failed to save snapshot:`, error)
+      throw error
     }
-
-    return snapshot.id
   }
 
   // Fallback ID generator for server context
@@ -72,59 +81,107 @@ export class MCPAnalysisHandler {
   }
 
   // Get analysis history for a session
-  getAnalysisHistory(sessionId: string): AnalysisSnapshot[] {
-    const snapshots = analysisStore.get(sessionId) || []
-    console.log(`📊 MCP Analysis Handler: Retrieved ${snapshots.length} snapshots for session ${sessionId} (${isBrowser ? 'client' : 'server'})`)
-    return snapshots
+  async getAnalysisHistory(sessionId: string): Promise<AnalysisSnapshot[]> {
+    try {
+      const result = await this.mcpClient.getAnalysisHistoryViaMCP(sessionId)
+      
+      if (result.success) {
+        const snapshots = result.snapshots || []
+        console.log(`📊 MCP Analysis Handler: Retrieved ${snapshots.length} snapshots for session ${sessionId} (${isBrowser ? 'client' : 'server'})`)
+        
+        // Convert date strings back to Date objects if needed
+        return snapshots.map((snapshot: any) => ({
+          ...snapshot,
+          timestamp: new Date(snapshot.timestamp)
+        }))
+      } else {
+        console.warn(`⚠️ MCP Analysis Handler: Failed to get history for session ${sessionId}`)
+        return []
+      }
+    } catch (error) {
+      console.error(`❌ MCP Analysis Handler: Error getting history:`, error)
+      return []
+    }
   }
 
   // Get all sessions with analysis
-  getAllAnalysisSessions(): Array<{
+  async getAllAnalysisSessions(): Promise<Array<{
     sessionId: string
     snapshotCount: number
     lastAnalysis: Date | null
-  }> {
-    const sessions: Array<{
-      sessionId: string
-      snapshotCount: number
-      lastAnalysis: Date | null
-    }> = []
+  }>> {
+    try {
+      // Get all sessions via MCP
+      const sessionsResult = await this.mcpClient.callTool('get_sessions', {})
+      
+      if (!sessionsResult.success || !sessionsResult.sessions) {
+        return []
+      }
 
-    analysisStore.forEach((snapshots, sessionId) => {
-      const lastSnapshot = snapshots[snapshots.length - 1]
-      sessions.push({
-        sessionId,
-        snapshotCount: snapshots.length,
-        lastAnalysis: lastSnapshot ? lastSnapshot.timestamp : null
-      })
-    })
+      const sessions: Array<{
+        sessionId: string
+        snapshotCount: number
+        lastAnalysis: Date | null
+      }> = []
 
-    return sessions.sort((a, b) => 
-      (b.lastAnalysis?.getTime() || 0) - (a.lastAnalysis?.getTime() || 0)
-    )
+      // Get analysis history for each session
+      for (const session of sessionsResult.sessions) {
+        const historyResult = await this.mcpClient.getAnalysisHistoryViaMCP(session.id)
+        
+        if (historyResult.success && historyResult.snapshots && historyResult.snapshots.length > 0) {
+          const snapshots = historyResult.snapshots
+          const lastSnapshot = snapshots[snapshots.length - 1]
+          
+          sessions.push({
+            sessionId: session.id,
+            snapshotCount: snapshots.length,
+            lastAnalysis: lastSnapshot ? new Date(lastSnapshot.timestamp) : null
+          })
+        }
+      }
+
+      return sessions.sort((a, b) => 
+        (b.lastAnalysis?.getTime() || 0) - (a.lastAnalysis?.getTime() || 0)
+      )
+    } catch (error) {
+      console.error(`❌ MCP Analysis Handler: Error getting all analysis sessions:`, error)
+      return []
+    }
   }
 
   // Clear analysis history for a session
-  clearAnalysisHistory(sessionId: string): void {
+  async clearAnalysisHistory(sessionId: string): Promise<void> {
     console.log(`🗑️ MCP Analysis Handler: Clearing history for session ${sessionId}`)
-    analysisStore.delete(sessionId)
     
-    if (isBrowser) {
-      this.broadcast('analysis_history_cleared', {
-        sessionId
-      })
+    try {
+      const result = await this.mcpClient.clearAnalysisHistoryViaMCP(sessionId)
+      
+      if (result.success) {
+        console.log(`✅ MCP Analysis Handler: Cleared history for session ${sessionId} via MCP`)
+        
+        if (isBrowser) {
+          this.broadcast('analysis_history_cleared', {
+            sessionId
+          })
+        }
+      } else {
+        throw new Error('Failed to clear analysis history via MCP')
+      }
+    } catch (error) {
+      console.error(`❌ MCP Analysis Handler: Failed to clear history:`, error)
+      throw error
     }
   }
 
   // Get analysis timeline (for export)
-  getAnalysisTimeline(sessionId: string): Array<{
+  async getAnalysisTimeline(sessionId: string): Promise<Array<{
     timestamp: Date
     provider: string
     messageCount: number
     phase: string
     keyInsight: string
-  }> {
-    const snapshots = this.getAnalysisHistory(sessionId)
+  }>> {
+    const snapshots = await this.getAnalysisHistory(sessionId)
     
     return snapshots.map(snapshot => ({
       timestamp: snapshot.timestamp,
@@ -139,41 +196,15 @@ export class MCPAnalysisHandler {
     console.log(`🔍 MCP Analysis Handler: Analyzing session ${sessionId} with type ${analysisType}`)
     
     try {
-      // Get existing snapshots for context
-      const existingSnapshots = this.getAnalysisHistory(sessionId)
+      // Trigger analysis via MCP
+      const result = await this.mcpClient.analyzeConversationViaMCP(sessionId, analysisType)
       
-      // Simulate analysis (replace with actual AI analysis logic)
-      const analysisResult = {
-        sessionId,
-        analysisType,
-        timestamp: new Date(),
-        mainTopics: ['AI Philosophy', 'Consciousness', 'Ethics'],
-        keyInsights: [
-          'Participants showed deep engagement with philosophical concepts',
-          'Convergence on ethical AI principles',
-          'Divergent views on consciousness definition'
-        ],
-        sentimentTrend: 'positive',
-        participantEngagement: {
-          total: 85,
-          distribution: {}
-        },
-        conversationFlow: {
-          phase: 'deep_exploration',
-          momentum: 'increasing',
-          coherence: 0.8
-        },
-        patterns: {
-          emergentThemes: ['AI consciousness', 'ethical boundaries'],
-          recursiveTopics: ['consciousness definition'],
-          consensusAreas: ['need for AI ethics'],
-          tensions: ['human vs AI consciousness']
-        }
+      if (result.success) {
+        console.log(`✅ MCP Analysis Handler: Analysis complete for session ${sessionId}`)
+        return result.analysis
+      } else {
+        throw new Error('Analysis failed via MCP')
       }
-
-      console.log(`✅ MCP Analysis Handler: Analysis complete for session ${sessionId}`)
-      return analysisResult
-      
     } catch (error) {
       console.error(`❌ MCP Analysis Handler: Analysis failed for session ${sessionId}:`, error)
       throw error
@@ -181,17 +212,24 @@ export class MCPAnalysisHandler {
   }
 
   // Initialize from existing chatStore data (migration)
-  initializeFromChatStore(sessions: any[]): void {
+  async initializeFromChatStore(sessions: any[]): Promise<void> {
     console.log(`🔄 MCP Analysis Handler: Migrating data from ${sessions.length} sessions`)
     
-    sessions.forEach(session => {
+    for (const session of sessions) {
       if (session.analysisHistory && session.analysisHistory.length > 0) {
-        analysisStore.set(session.id, session.analysisHistory)
-        console.log(`🔄 MCP Analysis Handler: Migrated ${session.analysisHistory.length} snapshots for session ${session.id}`)
+        // Save each snapshot via MCP
+        for (const snapshot of session.analysisHistory) {
+          try {
+            await this.mcpClient.saveAnalysisSnapshotViaMCP(session.id, snapshot)
+            console.log(`🔄 MCP Analysis Handler: Migrated snapshot ${snapshot.id} for session ${session.id}`)
+          } catch (error) {
+            console.error(`❌ Failed to migrate snapshot for session ${session.id}:`, error)
+          }
+        }
       }
-    })
+    }
 
-    console.log(`✅ MCP Analysis Handler: Migration complete. Total sessions with analysis: ${analysisStore.size}`)
+    console.log(`✅ MCP Analysis Handler: Migration complete`)
   }
 
   // Event subscription system (only works in browser)
@@ -236,14 +274,14 @@ export class MCPAnalysisHandler {
   }
 
   // Get statistics across all sessions
-  getGlobalAnalysisStats(): {
+  async getGlobalAnalysisStats(): Promise<{
     totalSessions: number
     totalSnapshots: number
     avgSnapshotsPerSession: number
     mostActiveSession: string | null
     recentAnalysisCount: number
-  } {
-    const sessions = this.getAllAnalysisSessions()
+  }> {
+    const sessions = await this.getAllAnalysisSessions()
     const totalSnapshots = sessions.reduce((sum, s) => sum + s.snapshotCount, 0)
     
     // Find most active session
@@ -254,10 +292,12 @@ export class MCPAnalysisHandler {
 
     // Count recent analysis (last 24 hours)
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
-    const recentCount = sessions.reduce((count, session) => {
-      const snapshots = analysisStore.get(session.sessionId) || []
-      return count + snapshots.filter(s => s.timestamp > oneDayAgo).length
-    }, 0)
+    let recentCount = 0
+    
+    for (const session of sessions) {
+      const snapshots = await this.getAnalysisHistory(session.sessionId)
+      recentCount += snapshots.filter(s => s.timestamp > oneDayAgo).length
+    }
 
     return {
       totalSessions: sessions.length,
@@ -269,24 +309,25 @@ export class MCPAnalysisHandler {
   }
 
   // Initialize a session for analysis tracking
-  initializeSession(sessionId: string): void {
+  async initializeSession(sessionId: string): Promise<void> {
     console.log(`🔧 MCP Analysis Handler: Initializing session ${sessionId} for analysis tracking`)
     
-    // Ensure session has an entry in the analysis store
-    if (!analysisStore.has(sessionId)) {
-      analysisStore.set(sessionId, [])
-      console.log(`✅ MCP Analysis Handler: Session ${sessionId} initialized with empty analysis history`)
-    } else {
-      const existing = analysisStore.get(sessionId)!
-      console.log(`📊 MCP Analysis Handler: Session ${sessionId} already has ${existing.length} analysis snapshots`)
-    }
+    try {
+      // Check if session has analysis history
+      const historyResult = await this.mcpClient.getAnalysisHistoryViaMCP(sessionId)
+      const existingSnapshots = historyResult.success ? historyResult.snapshots?.length || 0 : 0
+      
+      console.log(`📊 MCP Analysis Handler: Session ${sessionId} has ${existingSnapshots} existing analysis snapshots`)
 
-    // Broadcast initialization event (only in browser context)
-    if (isBrowser) {
-      this.broadcast('session_initialized', {
-        sessionId,
-        existingSnapshots: analysisStore.get(sessionId)?.length || 0
-      })
+      // Broadcast initialization event (only in browser context)
+      if (isBrowser) {
+        this.broadcast('session_initialized', {
+          sessionId,
+          existingSnapshots
+        })
+      }
+    } catch (error) {
+      console.error(`❌ MCP Analysis Handler: Failed to initialize session ${sessionId}:`, error)
     }
   }
 
@@ -300,7 +341,7 @@ export class MCPAnalysisHandler {
     }
 
     // Ensure session is initialized
-    this.initializeSession(sessionId)
+    await this.initializeSession(sessionId)
 
     // Log message details
     console.log(`📝 MCP Analysis Handler: Message from ${message.participantName} (${message.participantType}): ${message.content?.substring(0, 100)}...`)
@@ -318,21 +359,29 @@ export class MCPAnalysisHandler {
   }
 
   // Add an alias method for backward compatibility
-  clearSessionAnalysis(sessionId: string): void {
+  async clearSessionAnalysis(sessionId: string): Promise<void> {
     console.log(`🔧 MCP Analysis Handler: clearSessionAnalysis called (redirecting to clearAnalysisHistory)`)
-    this.clearAnalysisHistory(sessionId)
+    await this.clearAnalysisHistory(sessionId)
   }
 
   // Debug method
-  debug(): void {
+  async debug(): Promise<void> {
     console.log(`🔍 MCP Analysis Handler Debug (${isBrowser ? 'client' : 'server'}):`)
-    console.log(`  - Total sessions with analysis: ${analysisStore.size}`)
-    if (isBrowser) {
-      console.log(`  - Active subscriptions:`, this.subscribers)
+    
+    try {
+      const sessions = await this.getAllAnalysisSessions()
+      console.log(`  - Total sessions with analysis: ${sessions.length}`)
+      
+      if (isBrowser) {
+        console.log(`  - Active subscriptions:`, this.subscribers)
+      }
+      
+      for (const session of sessions) {
+        console.log(`  - Session ${session.sessionId}: ${session.snapshotCount} snapshots`)
+      }
+    } catch (error) {
+      console.error(`❌ MCP Analysis Handler: Debug failed:`, error)
     }
-    analysisStore.forEach((snapshots, sessionId) => {
-      console.log(`  - Session ${sessionId}: ${snapshots.length} snapshots`)
-    })
   }
 }
 

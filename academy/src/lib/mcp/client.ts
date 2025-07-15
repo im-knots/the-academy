@@ -1,6 +1,5 @@
 // src/lib/mcp/client.ts - Fixed with Proper Retry Logic and Error Tracking
 import { JSONRPCRequest, JSONRPCResponse, APIError, RetryConfig } from './types'
-import { useChatStore } from '@/lib/stores/chatStore'
 import { ExperimentConfig } from '@/types/experiment'
 import { MCPConversationManager } from '../ai/mcp-conversation-manager'
 
@@ -54,6 +53,7 @@ export class MCPClient {
       return shouldRetry;
     }
   };
+  
   private constructor(baseUrl: string = '/api/mcp') {
     this.baseUrl = baseUrl
   }
@@ -70,24 +70,46 @@ export class MCPClient {
     return this.requestId++
   }
 
-  // Enhanced method to get current session context
-  private getCurrentSessionContext(): { sessionId?: string; participantId?: string } {
+  // Enhanced method to get current session context via MCP
+  private async getCurrentSessionContext(): Promise<{ sessionId?: string; participantId?: string }> {
+    // Don't try to get session context if not initialized yet
+    if (!this.initialized) {
+      return {};
+    }
+    
     try {
-      const store = useChatStore.getState();
-      const currentSession = store.currentSession;
+      // Use direct sendRequest to avoid circular dependency with callTool
+      const result = await this.sendRequest('call_tool', {
+        name: 'get_current_session_id',
+        arguments: {}
+      });
       
-      return {
-        sessionId: currentSession?.id,
-        participantId: undefined // Will be set by specific operations if needed
-      };
+      // Parse the result content if it's a string
+      let parsedResult = result;
+      if (result.content?.[0]?.text) {
+        try {
+          parsedResult = JSON.parse(result.content[0].text);
+        } catch {
+          parsedResult = { success: false };
+        }
+      }
+      
+      if (parsedResult.success && parsedResult.sessionId) {
+        return {
+          sessionId: parsedResult.sessionId,
+          participantId: undefined // Will be set by specific operations if needed
+        };
+      }
+      
+      return {};
     } catch (error) {
       console.warn('⚠️ MCP Client: Failed to get session context:', error);
       return {};
     }
   }
 
-  // Log errors to the error tracking system - only log final failures
-  private logError(error: any, context: {
+  // Log errors to the error tracking system via MCP - only log final failures
+  private async logError(error: any, context: {
     operation: string;
     provider?: 'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama' | 'deepseek' | 'mistral' | 'cohere'; 
     attempt: number;
@@ -95,17 +117,22 @@ export class MCPClient {
     sessionId?: string;
     participantId?: string;
     isFinalFailure?: boolean;
-  }): void {
+  }): Promise<void> {
     if (!context.isFinalFailure && context.attempt < context.maxAttempts) {
       return;
     }
 
+    // Don't try to log errors during initialization
+    if (!this.initialized || context.operation === 'initialize') {
+      console.warn('⚠️ MCP Client: Cannot log error - client not initialized');
+      return;
+    }
+
     try {
-      const store = useChatStore.getState();
       const apiError: APIError = {
         id: `mcp-client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         timestamp: new Date(),
-        provider: context.provider || 'claude', // ← Use provided provider or default to claude
+        provider: context.provider || 'claude',
         operation: context.operation,
         attempt: context.attempt,
         maxAttempts: context.maxAttempts,
@@ -114,7 +141,12 @@ export class MCPClient {
         participantId: context.participantId
       };
       
-      store.addAPIError(apiError);
+      // Save error via MCP using direct sendRequest to avoid circular dependency
+      await this.sendRequest('call_tool', {
+        name: 'log_api_error',
+        arguments: { error: apiError }
+      });
+      
       console.log(`🚨 MCP Client: Error logged for export:`, apiError);
     } catch (logError) {
       console.warn('⚠️ MCP Client: Failed to log error:', logError);
@@ -132,7 +164,13 @@ export class MCPClient {
     config: Partial<RetryConfig> = {}
   ): Promise<T> {
     const finalConfig = { ...this.defaultRetryConfig, ...config };
-    const sessionContext = this.getCurrentSessionContext();
+    
+    // Only get session context if we're initialized and not in the initialize operation
+    let sessionContext: { sessionId?: string; participantId?: string } = {};
+    if (this.initialized && context.operationName !== 'initialize') {
+      sessionContext = await this.getCurrentSessionContext();
+    }
+    
     const fullContext = {
       ...sessionContext,
       ...context
@@ -154,7 +192,7 @@ export class MCPClient {
         const isRetryable = finalConfig.retryCondition?.(error);
 
         // Log error for export (only final failures)
-        this.logError(error, {
+        await this.logError(error, {
           operation: fullContext.operationName,
           attempt,
           maxAttempts: finalConfig.maxRetries + 1,
@@ -211,6 +249,7 @@ export class MCPClient {
       this.initialized = true
     } catch (error) {
       console.error('❌ MCP Client initialization failed:', error)
+      this.initialized = false
       throw error
     }
   }
@@ -250,12 +289,18 @@ export class MCPClient {
       throw new Error('Request was aborted')
     }
 
+    // Don't try to get session context during initialization to avoid circular dependency
+    let sessionContext: { sessionId?: string } = {};
+    if (this.initialized && method !== 'initialize') {
+      sessionContext = await this.getCurrentSessionContext();
+    }
+
     // ALWAYS use retry logic - let retryCondition decide what's retryable
     return this.retryWithBackoff(
       () => this.sendRequestInternal(method, params, abortSignal),
       { 
         operationName: method,
-        sessionId: this.getCurrentSessionContext().sessionId
+        sessionId: sessionContext.sessionId
       }
     )
   }
@@ -267,7 +312,12 @@ export class MCPClient {
       throw new Error('Request was aborted')
     }
 
-    const sessionContext = this.getCurrentSessionContext();
+    // Don't try to get session context during initialization to avoid circular dependency
+    let sessionContext: { sessionId?: string; participantId?: string } = {};
+    if (this.initialized && method !== 'initialize') {
+      sessionContext = await this.getCurrentSessionContext();
+    }
+    
     const fullContext = {
       ...sessionContext,
       ...additionalContext
@@ -370,7 +420,9 @@ export class MCPClient {
       console.error(`❌ MCP tool ${name} failed:`, error)
       
       // Sync any errors that occurred during the call
-      this.syncErrorsWithStore(toolContext.sessionId)
+      if (this.initialized && name !== 'get_current_session_id') {
+        await this.syncErrorsWithStore(toolContext.sessionId)
+      }
       
       throw error
     }
@@ -401,32 +453,31 @@ export class MCPClient {
   // ========================================
 
   async getAPIErrors(sessionId?: string): Promise<any> {
+    if (!this.initialized) {
+      console.warn('⚠️ MCP Client: Cannot get API errors - client not initialized');
+      return [];
+    }
+    
     const result = await this.callTool('get_api_errors', { sessionId })
     
     if (result.success) {
       console.log(`✅ API errors retrieved via MCP`)
-      return result
+      return result.errors || []
     } else {
       throw new Error('Failed to get API errors via MCP')
     }
   }
 
   async clearAPIErrors(sessionId?: string): Promise<any> {
+    if (!this.initialized) {
+      console.warn('⚠️ MCP Client: Cannot clear API errors - client not initialized');
+      return { success: false };
+    }
+    
     const result = await this.callTool('clear_api_errors', { sessionId })
     
     if (result.success) {
       console.log(`✅ API errors cleared via MCP`)
-      // Also clear from local store
-      if (sessionId) {
-        // Clear session-specific errors
-        const store = useChatStore.getState()
-        const remainingErrors = store.apiErrors.filter(e => e.sessionId !== sessionId)
-        store.clearAPIErrors()
-        remainingErrors.forEach(error => store.addAPIError(error))
-      } else {
-        // Clear all errors
-        useChatStore.getState().clearAPIErrors()
-      }
       return result
     } else {
       throw new Error('Failed to clear API errors via MCP')
@@ -967,8 +1018,9 @@ export class MCPClient {
   async callClaudeViaMCP(message: string, systemPrompt?: string, sessionId?: string, participantId?: string): Promise<any> {
     try {
       // Extract context for proper error tracking
+      const sessionContext = this.initialized ? await this.getCurrentSessionContext() : {};
       const context = {
-        sessionId: sessionId || this.getCurrentSessionContext().sessionId,
+        sessionId: sessionId || sessionContext.sessionId,
         participantId
       };
 
@@ -989,7 +1041,7 @@ export class MCPClient {
       console.error('Failed to call Claude via MCP:', error)
       
       // Sync any errors that occurred during the call
-      this.syncErrorsWithStore(sessionId)
+      await this.syncErrorsWithStore(sessionId)
       
       throw error
     }
@@ -998,8 +1050,9 @@ export class MCPClient {
   async callOpenAIViaMCP(message: string, systemPrompt?: string, model?: string, sessionId?: string, participantId?: string): Promise<any> {
     try {
       // Extract context for proper error tracking
+      const sessionContext = this.initialized ? await this.getCurrentSessionContext() : {};
       const context = {
-        sessionId: sessionId || this.getCurrentSessionContext().sessionId,
+        sessionId: sessionId || sessionContext.sessionId,
         participantId
       };
 
@@ -1021,7 +1074,7 @@ export class MCPClient {
       console.error('Failed to call OpenAI via MCP:', error)
       
       // Sync any errors that occurred during the call
-      this.syncErrorsWithStore(sessionId)
+      await this.syncErrorsWithStore(sessionId)
       
       throw error
     }
@@ -1030,8 +1083,9 @@ export class MCPClient {
   async callGrokViaMCP(message: string, systemPrompt?: string, model?: string, sessionId?: string, participantId?: string): Promise<any> {
     try {
       // Extract context for proper error tracking
+      const sessionContext = this.initialized ? await this.getCurrentSessionContext() : {};
       const context = {
-        sessionId: sessionId || this.getCurrentSessionContext().sessionId,
+        sessionId: sessionId || sessionContext.sessionId,
         participantId
       };
 
@@ -1053,7 +1107,7 @@ export class MCPClient {
       console.error('Failed to call Grok via MCP:', error)
       
       // Sync any errors that occurred during the call
-      this.syncErrorsWithStore(sessionId, 'grok')
+      await this.syncErrorsWithStore(sessionId, 'grok')
       
       throw error
     }
@@ -1061,8 +1115,9 @@ export class MCPClient {
 
   async callGeminiViaMCP(message: string, systemPrompt?: string, model?: string, sessionId?: string, participantId?: string): Promise<any> {
     try {
+      const sessionContext = this.initialized ? await this.getCurrentSessionContext() : {};
       const context = {
-        sessionId: sessionId || this.getCurrentSessionContext().sessionId,
+        sessionId: sessionId || sessionContext.sessionId,
         participantId
       };
 
@@ -1084,7 +1139,7 @@ export class MCPClient {
       console.error('Failed to call Gemini via MCP:', error)
       
       // FIX: Pass correct provider context to error sync
-      this.syncErrorsWithStore(sessionId, 'gemini') // ← Add provider parameter
+      await this.syncErrorsWithStore(sessionId, 'gemini')
       
       throw error
     }
@@ -1098,7 +1153,7 @@ export class MCPClient {
     sessionId?: string, 
     participantId?: string
   ): Promise<any> {
-    const context = this.getCurrentSessionContext()
+    const sessionContext = this.initialized ? await this.getCurrentSessionContext() : {};
     const result = await this.callTool('ollama_chat', {
       message,
       systemPrompt,
@@ -1106,8 +1161,8 @@ export class MCPClient {
       ollamaUrl: ollamaUrl || 'http://localhost:11434',
       temperature: 0.7,
       maxTokens: 2000,
-      sessionId: sessionId || context.sessionId,
-      participantId: participantId || context.participantId
+      sessionId: sessionId || sessionContext.sessionId,
+      participantId: participantId || sessionContext.participantId
     })
     
     if (result.success) {
@@ -1121,8 +1176,9 @@ export class MCPClient {
   async callDeepseekViaMCP(message: string, systemPrompt?: string, model?: string, sessionId?: string, participantId?: string): Promise<any> {
     try {
       // Extract context for proper error tracking
+      const sessionContext = this.initialized ? await this.getCurrentSessionContext() : {};
       const context = {
-        sessionId: sessionId || this.getCurrentSessionContext().sessionId,
+        sessionId: sessionId || sessionContext.sessionId,
         participantId
       };
 
@@ -1144,7 +1200,7 @@ export class MCPClient {
       console.error('Failed to call Deepseek via MCP:', error)
       
       // Sync any errors that occurred during the call
-      this.syncErrorsWithStore(sessionId)
+      await this.syncErrorsWithStore(sessionId)
       
       throw error
     }
@@ -1153,8 +1209,9 @@ export class MCPClient {
   async callMistralViaMCP(message: string, systemPrompt?: string, model?: string, sessionId?: string, participantId?: string): Promise<any> {
     try {
       // Extract context for proper error tracking
+      const sessionContext = this.initialized ? await this.getCurrentSessionContext() : {};
       const context = {
-        sessionId: sessionId || this.getCurrentSessionContext().sessionId,
+        sessionId: sessionId || sessionContext.sessionId,
         participantId
       };
 
@@ -1176,7 +1233,7 @@ export class MCPClient {
       console.error('Failed to call Mistral via MCP:', error)
       
       // Sync any errors that occurred during the call
-      this.syncErrorsWithStore(sessionId)
+      await this.syncErrorsWithStore(sessionId)
       
       throw error
     }
@@ -1185,8 +1242,9 @@ export class MCPClient {
   async callCohereViaMCP(message: string, systemPrompt?: string, model?: string, sessionId?: string, participantId?: string): Promise<any> {
     try {
       // Extract context for proper error tracking
+      const sessionContext = this.initialized ? await this.getCurrentSessionContext() : {};
       const context = {
-        sessionId: sessionId || this.getCurrentSessionContext().sessionId,
+        sessionId: sessionId || sessionContext.sessionId,
         participantId
       };
 
@@ -1208,7 +1266,7 @@ export class MCPClient {
       console.error('Failed to call Cohere via MCP:', error)
       
       // Sync any errors that occurred during the call
-      this.syncErrorsWithStore(sessionId)
+      await this.syncErrorsWithStore(sessionId)
       
       throw error
     }
@@ -1219,16 +1277,10 @@ export class MCPClient {
   // ========================================
 
   async createExperimentViaMCP(config: ExperimentConfig): Promise<any> {
-    // Create experiment config via MCP (for ID generation)
+    // Create experiment config via MCP
     const result = await this.callTool('create_experiment', { config })
     
     if (result.success) {
-      // Store in Zustand
-      const store = useChatStore.getState()
-      if (store.createExperiment) {
-        store.createExperiment(result.config)
-      }
-      
       console.log(`✅ Experiment created: ${result.experimentId}`)
       return result
     } else {
@@ -1246,12 +1298,12 @@ export class MCPClient {
 
     console.log('🔬 Starting experiment execution:', experimentConfig.name)
     
-    const store = useChatStore.getState()
     const runId = `run-${experimentId}-${Date.now()}`
     
-    // Track experiment run
-    if (store.createExperimentRun) {
-      store.createExperimentRun(experimentId, {
+    // Create experiment run via MCP
+    await this.callTool('create_experiment_run', {
+      experimentId,
+      run: {
         id: runId,
         configId: experimentId,
         status: 'running',
@@ -1264,8 +1316,8 @@ export class MCPClient {
         errorRate: 0,
         errors: [],
         progress: 0
-      })
-    }
+      }
+    })
 
     const createdSessionIds: string[] = []
     
@@ -1309,28 +1361,24 @@ export class MCPClient {
             console.log(`✅ Created session ${sessionId} via MCP`);
             createdSessionIds.push(sessionId);
             
-            // Step 2: CRITICAL - Sync the session to client store
-            // This is what regular chat UI does after creating a session
-            await this.syncSessionToClientStore(sessionId);
-            console.log(`✅ Synced session ${sessionId} to client store`);
-            
-            // Step 3: Switch to session (ensures it's current for subsequent operations)
+            // Step 2: Switch to session (ensures it's current for subsequent operations)
             await this.callTool('switch_current_session', { sessionId });
             console.log(`✅ Switched to session ${sessionId}`);
             
-            // Small delay to ensure store updates propagate
+            // Small delay to ensure updates propagate
             await new Promise(resolve => setTimeout(resolve, 500));
             
             // Update experiment progress
-            if (store.updateExperimentRun) {
-              store.updateExperimentRun(experimentId, {
+            await this.callTool('update_experiment_run', {
+              experimentId,
+              updates: {
                 sessionIds: createdSessionIds,
                 activeSessions: createdSessionIds.length,
                 progress: (createdSessionIds.length / experimentConfig.totalSessions) * 30
-              })
-            }
+              }
+            })
             
-            // Step 4: Start the conversation with initial prompt
+            // Step 3: Start the conversation with initial prompt
             const initialPrompt = experimentConfig.systemPrompt || experimentConfig.startingPrompt || '';
             
             const startResult = await this.callTool('start_conversation', {
@@ -1344,17 +1392,16 @@ export class MCPClient {
             
             console.log(`✅ Conversation started for session ${sessionId}`)
             
-            // Step 5: Start the conversation manager
-            // Now it should find the session in the client store
+            // Step 4: Start the conversation manager
             const conversationManager = MCPConversationManager.getInstance()
             await conversationManager.startConversation(sessionId)
             
             console.log(`✅ Conversation manager activated for session ${sessionId}`)
             
-            // Step 6: Wait for conversation completion
+            // Step 5: Wait for conversation completion
             await this.waitForConversationCompletion(sessionId, experimentConfig.maxMessageCount);
             
-            // Step 7: Analysis if configured
+            // Step 6: Analysis if configured
             if (experimentConfig.analysisProvider) {
               console.log(`🔍 Triggering analysis for session ${sessionId}`)
               try {
@@ -1367,16 +1414,19 @@ export class MCPClient {
               }
             }
             
-            // Step 8: Stop conversation
+            // Step 7: Stop conversation
             await this.callTool('stop_conversation', { sessionId });
             console.log(`✅ Conversation stopped for session ${sessionId}`)
             
             // Update experiment progress
-            if (store.updateExperimentRun && store.experimentRuns?.get(experimentId)) {
-              const currentRun = store.experimentRuns.get(experimentId)!;
-              store.updateExperimentRun(experimentId, {
-                completedSessions: currentRun.completedSessions + 1,
-                progress: 30 + ((currentRun.completedSessions + 1) / experimentConfig.totalSessions) * 70
+            const runResult = await this.callTool('get_experiment_run', { experimentId })
+            if (runResult.success && runResult.run) {
+              await this.callTool('update_experiment_run', {
+                experimentId,
+                updates: {
+                  completedSessions: runResult.run.completedSessions + 1,
+                  progress: 30 + ((runResult.run.completedSessions + 1) / experimentConfig.totalSessions) * 70
+                }
               })
             }
             
@@ -1389,17 +1439,20 @@ export class MCPClient {
           } catch (error) {
             console.error(`❌ Session ${sessionPlan.sessionName} failed:`, error)
             
-            if (store.updateExperimentRun && store.experimentRuns?.get(experimentId)) {
-              const currentRun = store.experimentRuns.get(experimentId)!;
-              store.updateExperimentRun(experimentId, {
-                failedSessions: currentRun.failedSessions + 1,
-                errors: [
-                  ...currentRun.errors,
-                  { 
-                    step: `session_${sessionPlan.sessionNumber}`, 
-                    error: error instanceof Error ? error.message : 'Unknown error' 
-                  }
-                ]
+            const runResult = await this.callTool('get_experiment_run', { experimentId })
+            if (runResult.success && runResult.run) {
+              await this.callTool('update_experiment_run', {
+                experimentId,
+                updates: {
+                  failedSessions: runResult.run.failedSessions + 1,
+                  errors: [
+                    ...runResult.run.errors,
+                    { 
+                      step: `session_${sessionPlan.sessionNumber}`, 
+                      error: error instanceof Error ? error.message : 'Unknown error' 
+                    }
+                  ]
+                }
               })
             }
             
@@ -1418,13 +1471,14 @@ export class MCPClient {
         console.log(`\n📊 Batch ${batch.batchNumber} completed: ${successCount}/${batch.sessions.length} successful`)
       }
 
-      if (store.updateExperimentRun) {
-        store.updateExperimentRun(experimentId, {
+      await this.callTool('update_experiment_run', {
+        experimentId,
+        updates: {
           status: 'completed',
           completedAt: new Date(),
           progress: 100
-        })
-      }
+        }
+      })
 
       console.log(`\n🎉 Experiment ${experimentConfig.name} completed!`)
       
@@ -1438,79 +1492,19 @@ export class MCPClient {
     } catch (error) {
       console.error(`💥 Experiment execution failed:`, error)
       
-      if (store.updateExperimentRun && store.experimentRuns?.get(experimentId)) {
-        store.updateExperimentRun(experimentId, {
+      await this.callTool('update_experiment_run', {
+        experimentId,
+        updates: {
           status: 'failed',
           completedAt: new Date(),
           errors: [{ 
             step: 'execution', 
             error: error instanceof Error ? error.message : 'Unknown error' 
           }]
-        })
-      }
+        }
+      })
       
       throw error
-    }
-  }
-
-  // New method to sync a session from server to client store
-  private async syncSessionToClientStore(sessionId: string): Promise<void> {
-    try {
-      // Get the session data from the server via MCP
-      const debugResult = await this.callTool('debug_store', {});
-      
-      if (debugResult.success && debugResult.debug) {
-        const serverStore = debugResult.debug.storeState;
-        
-        // If we can access the sessions, sync them
-        if (serverStore.sessions) {
-          // Force a refresh of the store reference on the server
-          await this.callTool('refresh_resources', {});
-          
-          // Now get the specific session
-          const sessionData = await this.callTool('get_session', { sessionId });
-          
-          if (sessionData.success && sessionData.session) {
-            // Add to client store
-            const store = useChatStore.getState();
-            
-            // Check if session already exists in client store
-            const existingSession = store.sessions.find(s => s.id === sessionId);
-            if (!existingSession) {
-              // Manually add the session to the client store
-              const newSession = {
-                ...sessionData.session,
-                createdAt: new Date(sessionData.session.createdAt),
-                updatedAt: new Date(sessionData.session.updatedAt),
-                messages: (sessionData.session.messages || []).map((m: any) => ({
-                  ...m,
-                  timestamp: new Date(m.timestamp)
-                })),
-                participants: (sessionData.session.participants || []).map((p: any) => ({
-                  ...p,
-                  joinedAt: new Date(p.joinedAt),
-                  lastActive: p.lastActive ? new Date(p.lastActive) : undefined
-                }))
-              };
-              
-              // Directly update the store state
-              store.sessions.push(newSession);
-              store.setCurrentSession(newSession);
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.warn(`⚠️ Failed to sync session ${sessionId} to client store:`, error);
-      
-      // Alternative approach: Use the switch_current_session response
-      // which might trigger the sync mechanism
-      try {
-        await this.callTool('switch_current_session', { sessionId });
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for sync
-      } catch (switchError) {
-        console.error('Failed to switch session:', switchError);
-      }
     }
   }
 
@@ -1611,223 +1605,103 @@ export class MCPClient {
   }
 
   async getExperimentsViaMCP(): Promise<any> {
-    const store = useChatStore.getState()
-    const experiments = Array.from(store.experiments?.values() || [])
+    const result = await this.callTool('get_experiments', {})
     
-    console.log(`✅ Retrieved ${experiments.length} experiments from store`)
-    return {
-      success: true,
-      experiments,
-      total: experiments.length
+    if (result.success) {
+      console.log(`✅ Retrieved ${result.experiments?.length || 0} experiments via MCP`)
+      return result
+    } else {
+      throw new Error('Failed to get experiments via MCP')
     }
   }
 
   async getExperimentViaMCP(experimentId: string): Promise<any> {
-    const store = useChatStore.getState()
-    const config = store.experiments?.get(experimentId)
-    const run = store.experimentRuns?.get(experimentId)
+    const result = await this.callTool('get_experiment', { experimentId })
     
-    if (!config) {
+    if (!result.success) {
       throw new Error(`Experiment ${experimentId} not found`)
     }
     
-    console.log(`✅ Retrieved experiment from store: ${experimentId}`)
-    return {
-      success: true,
-      config,
-      run: run || null
-    }
+    console.log(`✅ Retrieved experiment via MCP: ${experimentId}`)
+    return result
   }
 
   async updateExperimentViaMCP(experimentId: string, updates: any): Promise<any> {
-    const store = useChatStore.getState()
-    
-    if (!store.experiments?.has(experimentId)) {
-      throw new Error(`Experiment ${experimentId} not found`)
-    }
-    
-    if (store.updateExperiment) {
-      store.updateExperiment(experimentId, updates)
-    }
-    
-    console.log(`✅ Experiment updated in store: ${experimentId}`)
-    return {
-      success: true,
+    const result = await this.callTool('update_experiment', {
       experimentId,
-      message: 'Experiment updated successfully'
+      updates
+    })
+    
+    if (result.success) {
+      console.log(`✅ Experiment updated via MCP: ${experimentId}`)
+      return result
+    } else {
+      throw new Error('Failed to update experiment via MCP')
     }
   }
 
   async deleteExperimentViaMCP(experimentId: string): Promise<any> {
-    const store = useChatStore.getState()
+    const result = await this.callTool('delete_experiment', { experimentId })
     
-    if (!store.experiments?.has(experimentId)) {
-      throw new Error(`Experiment ${experimentId} not found`)
-    }
-    
-    if (store.deleteExperiment) {
-      store.deleteExperiment(experimentId)
-    }
-    
-    console.log(`✅ Experiment deleted from store: ${experimentId}`)
-    return {
-      success: true,
-      experimentId,
-      message: 'Experiment deleted successfully'
+    if (result.success) {
+      console.log(`✅ Experiment deleted via MCP: ${experimentId}`)
+      return result
+    } else {
+      throw new Error('Failed to delete experiment via MCP')
     }
   }
 
   async getExperimentStatusViaMCP(experimentId: string): Promise<any> {
-    const store = useChatStore.getState()
-    const run = store.experimentRuns?.get(experimentId)
+    const result = await this.callTool('get_experiment_status', { experimentId })
     
-    if (!run) {
-      return {
-        experimentId,
-        status: 'not_started',
-        message: 'Experiment has not been started'
-      }
-    }
-    
-    return {
-      experimentId,
-      status: run.status,
-      progress: run.progress,
-      completedSessions: run.completedSessions,
-      totalSessions: run.totalSessions,
-      startedAt: run.startedAt,
-      completedAt: run.completedAt
+    if (result.success) {
+      return result
+    } else {
+      throw new Error('Failed to get experiment status via MCP')
     }
   }
 
   async pauseExperimentViaMCP(experimentId: string): Promise<any> {
-    const store = useChatStore.getState()
-    const run = store.experimentRuns?.get(experimentId)
+    const result = await this.callTool('pause_experiment', { experimentId })
     
-    if (!run || run.status !== 'running') {
-      throw new Error('Can only pause running experiments')
-    }
-    
-    if (store.updateExperimentRun) {
-      store.updateExperimentRun(experimentId, {
-        status: 'paused',
-        pausedAt: new Date()
-      })
-    }
-    
-    console.log(`✅ Experiment paused in store: ${experimentId}`)
-    return {
-      success: true,
-      experimentId,
-      status: 'paused',
-      message: 'Experiment paused successfully'
+    if (result.success) {
+      console.log(`✅ Experiment paused via MCP: ${experimentId}`)
+      return result
+    } else {
+      throw new Error('Failed to pause experiment via MCP')
     }
   }
 
   async resumeExperimentViaMCP(experimentId: string): Promise<any> {
-    const store = useChatStore.getState()
-    const run = store.experimentRuns?.get(experimentId)
+    const result = await this.callTool('resume_experiment', { experimentId })
     
-    if (!run || run.status !== 'paused') {
-      throw new Error('Can only resume paused experiments')
-    }
-    
-    if (store.updateExperimentRun) {
-      store.updateExperimentRun(experimentId, {
-        status: 'running',
-        resumedAt: new Date()
-      })
-    }
-    
-    console.log(`✅ Experiment resumed in store: ${experimentId}`)
-    return {
-      success: true,
-      experimentId,
-      status: 'running',
-      message: 'Experiment resumed successfully'
+    if (result.success) {
+      console.log(`✅ Experiment resumed via MCP: ${experimentId}`)
+      return result
+    } else {
+      throw new Error('Failed to resume experiment via MCP')
     }
   }
 
   async stopExperimentViaMCP(experimentId: string): Promise<any> {
-    const store = useChatStore.getState()
-    const run = store.experimentRuns?.get(experimentId)
+    const result = await this.callTool('stop_experiment', { experimentId })
     
-    if (!run) {
-      throw new Error('Experiment run not found')
-    }
-    
-    if (store.updateExperimentRun) {
-      store.updateExperimentRun(experimentId, {
-        status: 'completed',
-        completedAt: new Date()
-      })
-    }
-    
-    console.log(`✅ Experiment stopped in store: ${experimentId}`)
-    return {
-      success: true,
-      experimentId,
-      status: 'completed',
-      message: 'Experiment stopped successfully'
+    if (result.success) {
+      console.log(`✅ Experiment stopped via MCP: ${experimentId}`)
+      return result
+    } else {
+      throw new Error('Failed to stop experiment via MCP')
     }
   }
 
   async getExperimentResultsViaMCP(experimentId: string): Promise<any> {
-    const store = useChatStore.getState()
-    const config = store.experiments?.get(experimentId)
-    const run = store.experimentRuns?.get(experimentId)
+    const result = await this.callTool('get_experiment_results', { experimentId })
     
-    if (!config) {
-      throw new Error(`Experiment ${experimentId} not found`)
-    }
-    
-    // Get all sessions for this experiment
-    const experimentSessions = store.sessions.filter(s => 
-      s.metadata?.experimentId === experimentId ||
-      (run?.sessionIds && run.sessionIds.includes(s.id))
-    )
-    
-    // Calculate aggregate statistics
-    const totalMessages = experimentSessions.reduce((sum, session) => sum + (session.messages?.length || 0), 0)
-    const avgMessagesPerSession = experimentSessions.length > 0 ? totalMessages / experimentSessions.length : 0
-    
-    const participantStats = new Map<string, { messageCount: number, sessions: number }>()
-    
-    experimentSessions.forEach(session => {
-      session.participants?.forEach(participant => {
-        const key = `${participant.type}-${participant.settings?.model || 'default'}`
-        if (!participantStats.has(key)) {
-          participantStats.set(key, { messageCount: 0, sessions: 0 })
-        }
-        const stats = participantStats.get(key)!
-        const messages = session.messages?.filter(m => m.participantId === participant.id).length || 0
-        stats.messageCount += messages
-        stats.sessions++
-      })
-    })
-    
-    console.log(`✅ Experiment results retrieved from store: ${experimentId}`)
-    return {
-      config,
-      run,
-      sessions: experimentSessions.map(s => ({
-        id: s.id,
-        name: s.name,
-        messageCount: s.messages?.length || 0,
-        participantCount: s.participants?.length || 0,
-        status: s.status,
-        createdAt: s.createdAt,
-        lastActivity: s.updatedAt
-      })),
-      aggregateStats: {
-        totalSessions: experimentSessions.length,
-        totalMessages,
-        avgMessagesPerSession,
-        participantStats: Object.fromEntries(participantStats),
-        errorRate: run?.errorRate || 0,
-        successRate: experimentSessions.length > 0 ? 
-          experimentSessions.filter(s => s.status === 'completed').length / experimentSessions.length : 0
-      }
+    if (result.success) {
+      console.log(`✅ Experiment results retrieved via MCP: ${experimentId}`)
+      return result
+    } else {
+      throw new Error('Failed to get experiment results via MCP')
     }
   }
 
@@ -1852,40 +1726,37 @@ export class MCPClient {
     console.log('🔌 MCP Client disconnected')
   }
 
-  // Helper method to update store reference
-  private updateStoreReference(): void {
-    try {
-      const { setMCPStoreReference } = require('./server')
-      setMCPStoreReference(useChatStore.getState())
-    } catch (error) {
-      console.warn('Could not update MCP store reference:', error)
-    }
-  }
-
   // Helper method to sync errors with store - enhanced with better error handling
   private async syncErrorsWithStore(sessionId?: string, provider?: string): Promise<void> {
+    // Don't try to sync errors if not initialized
+    if (!this.initialized) {
+      return;
+    }
+    
     try {
       const errors = await this.getAPIErrors(sessionId)
-      if (errors?.length > 0) {
-        const store = useChatStore.getState()
-        errors.forEach((error: APIError) => {
-          // Override provider if specified
-          if (provider) {
-            error.provider = provider as any
-          }
-          store.addAPIError(error)
-        })
+      if (errors && errors.length > 0) {
+        // Errors are already stored via MCP, no need to sync
+        console.log(`📊 ${errors.length} errors found for session ${sessionId || 'all'}`)
       }
     } catch (error) {
-      console.warn('Failed to sync errors with store:', error)
+      console.warn('Failed to sync errors:', error)
     }
   }
 
   // Enhanced connection status with diagnostics
-  getConnectionStatus(): { connected: boolean; lastError?: string; errorCount: number } {
+  async getConnectionStatus(): Promise<{ connected: boolean; lastError?: string; errorCount: number }> {
     try {
-      const store = useChatStore.getState();
-      const errors = store.apiErrors.filter(error => error.operation.startsWith('mcp') || error.provider === 'claude');
+      if (!this.initialized) {
+        return {
+          connected: false,
+          errorCount: 0,
+          lastError: 'MCP Client not initialized'
+        };
+      }
+      
+      const errorsResult = await this.getAPIErrors();
+      const errors = errorsResult || [];
       
       return {
         connected: this.initialized,

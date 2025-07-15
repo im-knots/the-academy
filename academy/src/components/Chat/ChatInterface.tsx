@@ -1,12 +1,12 @@
-// src/components/Chat/ChatInterface.tsx - Updated with LiveSummary and Experiments
+// src/components/Chat/ChatInterface.tsx - Updated with MCP Client instead of Zustand
 'use client'
 
 import Image from 'next/image'
-import { useState, useEffect } from 'react'
-import { useChatStore } from '@/lib/stores/chatStore'
+import { useState, useEffect, useCallback } from 'react'
 import { useTemplatePrompt } from '@/hooks/useTemplatePrompt'
 import { useMCP } from '@/hooks/useMCP'
 import { MCPConversationManager } from '@/lib/ai/mcp-conversation-manager'
+import { MCPClient } from '@/lib/mcp/client'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -60,6 +60,14 @@ export function ChatInterface() {
   const [error, setError] = useState<string | null>(null)
   const [wasRunningBeforeInterjection, setWasRunningBeforeInterjection] = useState(false)
   const [viewMode, setViewMode] = useState<'chat' | 'experiment'>('chat')
+  const [showModeratorPanel, setShowModeratorPanel] = useState(false)
+  
+  // New state for MCP-based data
+  const [currentSession, setCurrentSession] = useState<any>(null)
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
+  const [sessions, setSessions] = useState<any[]>([])
+  const [isSessionPaused, setIsSessionPaused] = useState(false)
+  const [loading, setLoading] = useState(true)
   
   // Experiments state
   const [experiments, setExperiments] = useState<ExperimentConfig[]>([])
@@ -73,31 +81,92 @@ export function ChatInterface() {
   
   // MCP integration
   const mcp = useMCP()
-  const {
-    createExperimentViaMCP,
-    getExperimentsViaMCP,
-    updateExperimentViaMCP,
-    deleteExperimentViaMCP
-  } = mcp
+  const mcpClient = MCPClient.getInstance()
   
-  const { 
-    currentSession, 
-    isSessionPaused, 
-    showModeratorPanel,
-    pauseSession,
-    resumeSession,
-    endSession,
-    toggleModeratorPanel,
-    addMessage,
-    injectPrompt
-  } = useChatStore()
-
-  const hasMessages = currentSession?.messages && currentSession.messages.length > 0
-  const hasParticipants = currentSession?.participants && currentSession.participants.length > 0
-  const hasAIParticipants = (currentSession?.participants || []).filter(p => p.type !== 'moderator').length >= 2
-
   // Get the conversation manager instance
   const conversationManager = MCPConversationManager.getInstance()
+
+  // Polling interval for updates
+  const POLL_INTERVAL = 2000 // 2 seconds
+
+  // Fetch current session
+  const fetchCurrentSession = useCallback(async () => {
+    if (!currentSessionId) {
+      setCurrentSession(null)
+      return
+    }
+    
+    try {
+      const result = await mcpClient.callTool('get_session', { sessionId: currentSessionId })
+      if (result.success && result.session) {
+        setCurrentSession(result.session)
+        
+        // Update conversation state based on session status
+        if (result.session.status === 'active') {
+          setConversationState('running')
+          setIsSessionPaused(false)
+        } else if (result.session.status === 'paused') {
+          setConversationState('idle')
+          setIsSessionPaused(true)
+        } else {
+          setConversationState('idle')
+          setIsSessionPaused(false)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch current session:', error)
+    }
+  }, [currentSessionId])
+
+  // Fetch all sessions
+  const fetchSessions = useCallback(async () => {
+    try {
+      const result = await mcpClient.callTool('get_sessions', {})
+      if (result.success && result.sessions) {
+        setSessions(result.sessions)
+      }
+    } catch (error) {
+      console.error('Failed to fetch sessions:', error)
+    }
+  }, [])
+
+  // Initialize and set up polling
+  useEffect(() => {
+    const initialize = async () => {
+      setLoading(true)
+      await fetchSessions()
+      
+      // Get current session ID from MCP
+      try {
+        const result = await mcpClient.callTool('get_current_session_id', {})
+        if (result.success && result.sessionId) {
+          setCurrentSessionId(result.sessionId)
+        }
+      } catch (error) {
+        console.error('Failed to get current session ID:', error)
+      }
+      
+      setLoading(false)
+    }
+    
+    initialize()
+  }, [fetchSessions])
+
+  // Poll for current session updates
+  useEffect(() => {
+    if (!currentSessionId) return
+    
+    fetchCurrentSession()
+    const interval = setInterval(fetchCurrentSession, POLL_INTERVAL)
+    
+    return () => clearInterval(interval)
+  }, [currentSessionId, fetchCurrentSession])
+
+  // Poll for sessions list updates
+  useEffect(() => {
+    const interval = setInterval(fetchSessions, POLL_INTERVAL * 2) // Poll less frequently
+    return () => clearInterval(interval)
+  }, [fetchSessions])
 
   // Load experiments on mount
   useEffect(() => {
@@ -106,7 +175,7 @@ export function ChatInterface() {
 
   const loadExperiments = async () => {
     try {
-      const result = await getExperimentsViaMCP()
+      const result = await mcp.getExperimentsViaMCP()
       if (result.success && result.experiments) {
         // Convert date strings to Date objects
         const experimentsWithDates = result.experiments.map((exp: any) => ({
@@ -123,7 +192,7 @@ export function ChatInterface() {
 
   const handleCreateExperiment = async (config: ExperimentConfig) => {
     try {
-      const result = await createExperimentViaMCP(config)
+      const result = await mcp.createExperimentViaMCP(config)
       if (result.success) {
         // Reload experiments to get the new one
         await loadExperiments()
@@ -148,7 +217,7 @@ export function ChatInterface() {
 
   const handleDeleteExperiment = async (experimentId: string) => {
     try {
-      await deleteExperimentViaMCP(experimentId)
+      await mcp.deleteExperimentViaMCP(experimentId)
       
       // Clear selection if deleting the selected experiment
       if (selectedExperiment?.id === experimentId) {
@@ -160,6 +229,10 @@ export function ChatInterface() {
     } catch (error) {
       console.error('Failed to delete experiment:', error)
     }
+  }
+
+  const toggleModeratorPanel = () => {
+    setShowModeratorPanel(!showModeratorPanel)
   }
 
   // Auto-populate moderator input from template prompt
@@ -178,6 +251,10 @@ export function ChatInterface() {
     }
   }, [error])
 
+  const hasMessages = currentSession?.messages && currentSession.messages.length > 0
+  const hasParticipants = currentSession?.participants && currentSession.participants.length > 0
+  const hasAIParticipants = (currentSession?.participants || []).filter(p => p.type !== 'moderator').length >= 2
+
   const handleStartConversation = async () => {
     if (!currentSession || !hasAIParticipants || !moderatorInput.trim()) return
     
@@ -191,8 +268,8 @@ export function ChatInterface() {
       setModeratorInput('')
       setConversationState('running')
       
-      // Update session status to active
-      resumeSession()
+      // Update session status via MCP
+      await mcpClient.resumeConversationViaMCP(currentSession.id)
       
     } catch (error) {
       console.error('Failed to start conversation:', error)
@@ -209,8 +286,9 @@ export function ChatInterface() {
       setError(null)
       
       conversationManager.pauseConversation(currentSession.id)
-      pauseSession()
+      await mcpClient.pauseConversationViaMCP(currentSession.id)
       setConversationState('idle')
+      setIsSessionPaused(true)
       
     } catch (error) {
       console.error('Failed to pause conversation:', error)
@@ -227,8 +305,9 @@ export function ChatInterface() {
       setError(null)
       
       conversationManager.resumeConversation(currentSession.id)
-      resumeSession()
+      await mcpClient.resumeConversationViaMCP(currentSession.id)
       setConversationState('running')
+      setIsSessionPaused(false)
       
     } catch (error) {
       console.error('Failed to resume conversation:', error)
@@ -245,7 +324,7 @@ export function ChatInterface() {
       setError(null)
       
       conversationManager.stopConversation(currentSession.id)
-      endSession()
+      await mcpClient.stopConversationViaMCP(currentSession.id)
       setConversationState('idle')
       
     } catch (error) {
@@ -260,7 +339,7 @@ export function ChatInterface() {
     if (isInterjecting) {
       // Send the interjection
       if (moderatorInput.trim()) {
-        injectPrompt(moderatorInput.trim())
+        await mcpClient.injectPromptViaMCP(currentSession.id, moderatorInput.trim())
         setModeratorInput('')
       }
       setIsInterjecting(false)
@@ -572,7 +651,7 @@ export function ChatInterface() {
                   <p className="text-xs text-gray-500 dark:text-gray-500">Add AI agents to begin</p>
                 </div>
               ) : (
-                currentSession.participants.map((participant) => (
+                currentSession.participants.map((participant: any) => (
                   <div key={participant.id} className="group relative">
                     <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                       <ParticipantAvatar 
@@ -782,7 +861,7 @@ export function ChatInterface() {
             </div>
           ) : (
             <div className="max-w-4xl mx-auto p-6 space-y-6">
-              {currentSession.messages.map((message, index) => (
+              {currentSession.messages.map((message: any, index: number) => (
                 <div key={message.id} className="message-appear">
                   <div className="flex gap-4">
                     <ParticipantAvatar 
@@ -798,7 +877,7 @@ export function ChatInterface() {
                           {message.participantType}
                         </Badge>
                         <span className="text-xs text-gray-500 dark:text-gray-400">
-                          {message.timestamp.toLocaleTimeString()}
+                          {new Date(message.timestamp).toLocaleTimeString()}
                         </span>
                       </div>
                       <div className="prose prose-gray dark:prose-invert max-w-none">
@@ -960,7 +1039,7 @@ export function ChatInterface() {
                   <div className="flex justify-between">
                     <span className="text-blue-700 dark:text-blue-300">AI Agents:</span>
                     <span className="font-medium text-blue-900 dark:text-blue-100">
-                      {currentSession.participants.filter(p => p.type !== 'moderator').length}
+                      {currentSession.participants.filter((p: any) => p.type !== 'moderator').length}
                     </span>
                   </div>
                   <div className="flex justify-between">

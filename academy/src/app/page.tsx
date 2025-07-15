@@ -1,47 +1,80 @@
 // src/app/page.tsx
 'use client'
 
-import { useEffect } from 'react'
-import { useChatStore } from '@/lib/stores/chatStore'
+import { useEffect, useState } from 'react'
+import { MCPClient } from '@/lib/mcp/client'
 import { ChatInterface } from '@/components/Chat/ChatInterface'
 
 export default function Home() {
-  const { 
-    createSession, 
-    currentSession, 
-    sessions, 
-    hasHydrated,
-    ensureCurrentSession 
-  } = useChatStore()
+  const [isInitialized, setIsInitialized] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const mcpClient = MCPClient.getInstance()
 
   useEffect(() => {
-    // Only run session logic after the store has hydrated from localStorage
-    if (!hasHydrated) {
-      console.log('Store not yet hydrated, waiting...')
-      return
+    const initializeApp = async () => {
+      try {
+        setIsLoading(true)
+        console.log('Initializing app...')
+        
+        // Initialize MCP client if not already initialized
+        if (!mcpClient.isConnected()) {
+          await mcpClient.initialize()
+        }
+        
+        // Check for existing sessions
+        const sessionsResult = await mcpClient.callTool('get_sessions', {})
+        
+        if (sessionsResult.success) {
+          const sessions = sessionsResult.sessions || []
+          console.log('Sessions found:', sessions.length)
+          
+          // Handle initial session creation for brand new users
+          if (sessions.length === 0) {
+            console.log('No sessions found, creating initial blank session')
+            
+            // Create a blank session for new users
+            const createResult = await mcpClient.createSessionViaMCP(
+              "New Session",
+              "Start your research dialogue",
+              'blank' // template
+            )
+            
+            if (createResult.success && createResult.sessionId) {
+              // Switch to the newly created session
+              await mcpClient.switchCurrentSessionViaMCP(createResult.sessionId)
+              console.log('Initial session created and set as current:', createResult.sessionId)
+            }
+          } else {
+            // For existing users, check if we have a current session
+            console.log('Existing sessions found, checking current session')
+            
+            const currentResult = await mcpClient.callTool('get_current_session_id', {})
+            
+            if (!currentResult.success || !currentResult.sessionId) {
+              // No current session, set the first one as current
+              console.log('No current session, setting first session as current')
+              await mcpClient.switchCurrentSessionViaMCP(sessions[0].id)
+            } else {
+              console.log('Current session already set:', currentResult.sessionId)
+            }
+          }
+          
+          setIsInitialized(true)
+        } else {
+          console.error('Failed to get sessions:', sessionsResult.error)
+        }
+      } catch (error) {
+        console.error('Failed to initialize app:', error)
+      } finally {
+        setIsLoading(false)
+      }
     }
 
-    console.log('Store hydrated. Sessions:', sessions.length, 'Current:', !!currentSession)
+    initializeApp()
+  }, []) // Only run once on mount
 
-    // Handle initial session creation for brand new users
-    if (sessions.length === 0) {
-      console.log('No sessions found, creating initial blank session')
-      // Create a blank session for new users
-      createSession(
-        "New Session", 
-        "Start your research dialogue",
-        { template: 'blank' }
-      )
-    } else {
-      // For existing users, ensure we have a current session
-      // This is also handled in the store's rehydration logic, but double-check
-      console.log('Existing sessions found, ensuring current session')
-      ensureCurrentSession()
-    }
-  }, [hasHydrated, createSession, currentSession, sessions, ensureCurrentSession])
-
-  // Show loading state until hydrated
-  if (!hasHydrated) {
+  // Show loading state until initialized
+  if (isLoading || !isInitialized) {
     return (
       <main className="h-screen w-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
