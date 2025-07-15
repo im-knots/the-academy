@@ -1,20 +1,19 @@
-// src/lib/mcp/server.ts - Complete Updated with Direct API Calls & All Phase 1-6 Tools
+// src/lib/mcp/server.ts - Updated with PostgreSQL
 import { JSONRPCRequest, JSONRPCResponse, JSONRPCError } from './types'
-import { useChatStore } from '@/lib/stores/chatStore'
 import { mcpAnalysisHandler } from './analysis-handler'
 import { Participant, APIError, RetryConfig } from '@/types/chat'
 import { ExperimentConfig, ExperimentRun } from '@/types/experiment'
-
-// Store reference for server-side access
-let mcpStoreReference: any = null
-
-export function setMCPStoreReference(store: any): void {
-  mcpStoreReference = store
-}
-
-export function getMCPStoreReference(): any {
-  return mcpStoreReference || useChatStore.getState()
-}
+import { db } from '@/lib/db/client'
+import { 
+  sessions, 
+  messages, 
+  participants, 
+  analysisSnapshots,
+  experiments,
+  experimentRuns,
+  apiErrors 
+} from '@/lib/db/schema'
+import { eq, and, desc, inArray } from 'drizzle-orm'
 
 export class MCPServer {
   private experimentConfigs = new Map<string, ExperimentConfig>()
@@ -59,20 +58,15 @@ export class MCPServer {
     }
   };
   private initialized = false
-  private store: any = null
 
   async initialize(): Promise<void> {
     if (this.initialized) return
 
-    // Initialize store reference
-    this.updateStoreReference()
+    // Initialize database connection
+    await db.query.sessions.findFirst() // Test connection
     
     this.initialized = true
-    console.log('✅ MCP Server initialized with tools')
-  }
-
-  private updateStoreReference(): void {
-    this.store = getMCPStoreReference()
+    console.log('✅ MCP Server initialized with PostgreSQL')
   }
 
   private isAnalysisHandlerAvailable(): boolean {
@@ -154,8 +148,6 @@ export class MCPServer {
       return this.uninitializedError(request.id)
     }
 
-    this.updateStoreReference()
-
     switch (request.method) {
       case 'initialize':
         return this.handleInitialize(request.params, request.id)
@@ -202,14 +194,12 @@ export class MCPServer {
           name: 'academy-mcp-server',
           version: '1.0.0'
         },
-        instructions: 'Academy MCP Server initialized with complete Phase 1-6 functionality'
+        instructions: 'Academy MCP Server initialized with PostgreSQL backend'
       }
     }
   }
 
   private async handleRefreshResources(id: any): Promise<JSONRPCResponse> {
-    this.updateStoreReference()
-    
     return {
       jsonrpc: '2.0',
       id,
@@ -225,8 +215,6 @@ export class MCPServer {
       return this.uninitializedError(id)
     }
 
-    this.updateStoreReference()
-    
     const resources = [
       {
         uri: 'academy://sessions',
@@ -279,52 +267,99 @@ export class MCPServer {
     }
 
     const { uri } = params
-    this.updateStoreReference()
     
     try {
       let content: any = {}
       
       switch (uri) {
         case 'academy://sessions':
+          const allSessions = await db.query.sessions.findMany({
+            orderBy: [desc(sessions.updatedAt)]
+          })
           content = {
-            sessions: this.store?.sessions || [],
-            totalSessions: this.store?.sessions?.length || 0
+            sessions: allSessions,
+            totalSessions: allSessions.length
           }
           break
           
         case 'academy://current-session':
+          const currentSession = await db.query.sessions.findFirst({
+            where: eq(sessions.status, 'active'),
+            orderBy: [desc(sessions.updatedAt)]
+          })
           content = {
-            currentSession: this.store?.currentSession || null,
-            sessionId: this.store?.currentSession?.id || null
+            currentSession: currentSession || null,
+            sessionId: currentSession?.id || null
           }
           break
           
         case 'academy://participants':
-          content = {
-            participants: this.store?.currentSession?.participants || [],
-            totalParticipants: this.store?.currentSession?.participants?.length || 0
+          const activeSession = await db.query.sessions.findFirst({
+            where: eq(sessions.status, 'active'),
+            orderBy: [desc(sessions.updatedAt)]
+          })
+          if (activeSession) {
+            const sessionParticipants = await db.query.participants.findMany({
+              where: eq(participants.sessionId, activeSession.id)
+            })
+            content = {
+              participants: sessionParticipants,
+              totalParticipants: sessionParticipants.length
+            }
+          } else {
+            content = {
+              participants: [],
+              totalParticipants: 0
+            }
           }
           break
           
         case 'academy://messages':
-          content = {
-            messages: this.store?.currentSession?.messages || [],
-            totalMessages: this.store?.currentSession?.messages?.length || 0
+          const msgSession = await db.query.sessions.findFirst({
+            where: eq(sessions.status, 'active'),
+            orderBy: [desc(sessions.updatedAt)]
+          })
+          if (msgSession) {
+            const sessionMessages = await db.query.messages.findMany({
+              where: eq(messages.sessionId, msgSession.id),
+              orderBy: [messages.timestamp]
+            })
+            content = {
+              messages: sessionMessages,
+              totalMessages: sessionMessages.length
+            }
+          } else {
+            content = {
+              messages: [],
+              totalMessages: 0
+            }
           }
           break
           
         case 'academy://analysis':
-          content = this.isAnalysisHandlerAvailable() ? 
-            mcpAnalysisHandler.getAnalysisHistory(this.store?.currentSession?.id || '') : 
-            { error: 'Analysis handler not available' }
+          const analysisSession = await db.query.sessions.findFirst({
+            where: eq(sessions.status, 'active'),
+            orderBy: [desc(sessions.updatedAt)]
+          })
+          if (analysisSession) {
+            const snapshots = await db.query.analysisSnapshots.findMany({
+              where: eq(analysisSnapshots.sessionId, analysisSession.id),
+              orderBy: [desc(analysisSnapshots.timestamp)]
+            })
+            content = snapshots
+          } else {
+            content = []
+          }
           break
           
         case 'academy://experiments':
+          const allExperiments = await db.query.experiments.findMany()
+          const allRuns = await db.query.experimentRuns.findMany()
           content = {
-            configs: Array.from(this.experimentConfigs.values()),
-            runs: Array.from(this.experimentRuns.values()),
-            totalConfigs: this.experimentConfigs.size,
-            totalRuns: this.experimentRuns.size
+            configs: allExperiments,
+            runs: allRuns,
+            totalConfigs: allExperiments.length,
+            totalRuns: allRuns.length
           }
           break
           
@@ -547,7 +582,7 @@ export class MCPServer {
 
       {
         name: 'debug_store',
-        description: 'Get debug information about the current store state',
+        description: 'Get debug information about the current database state',
         inputSchema: {
           type: 'object',
           properties: {},
@@ -590,6 +625,17 @@ export class MCPServer {
             participants: { type: 'array', description: 'Initial participants' }
           },
           required: ['name']
+        }
+      },
+      {
+        name: 'get_session',
+        description: 'Get a specific session by ID',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            sessionId: { type: 'string', description: 'Session ID' }
+          },
+          required: ['sessionId']
         }
       },
       {
@@ -1245,6 +1291,9 @@ export class MCPServer {
         case 'create_session':
           result = await this.toolCreateSession(args)
           break
+        case 'get_session':
+          result = await this.toolGetSession(args)
+          break
         case 'delete_session':
           result = await this.toolDeleteSession(args)
           break
@@ -1425,7 +1474,7 @@ export class MCPServer {
   }
 
   // ========================================
-  // DIRECT AI PROVIDER METHODS (NEW)
+  // DIRECT AI PROVIDER METHODS (KEEPING EXISTING)
   // ========================================
 
   private async callClaudeAPIDirect(args: any): Promise<any> {
@@ -2384,12 +2433,12 @@ export class MCPServer {
   }
 
   // ========================================
-  // DEBUG TOOLS
+  // DEBUG TOOLS (UPDATED FOR POSTGRES)
   // ========================================
 
   private async toolDebugStore(): Promise<any> {
     try {
-      const debugInfo = this.getStoreDebugInfo()
+      const debugInfo = await this.getStoreDebugInfo()
       
       return {
         success: true,
@@ -2402,31 +2451,62 @@ export class MCPServer {
     }
   }
 
-  private getStoreDebugInfo(): any {
-    this.updateStoreReference()
+  private async getStoreDebugInfo(): Promise<any> {
+    // Get counts from database
+    const [sessionCount] = await db
+      .select({ count: db.count() })
+      .from(sessions)
+    
+    const currentSession = await db.query.sessions.findFirst({
+      where: eq(sessions.status, 'active'),
+      orderBy: [desc(sessions.updatedAt)]
+    })
+    
+    let messageCount = 0
+    let participantCount = 0
+    
+    if (currentSession) {
+      const [msgCount] = await db
+        .select({ count: db.count() })
+        .from(messages)
+        .where(eq(messages.sessionId, currentSession.id))
+      messageCount = msgCount.count
+      
+      const [partCount] = await db
+        .select({ count: db.count() })
+        .from(participants)
+        .where(eq(participants.sessionId, currentSession.id))
+      participantCount = partCount.count
+    }
+    
+    const [experimentCount] = await db
+      .select({ count: db.count() })
+      .from(experiments)
+    
+    const [runCount] = await db
+      .select({ count: db.count() })
+      .from(experimentRuns)
     
     return {
       storeState: {
-        hasStore: !!this.store,
-        currentSessionId: this.store?.currentSession?.id || null,
-        sessionsCount: this.store?.sessions?.length || 0,
-        currentSessionMessagesCount: this.store?.currentSession?.messages?.length || 0,
-        currentSessionParticipantsCount: this.store?.currentSession?.participants?.length || 0,
+        hasStore: true,
+        currentSessionId: currentSession?.id || null,
+        sessionsCount: sessionCount.count,
+        currentSessionMessagesCount: messageCount,
+        currentSessionParticipantsCount: participantCount,
       },
       environment: {
         hasAnthropicKey: !!process.env.ANTHROPIC_API_KEY,
         hasOpenAIKey: !!process.env.OPENAI_API_KEY,
         nodeEnv: process.env.NODE_ENV,
+        database: 'PostgreSQL'
       },
       analysis: {
         handlerAvailable: this.isAnalysisHandlerAvailable(),
-        analysisData: this.isAnalysisHandlerAvailable() ? 
-          mcpAnalysisHandler.getAnalysisHistory(this.store?.currentSession?.id || '') : 
-          null
       },
       experiments: {
-        configsCount: this.experimentConfigs.size,
-        runsCount: this.experimentRuns.size,
+        configsCount: experimentCount.count,
+        runsCount: runCount.count,
         activeSessionsCount: this.activeExperimentSessions.size
       },
       timestamp: new Date().toISOString()
@@ -2437,10 +2517,18 @@ export class MCPServer {
     try {
       const { sessionId } = args;
       
-      let errors = this.getAPIErrors();
+      let errors: APIError[]
       
       if (sessionId) {
-        errors = errors.filter(error => error.sessionId === sessionId);
+        errors = await db.query.apiErrors.findMany({
+          where: eq(apiErrors.sessionId, sessionId),
+          orderBy: [desc(apiErrors.timestamp)]
+        })
+      } else {
+        errors = await db.query.apiErrors.findMany({
+          orderBy: [desc(apiErrors.timestamp)],
+          limit: 100
+        })
       }
       
       return {
@@ -2460,25 +2548,18 @@ export class MCPServer {
     try {
       const { sessionId } = args;
       
-      const beforeCount = this.getAPIErrors().length;
-      
       if (sessionId) {
         // Clear only session-specific errors
-        this.errors = this.errors.filter(error => error.sessionId !== sessionId);
+        await db.delete(apiErrors).where(eq(apiErrors.sessionId, sessionId))
       } else {
         // Clear all errors
-        this.clearAPIErrors();
+        await db.delete(apiErrors)
       }
-      
-      const afterCount = this.getAPIErrors().length;
-      const clearedCount = beforeCount - afterCount;
       
       return {
         success: true,
-        clearedCount: clearedCount,
-        remainingCount: afterCount,
         sessionId: sessionId || null,
-        message: `Cleared ${clearedCount} API errors`
+        message: `Cleared API errors${sessionId ? ` for session ${sessionId}` : ''}`
       };
     } catch (error) {
       console.error('Clear API errors failed:', error);
@@ -2487,79 +2568,72 @@ export class MCPServer {
   }
 
   // ========================================
-  // PHASE 1: SESSION MANAGEMENT TOOLS
+  // PHASE 1: SESSION MANAGEMENT TOOLS (UPDATED FOR POSTGRES)
   // ========================================
 
   private async toolCreateSession(args: any): Promise<any> {
     try {
-      const { name, systemPrompt, analysisProvider, analysisContextSize } = args
+      const { name, description, template, participants: participantData } = args
       
       if (!name) {
         throw new Error('Session name is required')
       }
 
-      const store = getMCPStoreReference()
-      if (!store) {
-        throw new Error('Store reference not available')
-      }
-
       console.log(`📋 Creating new session: ${name}`)
       
-      // Create the session with optional parameters
-      const sessionData: any = {
-        template: args.template || 'custom',
-        initialPrompt: systemPrompt
-      }
-      
-      const participants = args.participants || []
-
-      const sessionId = store.createSession(
+      // Create session in database
+      const [newSession] = await db.insert(sessions).values({
         name,
-        args.description || '',
-        sessionData,
-        participants
-      )
-
-      console.log(`✅ Session created with ID: ${sessionId}`)
-
-      // IMPORTANT: Don't try to switch to the session immediately
-      // Just return the session ID and let the caller handle switching if needed
-      
-      // Get the created session directly from the store state
-      const createdSession = store.getSessionById(sessionId)
-      
-      if (!createdSession) {
-        // If we still can't find it, wait a bit and try again
-        await new Promise(resolve => setTimeout(resolve, 100))
-        const retrySession = store.getSessionById(sessionId)
-        
-        if (!retrySession) {
-          throw new Error(`Session ${sessionId} was created but cannot be found in store`)
-        }
-      }
-
-      // Update analysis settings if provided
-      if (analysisProvider || analysisContextSize) {
-        const updates: any = {}
-        if (analysisProvider) {
-          updates.analysisProvider = analysisProvider
-        }
-        if (analysisContextSize) {
-          updates.analysisContextSize = analysisContextSize
-        }
-        
-        store.updateSession(sessionId, {
-          moderatorSettings: {
-            ...createdSession?.moderatorSettings,
-            ...updates
+        description: description || '',
+        status: 'active',
+        metadata: {
+          template: template || 'custom',
+          tags: [],
+          starred: false,
+          archived: false
+        },
+        moderatorSettings: {
+          autoMode: false,
+          interventionTriggers: [],
+          sessionTimeout: 3600,
+          maxMessagesPerParticipant: 100,
+          allowParticipantToParticipantMessages: true,
+          moderatorPrompts: {
+            welcome: "Welcome to The Academy. Let's explore together.",
+            intervention: "Let me guide our discussion toward deeper insights.",
+            conclusion: "Thank you for this enlightening dialogue."
           }
-        })
+        }
+      }).returning()
+
+      console.log(`✅ Session created with ID: ${newSession.id}`)
+      
+      // Add participants if provided
+      if (participantData && participantData.length > 0) {
+        const participantsToInsert = participantData.map((p: any) => ({
+          sessionId: newSession.id,
+          name: p.name,
+          type: p.type,
+          status: 'active' as const,
+          messageCount: 0,
+          settings: p.settings || {
+            temperature: 0.7,
+            maxTokens: 1500,
+            responseDelay: 3000
+          },
+          characteristics: p.characteristics || {},
+          systemPrompt: p.systemPrompt || '',
+          avatar: p.avatar,
+          color: p.color
+        }))
+        
+        await db.insert(participants).values(participantsToInsert)
       }
 
       return {
         success: true,
-        sessionId: sessionId,
-        session: store.getSessionById(sessionId),
+        sessionId: newSession.id,
+        session: newSession,
         message: `Session "${name}" created successfully`
       }
     } catch (error) {
@@ -2568,6 +2642,38 @@ export class MCPServer {
     }
   }
 
+  private async toolGetSession(args: any): Promise<any> {
+    try {
+      const { sessionId } = args
+      
+      if (!sessionId) {
+        throw new Error('Session ID is required')
+      }
+      
+      const session = await db.query.sessions.findFirst({
+        where: eq(sessions.id, sessionId),
+        with: {
+          participants: true,
+          messages: {
+            orderBy: [messages.timestamp]
+          }
+        }
+      })
+      
+      if (!session) {
+        throw new Error(`Session ${sessionId} not found`)
+      }
+      
+      return {
+        success: true,
+        session,
+        message: 'Session retrieved successfully'
+      }
+    } catch (error) {
+      console.error('Get session failed:', error)
+      throw new Error(`Failed to get session: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
 
   private async toolDeleteSession(args: any): Promise<any> {
     try {
@@ -2577,20 +2683,16 @@ export class MCPServer {
         throw new Error('Session ID is required')
       }
 
-      this.updateStoreReference()
-      
-      const store = useChatStore.getState()
-      const session = store.sessions.find(s => s.id === sessionId)
+      const session = await db.query.sessions.findFirst({
+        where: eq(sessions.id, sessionId)
+      })
       
       if (!session) {
         throw new Error(`Session ${sessionId} not found`)
       }
 
-      // Delete the session
-      store.deleteSession(sessionId)
-
-      // Update MCP store reference
-      setMCPStoreReference(useChatStore.getState())
+      // Delete session (cascades to messages, participants, etc.)
+      await db.delete(sessions).where(eq(sessions.id, sessionId))
 
       return {
         success: true,
@@ -2611,30 +2713,32 @@ export class MCPServer {
         throw new Error('Session ID is required')
       }
 
-      this.updateStoreReference()
-      
-      const store = useChatStore.getState()
-      const session = store.sessions.find(s => s.id === sessionId)
+      const session = await db.query.sessions.findFirst({
+        where: eq(sessions.id, sessionId)
+      })
       
       if (!session) {
         throw new Error(`Session ${sessionId} not found`)
       }
 
-      const updates: any = {}
+      const updates: any = {
+        updatedAt: new Date()
+      }
       if (name !== undefined) updates.name = name
       if (description !== undefined) updates.description = description
       if (metadata !== undefined) updates.metadata = { ...session.metadata, ...metadata }
 
       // Update the session
-      store.updateSession(sessionId, updates)
-
-      // Update MCP store reference
-      setMCPStoreReference(useChatStore.getState())
+      const [updatedSession] = await db
+        .update(sessions)
+        .set(updates)
+        .where(eq(sessions.id, sessionId))
+        .returning()
 
       return {
         success: true,
         sessionId: sessionId,
-        updates: updates,
+        session: updatedSession,
         message: `Session updated successfully`
       }
     } catch (error) {
@@ -2651,49 +2755,22 @@ export class MCPServer {
         throw new Error('Session ID is required')
       }
 
-      // Multiple attempts to get fresh store reference
-      let sessionToSwitch = null;
-      const maxAttempts = 5;
-      
-      for (let attempt = 0; attempt < maxAttempts; attempt++) {
-        // Force update store reference
-        this.updateStoreReference();
-        
-        // Get fresh store reference each time
-        const store = getMCPStoreReference();
-        if (!store) {
-          throw new Error('Store reference not available')
-        }
-        
-        // Also try getting from the actual Zustand store directly
-        const directStore = useChatStore.getState();
-        
-        // Try finding in both stores
-        sessionToSwitch = store.sessions.find((s: any) => s.id === sessionId) || 
-                        directStore.sessions.find((s: any) => s.id === sessionId);
-        
-        if (sessionToSwitch) {
-          break;
-        }
-        
-        // Wait before retry with exponential backoff
-        const waitTime = Math.min(200 * Math.pow(2, attempt), 2000);
-        console.log(`⏳ Session ${sessionId} not found, waiting ${waitTime}ms before retry ${attempt + 1}/${maxAttempts}`);
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-      }
+      const sessionToSwitch = await db.query.sessions.findFirst({
+        where: eq(sessions.id, sessionId)
+      })
       
       if (!sessionToSwitch) {
-        // Last resort: check if session exists by trying to create it again
-        // This might help if there's a race condition in session creation
-        const directStore = useChatStore.getState();
-        const allSessions = directStore.sessions;
-        console.error(`Session ${sessionId} not found. Available sessions:`, allSessions.map(s => s.id));
-        throw new Error(`Session ${sessionId} not found after ${maxAttempts} attempts`)
+        throw new Error(`Session ${sessionId} not found`)
       }
 
-      // Use the direct store to set current session
-      const directStore = useChatStore.getState();
-      directStore.setCurrentSession(sessionToSwitch);
+      // Update all sessions to inactive
+      await db.update(sessions).set({ status: 'inactive' as const })
+      
+      // Set the target session as active
+      await db
+        .update(sessions)
+        .set({ status: 'active' as const })
+        .where(eq(sessions.id, sessionId))
       
       console.log(`✅ Switched to session: ${sessionToSwitch.name}`)
 
@@ -2717,10 +2794,14 @@ export class MCPServer {
         throw new Error('Session ID is required')
       }
       
-      this.updateStoreReference()
-      const store = useChatStore.getState()
+      const originalSession = await db.query.sessions.findFirst({
+        where: eq(sessions.id, sessionId),
+        with: {
+          participants: true,
+          messages: includeMessages ? true : false
+        }
+      })
       
-      const originalSession = store.sessions.find(s => s.id === sessionId)
       if (!originalSession) {
         throw new Error(`Session ${sessionId} not found`)
       }
@@ -2728,42 +2809,57 @@ export class MCPServer {
       // Create new session name
       const duplicateName = newName || `${originalSession.name} (Copy)`
       
-      // Create the session using the store's createSession method
-      store.createSession(
-        duplicateName,
-        originalSession.description,
-        undefined, // template parameter - not using since it doesn't exist on session type
-        originalSession.participants.map(p => ({
-          ...p,
-          id: undefined, // Let the store generate new IDs
-          joinedAt: undefined,
+      // Create the duplicate session
+      const [duplicateSession] = await db.insert(sessions).values({
+        name: duplicateName,
+        description: originalSession.description,
+        status: 'active' as const,
+        metadata: originalSession.metadata,
+        moderatorSettings: originalSession.moderatorSettings
+      }).returning()
+      
+      // Duplicate participants
+      if (originalSession.participants.length > 0) {
+        const duplicatedParticipants = originalSession.participants.map(p => ({
+          sessionId: duplicateSession.id,
+          name: p.name,
+          type: p.type,
+          status: 'active' as const,
           messageCount: 0,
-          lastActive: undefined
+          settings: p.settings,
+          characteristics: p.characteristics,
+          systemPrompt: p.systemPrompt || '',
+          avatar: p.avatar,
+          color: p.color
         }))
-      )
-      
-      // Get the newly created session (it should be the current session after creation)
-      const updatedStore = useChatStore.getState()
-      const duplicateSession = updatedStore.currentSession
-      
-      if (!duplicateSession) {
-        throw new Error('Failed to create duplicate session')
+        
+        await db.insert(participants).values(duplicatedParticipants)
       }
       
-      // If we need to include messages, add them to the new session
-      if (includeMessages && originalSession.messages.length > 0) {
-        originalSession.messages.forEach(msg => {
-          store.addMessage({
-            content: msg.content,
-            participantId: msg.participantId,
-            participantName: msg.participantName,
-            participantType: msg.participantType
-          })
+      // Duplicate messages if requested
+      if (includeMessages && originalSession.messages && originalSession.messages.length > 0) {
+        // Get participant ID mapping
+        const newParticipants = await db.query.participants.findMany({
+          where: eq(participants.sessionId, duplicateSession.id)
         })
+        
+        const participantMap = new Map()
+        originalSession.participants.forEach((oldP, idx) => {
+          const newP = newParticipants.find(p => p.name === oldP.name && p.type === oldP.type)
+          if (newP) participantMap.set(oldP.id, newP.id)
+        })
+        
+        const duplicatedMessages = originalSession.messages.map(m => ({
+          sessionId: duplicateSession.id,
+          participantId: participantMap.get(m.participantId) || m.participantId,
+          participantName: m.participantName,
+          participantType: m.participantType,
+          content: m.content,
+          metadata: m.metadata
+        }))
+        
+        await db.insert(messages).values(duplicatedMessages)
       }
-      
-      // Update MCP store reference
-      setMCPStoreReference(useChatStore.getState())
       
       return {
         success: true,
@@ -2787,24 +2883,63 @@ export class MCPServer {
         throw new Error('Valid session data is required')
       }
 
-      this.updateStoreReference()
-      
-      // Prepare imported session
-      const importedSession = {
-        ...sessionData,
-        id: `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      // Create imported session
+      const [importedSession] = await db.insert(sessions).values({
         name: name || sessionData.name || 'Imported Session',
-        createdAt: new Date(),
-        updatedAt: new Date()
+        description: sessionData.description || '',
+        status: 'active' as const,
+        metadata: sessionData.metadata || {},
+        moderatorSettings: sessionData.moderatorSettings || {
+          autoMode: false,
+          interventionTriggers: [],
+          sessionTimeout: 3600,
+          maxMessagesPerParticipant: 100,
+          allowParticipantToParticipantMessages: true,
+          moderatorPrompts: {
+            welcome: "Welcome to The Academy. Let's explore together.",
+            intervention: "Let me guide our discussion toward deeper insights.",
+            conclusion: "Thank you for this enlightening dialogue."
+          }
+        }
+      }).returning()
+
+      // Import participants
+      if (sessionData.participants && sessionData.participants.length > 0) {
+        const importedParticipants = sessionData.participants.map((p: any) => ({
+          sessionId: importedSession.id,
+          name: p.name,
+          type: p.type,
+          status: p.status || 'active',
+          messageCount: 0,
+          settings: p.settings || {},
+          characteristics: p.characteristics || {},
+          systemPrompt: p.systemPrompt || '',
+          avatar: p.avatar,
+          color: p.color
+        }))
+        
+        const insertedParticipants = await db.insert(participants).values(importedParticipants).returning()
+        
+        // Import messages if present
+        if (sessionData.messages && sessionData.messages.length > 0) {
+          const participantMap = new Map()
+          sessionData.participants.forEach((oldP: any, idx: number) => {
+            const newP = insertedParticipants[idx]
+            if (newP) participantMap.set(oldP.id, newP.id)
+          })
+          
+          const importedMessages = sessionData.messages.map((m: any) => ({
+            sessionId: importedSession.id,
+            participantId: participantMap.get(m.participantId) || m.participantId,
+            participantName: m.participantName,
+            participantType: m.participantType,
+            content: m.content,
+            metadata: m.metadata || {}
+          }))
+          
+          await db.insert(messages).values(importedMessages)
+        }
       }
-
-      // Apply to store
-      const store = useChatStore.getState()
-      store.createSession(importedSession)
-      store.setCurrentSession(importedSession.id)
-
-      // Update MCP store reference
-      setMCPStoreReference(useChatStore.getState())
 
       return {
         success: true,
@@ -2882,11 +3017,10 @@ export class MCPServer {
         throw new Error(`Template ${templateId} not found`)
       }
 
-      // Create session from template - DON'T access .template property on ChatSession
+      // Create session from template
       const sessionArgs = {
         name: name,
         description: description || template.description,
-        // Store template info in metadata instead of trying to access .template
         metadata: { 
           templateId: templateId,
           templateName: template.name 
@@ -2894,21 +3028,11 @@ export class MCPServer {
         participants: customizations?.participants || template.participants
       }
 
-      // Create the session and get the actual ChatSession object
-      const sessionId = await this.toolCreateSession(sessionArgs)
-      
-      // Get the created session object instead of passing string
-      this.updateStoreReference()
-      const store = useChatStore.getState()
-      const createdSession = store.getSessionById(sessionId)
-      
-      if (createdSession) {
-        store.setCurrentSession(createdSession) // Pass ChatSession object, not string
-      }
+      const result = await this.toolCreateSession(sessionArgs)
 
       return {
         success: true,
-        sessionId: sessionId,
+        sessionId: result.sessionId,
         templateId: templateId,
         templateName: template.name,
         message: `Session "${name}" created from template "${template.name}"`
@@ -2931,44 +3055,35 @@ export class MCPServer {
         throw new Error('Session ID, content, participant ID, name, and type are required')
       }
 
-      this.updateStoreReference()
-      const store = useChatStore.getState()
+      // Verify session exists
+      const session = await db.query.sessions.findFirst({
+        where: eq(sessions.id, sessionId)
+      })
       
-      // Find the target session
-      const targetSession = store.sessions.find(s => s.id === sessionId)
-      if (!targetSession) {
+      if (!session) {
         throw new Error(`Session ${sessionId} not found`)
       }
       
-      const messageData = {
-        id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        content: content,
-        participantId: participantId,
-        participantName: participantName,
-        participantType: participantType,
-        timestamp: new Date()
-      }
+      // Insert message
+      const [newMessage] = await db.insert(messages).values({
+        sessionId,
+        participantId,
+        participantName,
+        participantType,
+        content,
+        metadata: {}
+      }).returning()
 
-      // If it's the current session, use the store method
-      if (store.currentSession?.id === sessionId) {
-        store.addMessage({
-          content: content,
-          participantId: participantId,
-          participantName: participantName,
-          participantType: participantType
-        })
-      } else {
-        // For non-current sessions, add message directly
-        const updatedMessages = [...targetSession.messages, messageData]
-        store.updateSession(sessionId, { messages: updatedMessages })
-      }
-      
-      setMCPStoreReference(useChatStore.getState())
+      // Update session's updatedAt
+      await db
+        .update(sessions)
+        .set({ updatedAt: new Date() })
+        .where(eq(sessions.id, sessionId))
 
       return {
         success: true,
         sessionId: sessionId,
-        messageData: messageData,
+        messageData: newMessage,
         message: 'Message sent successfully'
       }
     } catch (error) {
@@ -2989,57 +3104,40 @@ export class MCPServer {
         throw new Error('Session ID, participant name, and type are required')
       }
       
-      this.updateStoreReference()
-      const store = useChatStore.getState()
+      // Verify session exists
+      const session = await db.query.sessions.findFirst({
+        where: eq(sessions.id, sessionId)
+      })
       
-      // Find the target session
-      const targetSession = store.sessions.find(s => s.id === sessionId)
-      if (!targetSession) {
+      if (!session) {
         throw new Error(`Session ${sessionId} not found`)
       }
       
-      // Create participant data
-      const participantData: Omit<Participant, 'id' | 'joinedAt' | 'messageCount'> = {
-        name: name,
-        type: type,
+      // Create participant
+      const [newParticipant] = await db.insert(participants).values({
+        sessionId,
+        name,
+        type,
+        status: 'active' as const,
+        messageCount: 0,
         settings: {
           temperature: 0.7,
           maxTokens: 2000,
           responseDelay: 2000,
           model: model || 'claude-3-5-sonnet-20241022',
-          ...settings // Allow overriding defaults with provided settings
+          ...settings
         },
         characteristics: characteristics || {},
-        status: 'active' as const,
         systemPrompt: '',
         avatar: undefined,
-        color: undefined,
-        lastActive: undefined
-      }
-      
-      // If it's the current session, use the store method
-      if (store.currentSession?.id === sessionId) {
-        store.addParticipant(participantData)
-      } else {
-        // For non-current sessions, add participant directly to the session
-        const newParticipant: Participant = {
-          ...participantData,
-          id: `participant-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          joinedAt: new Date(),
-          messageCount: 0
-        }
-        
-        // Update the session with the new participant
-        const updatedParticipants = [...targetSession.participants, newParticipant]
-        store.updateSession(sessionId, { participants: updatedParticipants })
-      }
-      
-      setMCPStoreReference(useChatStore.getState())
+        color: undefined
+      }).returning()
       
       return {
         success: true,
         sessionId: sessionId,
-        participantData: participantData,
+        participantId: newParticipant.id,
+        participantData: newParticipant,
         message: `Participant "${name}" added successfully`
       }
     } catch (error) {
@@ -3056,31 +3154,19 @@ export class MCPServer {
         throw new Error('Session ID and participant ID are required')
       }
       
-      this.updateStoreReference()
-      const store = useChatStore.getState()
+      const participant = await db.query.participants.findFirst({
+        where: and(
+          eq(participants.id, participantId),
+          eq(participants.sessionId, sessionId)
+        )
+      })
       
-      // Find the target session
-      const targetSession = store.sessions.find(s => s.id === sessionId)
-      if (!targetSession) {
-        throw new Error(`Session ${sessionId} not found`)
-      }
-      
-      const participant = targetSession.participants.find(p => p.id === participantId)
       if (!participant) {
         throw new Error(`Participant ${participantId} not found`)
       }
       
-      // If it's the current session, use the store method
-      if (store.currentSession?.id === sessionId) {
-        store.removeParticipant(participantId)
-      } else {
-        // For non-current sessions, remove participant directly
-        const updatedParticipants = targetSession.participants.filter(p => p.id !== participantId)
-        store.updateSession(sessionId, { participants: updatedParticipants })
-      }
-      
-      // Update MCP store reference
-      setMCPStoreReference(useChatStore.getState())
+      // Delete participant
+      await db.delete(participants).where(eq(participants.id, participantId))
       
       return {
         success: true,
@@ -3103,39 +3189,32 @@ export class MCPServer {
         throw new Error('Session ID, participant ID, and updates are required')
       }
       
-      this.updateStoreReference()
-      const store = useChatStore.getState()
+      const participant = await db.query.participants.findFirst({
+        where: and(
+          eq(participants.id, participantId),
+          eq(participants.sessionId, sessionId)
+        )
+      })
       
-      // Find the target session
-      const targetSession = store.sessions.find(s => s.id === sessionId)
-      if (!targetSession) {
-        throw new Error(`Session ${sessionId} not found`)
-      }
-      
-      const participant = targetSession.participants.find(p => p.id === participantId)
       if (!participant) {
         throw new Error(`Participant ${participantId} not found`)
       }
       
-      // If it's the current session, use the store method
-      if (store.currentSession?.id === sessionId) {
-        store.updateParticipant(participantId, updates)
-      } else {
-        // For non-current sessions, update participant directly
-        const updatedParticipants = targetSession.participants.map(p => 
-          p.id === participantId ? { ...p, ...updates } : p
-        )
-        store.updateSession(sessionId, { participants: updatedParticipants })
-      }
-      
-      // Update MCP store reference
-      setMCPStoreReference(useChatStore.getState())
+      // Update participant
+      const [updatedParticipant] = await db
+        .update(participants)
+        .set({
+          ...updates,
+          lastActive: new Date()
+        })
+        .where(eq(participants.id, participantId))
+        .returning()
       
       return {
         success: true,
         sessionId: sessionId,
         participantId: participantId,
-        updates: updates,
+        participant: updatedParticipant,
         message: `Participant updated successfully`
       }
     } catch (error) {
@@ -3232,16 +3311,13 @@ export class MCPServer {
         throw new Error('Session ID and participant ID are required')
       }
       
-      this.updateStoreReference()
-      const store = useChatStore.getState()
+      const participant = await db.query.participants.findFirst({
+        where: and(
+          eq(participants.id, participantId),
+          eq(participants.sessionId, sessionId)
+        )
+      })
       
-      // Find the target session
-      const targetSession = store.sessions.find(s => s.id === sessionId)
-      if (!targetSession) {
-        throw new Error(`Session ${sessionId} not found`)
-      }
-      
-      const participant = targetSession.participants.find(p => p.id === participantId)
       if (!participant) {
         throw new Error(`Participant ${participantId} not found`)
       }
@@ -3271,47 +3347,31 @@ export class MCPServer {
         throw new Error('Session ID is required')
       }
 
-      this.updateStoreReference()
-      
-      const store = useChatStore.getState()
-      const session = store.sessions.find(s => s.id === sessionId)
+      const session = await db.query.sessions.findFirst({
+        where: eq(sessions.id, sessionId)
+      })
       
       if (!session) {
         throw new Error(`Session ${sessionId} not found`)
       }
 
       // Update session status
-      store.updateSession(sessionId, { status: 'active' })
+      await db
+        .update(sessions)
+        .set({ status: 'active' as const })
+        .where(eq(sessions.id, sessionId))
 
       // Add initial prompt if provided
       if (initialPrompt?.trim()) {
-        // Create message data
-        const messageData = {
-          id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          content: initialPrompt.trim(),
+        await db.insert(messages).values({
+          sessionId,
           participantId: 'moderator',
           participantName: 'Research Moderator',
-          participantType: 'moderator' as const,
-          timestamp: new Date()
-        }
-        
-        // If it's the current session, use the store method
-        if (store.currentSession?.id === sessionId) {
-          store.addMessage({
-            content: initialPrompt.trim(),
-            participantId: 'moderator',
-            participantName: 'Research Moderator',
-            participantType: 'moderator'
-          })
-        } else {
-          // For non-current sessions, add message directly
-          const updatedMessages = [...session.messages, messageData]
-          store.updateSession(sessionId, { messages: updatedMessages })
-        }
+          participantType: 'moderator',
+          content: initialPrompt.trim(),
+          metadata: {}
+        })
       }
-
-      // Update MCP store reference
-      setMCPStoreReference(useChatStore.getState())
 
       return {
         success: true,
@@ -3334,20 +3394,19 @@ export class MCPServer {
         throw new Error('Session ID is required')
       }
 
-      this.updateStoreReference()
-      
-      const store = useChatStore.getState()
-      const session = store.sessions.find(s => s.id === sessionId)
+      const session = await db.query.sessions.findFirst({
+        where: eq(sessions.id, sessionId)
+      })
       
       if (!session) {
         throw new Error(`Session ${sessionId} not found`)
       }
 
       // Update session status
-      store.updateSession(sessionId, { status: 'paused' })
-
-      // Update MCP store reference
-      setMCPStoreReference(useChatStore.getState())
+      await db
+        .update(sessions)
+        .set({ status: 'paused' as const })
+        .where(eq(sessions.id, sessionId))
 
       return {
         success: true,
@@ -3369,20 +3428,19 @@ export class MCPServer {
         throw new Error('Session ID is required')
       }
 
-      this.updateStoreReference()
-      
-      const store = useChatStore.getState()
-      const session = store.sessions.find(s => s.id === sessionId)
+      const session = await db.query.sessions.findFirst({
+        where: eq(sessions.id, sessionId)
+      })
       
       if (!session) {
         throw new Error(`Session ${sessionId} not found`)
       }
 
       // Update session status
-      store.updateSession(sessionId, { status: 'active' })
-
-      // Update MCP store reference
-      setMCPStoreReference(useChatStore.getState())
+      await db
+        .update(sessions)
+        .set({ status: 'active' as const })
+        .where(eq(sessions.id, sessionId))
 
       return {
         success: true,
@@ -3404,20 +3462,19 @@ export class MCPServer {
         throw new Error('Session ID is required')
       }
 
-      this.updateStoreReference()
-      
-      const store = useChatStore.getState()
-      const session = store.sessions.find(s => s.id === sessionId)
+      const session = await db.query.sessions.findFirst({
+        where: eq(sessions.id, sessionId)
+      })
       
       if (!session) {
         throw new Error(`Session ${sessionId} not found`)
       }
 
       // Update session status
-      store.updateSession(sessionId, { status: 'completed' as const,})
-
-      // Update MCP store reference
-      setMCPStoreReference(useChatStore.getState())
+      await db
+        .update(sessions)
+        .set({ status: 'completed' as const })
+        .where(eq(sessions.id, sessionId))
 
       return {
         success: true,
@@ -3439,10 +3496,13 @@ export class MCPServer {
         throw new Error('Session ID is required')
       }
 
-      this.updateStoreReference()
-      
-      const store = useChatStore.getState()
-      const session = store.sessions.find(s => s.id === sessionId)
+      const session = await db.query.sessions.findFirst({
+        where: eq(sessions.id, sessionId),
+        with: {
+          messages: true,
+          participants: true
+        }
+      })
       
       if (!session) {
         throw new Error(`Session ${sessionId} not found`)
@@ -3451,6 +3511,12 @@ export class MCPServer {
       return {
         success: true,
         sessionId: sessionId,
+        data: {
+          status: session.status,
+          messageCount: session.messages.length,
+          participantCount: session.participants.length,
+          lastActivity: session.updatedAt
+        },
         status: {
           sessionStatus: session.status,
           messageCount: session.messages.length,
@@ -3474,10 +3540,13 @@ export class MCPServer {
         throw new Error('Session ID is required')
       }
 
-      this.updateStoreReference()
-      
-      const store = useChatStore.getState()
-      const session = store.sessions.find(s => s.id === sessionId)
+      const session = await db.query.sessions.findFirst({
+        where: eq(sessions.id, sessionId),
+        with: {
+          messages: true,
+          participants: true
+        }
+      })
       
       if (!session) {
         throw new Error(`Session ${sessionId} not found`)
@@ -3528,17 +3597,38 @@ export class MCPServer {
         throw new Error('Session ID, message ID, and content are required')
       }
 
-      this.updateStoreReference()
-      
-      // Note: This would require extending the store to support message updates
-      // For now, return a placeholder implementation
-      
+      const message = await db.query.messages.findFirst({
+        where: and(
+          eq(messages.id, messageId),
+          eq(messages.sessionId, sessionId)
+        )
+      })
+// Continuing from toolUpdateMessage...
+
+      if (!message) {
+        throw new Error(`Message ${messageId} not found in session ${sessionId}`)
+      }
+
+      // Update message
+      const [updatedMessage] = await db
+        .update(messages)
+        .set({ 
+          content,
+          metadata: {
+            ...message.metadata,
+            edited: true,
+            editedAt: new Date().toISOString()
+          }
+        })
+        .where(eq(messages.id, messageId))
+        .returning()
+
       return {
         success: true,
         sessionId: sessionId,
         messageId: messageId,
-        content: content,
-        message: 'Message update not yet implemented'
+        message: updatedMessage,
+        message: 'Message updated successfully'
       }
     } catch (error) {
       console.error('Update message failed:', error)
@@ -3554,16 +3644,25 @@ export class MCPServer {
         throw new Error('Session ID and message ID are required')
       }
 
-      this.updateStoreReference()
-      
-      // Note: This would require extending the store to support message deletion
-      // For now, return a placeholder implementation
-      
+      const message = await db.query.messages.findFirst({
+        where: and(
+          eq(messages.id, messageId),
+          eq(messages.sessionId, sessionId)
+        )
+      })
+
+      if (!message) {
+        throw new Error(`Message ${messageId} not found in session ${sessionId}`)
+      }
+
+      // Delete message
+      await db.delete(messages).where(eq(messages.id, messageId))
+
       return {
         success: true,
         sessionId: sessionId,
         messageId: messageId,
-        message: 'Message deletion not yet implemented'
+        message: 'Message deleted successfully'
       }
     } catch (error) {
       console.error('Delete message failed:', error)
@@ -3579,25 +3678,21 @@ export class MCPServer {
         throw new Error('Session ID is required')
       }
 
-      this.updateStoreReference()
-      const store = useChatStore.getState()
-      
-      // Find the target session
-      const targetSession = store.sessions.find(s => s.id === sessionId)
-      if (!targetSession) {
+      const session = await db.query.sessions.findFirst({
+        where: eq(sessions.id, sessionId)
+      })
+
+      if (!session) {
         throw new Error(`Session ${sessionId} not found`)
       }
-      
-      // Clear messages by updating session with empty messages array
-      store.updateSession(sessionId, { messages: [] })
 
-      // Update MCP store reference
-      setMCPStoreReference(useChatStore.getState())
+      // Delete all messages for the session
+      await db.delete(messages).where(eq(messages.sessionId, sessionId))
 
       return {
         success: true,
         sessionId: sessionId,
-        message: 'Messages cleared successfully'
+        message: 'All messages cleared successfully'
       }
     } catch (error) {
       console.error('Clear messages failed:', error)
@@ -3613,46 +3708,31 @@ export class MCPServer {
         throw new Error('Session ID and prompt are required')
       }
 
-      this.updateStoreReference()
-      const store = useChatStore.getState()
-      
-      // Find the target session
-      const targetSession = store.sessions.find(s => s.id === sessionId)
-      if (!targetSession) {
+      const session = await db.query.sessions.findFirst({
+        where: eq(sessions.id, sessionId)
+      })
+
+      if (!session) {
         throw new Error(`Session ${sessionId} not found`)
       }
-      
-      // Create message data
-      const messageData = {
-        id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        content: prompt,
+
+      // Insert moderator message
+      const [moderatorMessage] = await db.insert(messages).values({
+        sessionId,
         participantId: 'moderator',
         participantName: 'Research Moderator',
-        participantType: 'moderator' as const,
-        timestamp: new Date()
-      }
-      
-      // If it's the current session, use the store method
-      if (store.currentSession?.id === sessionId) {
-        store.addMessage({
-          content: prompt,
-          participantId: 'moderator',
-          participantName: 'Research Moderator',
-          participantType: 'moderator'
-        })
-      } else {
-        // For non-current sessions, add message directly
-        const updatedMessages = [...targetSession.messages, messageData]
-        store.updateSession(sessionId, { messages: updatedMessages })
-      }
-
-      // Update MCP store reference
-      setMCPStoreReference(useChatStore.getState())
+        participantType: 'moderator',
+        content: prompt,
+        metadata: {
+          isModeratorPrompt: true,
+          injectedAt: new Date().toISOString()
+        }
+      }).returning()
 
       return {
         success: true,
         sessionId: sessionId,
-        prompt: prompt,
+        messageData: moderatorMessage,
         message: 'Moderator prompt injected successfully'
       }
     } catch (error) {
@@ -3667,58 +3747,81 @@ export class MCPServer {
 
   private async toolExportSession(args: any): Promise<any> {
     try {
-      const { sessionId, format = 'json', includeAnalysis = false, includeMetadata = true } = args
+      const { sessionId, format = 'json', includeAnalysis = true, includeMetadata = true } = args
       
       if (!sessionId) {
         throw new Error('Session ID is required')
       }
 
-      this.updateStoreReference()
-      
-      const store = useChatStore.getState()
-      const session = store.sessions.find(s => s.id === sessionId)
-      
+      const session = await db.query.sessions.findFirst({
+        where: eq(sessions.id, sessionId),
+        with: {
+          messages: {
+            orderBy: [messages.timestamp]
+          },
+          participants: true
+        }
+      })
+
       if (!session) {
         throw new Error(`Session ${sessionId} not found`)
       }
 
-      let exportData: any = {
-        session: session
+      let analysisData = null
+      if (includeAnalysis) {
+        const snapshots = await db.query.analysisSnapshots.findMany({
+          where: eq(analysisSnapshots.sessionId, sessionId),
+          orderBy: [desc(analysisSnapshots.timestamp)]
+        })
+        analysisData = snapshots
       }
 
-      if (includeAnalysis && this.isAnalysisHandlerAvailable()) {
-        exportData.analysis = mcpAnalysisHandler.getAnalysisHistory(sessionId)
+      const exportData = {
+        session: includeMetadata ? session : { 
+          id: session.id, 
+          name: session.name, 
+          description: session.description 
+        },
+        participants: session.participants,
+        messages: session.messages,
+        analysis: analysisData,
+        exported: new Date().toISOString(),
+        version: '1.0'
       }
 
-      if (!includeMetadata) {
-        delete exportData.session.metadata
-      }
-
-      // Format the data
-      let formattedData: string
       if (format === 'csv') {
-        // Simple CSV export of messages
-        const headers = ['timestamp', 'participantName', 'participantType', 'content']
-        const rows = session.messages.map(msg => [
-          msg.timestamp.toISOString(),
-          msg.participantName,
-          msg.participantType,
-          `"${msg.content.replace(/"/g, '""')}"`
-        ])
-        formattedData = [headers.join(','), ...rows.map(row => row.join(','))].join('\n')
-      } else {
-        formattedData = JSON.stringify(exportData, null, 2)
+        // Convert to CSV format
+        const csvRows = [
+          ['Timestamp', 'Participant Name', 'Participant Type', 'Content'],
+          ...session.messages.map(m => [
+            m.timestamp.toISOString(),
+            m.participantName,
+            m.participantType,
+            m.content.replace(/"/g, '""') // Escape quotes
+          ])
+        ]
+        
+        const csvContent = csvRows.map(row => 
+          row.map(cell => `"${cell}"`).join(',')
+        ).join('\n')
+
+        return {
+          success: true,
+          sessionId: sessionId,
+          format: 'csv',
+          data: csvContent,
+          filename: `${session.name.replace(/[^a-z0-9]/gi, '_')}_export.csv`,
+          message: 'Session exported to CSV successfully'
+        }
       }
 
       return {
         success: true,
         sessionId: sessionId,
-        format: format,
-        data: formattedData,
-        size: formattedData.length,
-        includeAnalysis: includeAnalysis,
-        includeMetadata: includeMetadata,
-        message: `Session exported successfully in ${format.toUpperCase()} format`
+        format: 'json',
+        data: exportData,
+        filename: `${session.name.replace(/[^a-z0-9]/gi, '_')}_export.json`,
+        message: 'Session exported to JSON successfully'
       }
     } catch (error) {
       console.error('Export session failed:', error)
@@ -3733,44 +3836,43 @@ export class MCPServer {
       if (!sessionId) {
         throw new Error('Session ID is required')
       }
-      
-      if (!this.isAnalysisHandlerAvailable()) {
-        throw new Error('Analysis handler not available')
-      }
-      
-      const analysisData = mcpAnalysisHandler.getAnalysisHistory(sessionId)
-      let formattedData: string
-      
+
+      const snapshots = await db.query.analysisSnapshots.findMany({
+        where: eq(analysisSnapshots.sessionId, sessionId),
+        orderBy: [analysisSnapshots.timestamp]
+      })
+
       if (format === 'csv') {
-        // CSV export of analysis timeline
-        const headers = ['timestamp', 'analysisType', 'key', 'value']
-        const rows: string[] = []
+        const csvRows = [
+          ['Timestamp', 'Analysis Type', 'Key Insights'],
+          ...snapshots.map(s => [
+            s.timestamp.toISOString(),
+            s.analysisType || 'full',
+            JSON.stringify(s.analysis).substring(0, 100) + '...'
+          ])
+        ]
         
-        // analysisData is already an array of AnalysisSnapshot
-        analysisData.forEach((snapshot: any) => {
-          const timestamp = snapshot.timestamp
-          Object.entries(snapshot.analysis).forEach(([key, value]) => {
-            rows.push([
-              timestamp,
-              snapshot.analysisType || 'unknown',
-              key,
-              `"${String(value).replace(/"/g, '""')}"`
-            ].join(','))
-          })
-        })
-        
-        formattedData = [headers.join(','), ...rows].join('\n')
-      } else {
-        formattedData = JSON.stringify(analysisData, null, 2)
+        const csvContent = csvRows.map(row => 
+          row.map(cell => `"${cell}"`).join(',')
+        ).join('\n')
+
+        return {
+          success: true,
+          sessionId: sessionId,
+          format: 'csv',
+          data: csvContent,
+          snapshotCount: snapshots.length,
+          message: 'Analysis timeline exported to CSV successfully'
+        }
       }
-      
+
       return {
         success: true,
         sessionId: sessionId,
-        format: format,
-        data: formattedData,
-        size: formattedData.length,
-        message: `Analysis timeline exported successfully in ${format.toUpperCase()} format`
+        format: 'json',
+        data: snapshots,
+        snapshotCount: snapshots.length,
+        message: 'Analysis timeline exported to JSON successfully'
       }
     } catch (error) {
       console.error('Export analysis timeline failed:', error)
@@ -3786,25 +3888,35 @@ export class MCPServer {
         throw new Error('Session ID is required')
       }
 
-      this.updateStoreReference()
-      
-      const store = useChatStore.getState()
-      const session = store.sessions.find(s => s.id === sessionId)
-      
+      const session = await db.query.sessions.findFirst({
+        where: eq(sessions.id, sessionId),
+        with: {
+          messages: {
+            limit: 10,
+            orderBy: [desc(messages.timestamp)]
+          },
+          participants: true
+        }
+      })
+
       if (!session) {
         throw new Error(`Session ${sessionId} not found`)
       }
 
+      const [messageCount] = await db
+        .select({ count: db.count() })
+        .from(messages)
+        .where(eq(messages.sessionId, sessionId))
+
       const preview = {
         sessionName: session.name,
-        messageCount: session.messages.length,
-        participantCount: session.participants.length,
-        createdAt: session.createdAt,
-        updatedAt: session.updatedAt,
+        totalMessages: messageCount.count,
+        totalParticipants: session.participants.length,
+        sampleMessages: session.messages.slice(0, 5),
+        format: format,
         estimatedSize: format === 'json' ? 
-          JSON.stringify(session).length : 
-          session.messages.length * 100, // Rough CSV estimate
-        format: format
+          `~${Math.round(messageCount.count * 0.5)}KB` : 
+          `~${Math.round(messageCount.count * 0.1)}KB`
       }
 
       return {
@@ -3835,15 +3947,38 @@ export class MCPServer {
         throw new Error('Analysis handler not available')
       }
 
-      // Trigger analysis
-      const analysisResult = await mcpAnalysisHandler.analyzeSession(sessionId, analysisType)
+      const session = await db.query.sessions.findFirst({
+        where: eq(sessions.id, sessionId),
+        with: {
+          messages: {
+            orderBy: [messages.timestamp]
+          }
+        }
+      })
+
+      if (!session) {
+        throw new Error(`Session ${sessionId} not found`)
+      }
+
+      // Perform analysis
+      const analysis = await mcpAnalysisHandler.analyzeConversation(
+        session.messages,
+        analysisType
+      )
+
+      // Save analysis snapshot
+      await db.insert(analysisSnapshots).values({
+        sessionId,
+        analysis,
+        analysisType
+      })
 
       return {
         success: true,
         sessionId: sessionId,
         analysisType: analysisType,
-        analysis: analysisResult,
-        message: 'Live analysis completed successfully'
+        analysis: analysis,
+        message: 'Live analysis triggered successfully'
       }
     } catch (error) {
       console.error('Trigger live analysis failed:', error)
@@ -3859,7 +3994,18 @@ export class MCPServer {
         throw new Error('Provider is required')
       }
 
-      // Set analysis provider (placeholder implementation)
+      if (!this.isAnalysisHandlerAvailable()) {
+        throw new Error('Analysis handler not available')
+      }
+
+      const validProviders = ['claude', 'gpt']
+      if (!validProviders.includes(provider)) {
+        throw new Error(`Invalid provider. Must be one of: ${validProviders.join(', ')}`)
+      }
+
+      // Set provider on analysis handler
+      mcpAnalysisHandler.setProvider(provider)
+
       return {
         success: true,
         provider: provider,
@@ -3877,21 +4023,24 @@ export class MCPServer {
         {
           id: 'claude',
           name: 'Claude',
-          description: 'Anthropic Claude for in-depth analysis',
-          capabilities: ['sentiment', 'topics', 'patterns', 'philosophical depth']
+          description: 'Anthropic Claude for nuanced analysis',
+          available: !!process.env.ANTHROPIC_API_KEY
         },
         {
           id: 'gpt',
-          name: 'GPT',
-          description: 'OpenAI GPT for comprehensive analysis',
-          capabilities: ['sentiment', 'topics', 'engagement', 'structure']
+          name: 'GPT-4',
+          description: 'OpenAI GPT-4 for comprehensive analysis',
+          available: !!process.env.OPENAI_API_KEY
         }
       ]
+
+      const currentProvider = this.isAnalysisHandlerAvailable() ? 
+        mcpAnalysisHandler.getCurrentProvider() : null
 
       return {
         success: true,
         providers: providers,
-        count: providers.length,
+        currentProvider: currentProvider,
         message: 'Analysis providers retrieved successfully'
       }
     } catch (error) {
@@ -3908,11 +4057,29 @@ export class MCPServer {
         throw new Error('Session ID and enabled flag are required')
       }
 
-      // Set auto-analysis flag (placeholder implementation)
+      const session = await db.query.sessions.findFirst({
+        where: eq(sessions.id, sessionId)
+      })
+
+      if (!session) {
+        throw new Error(`Session ${sessionId} not found`)
+      }
+
+      // Update session metadata
+      await db
+        .update(sessions)
+        .set({
+          metadata: {
+            ...session.metadata,
+            autoAnalyze: enabled
+          }
+        })
+        .where(eq(sessions.id, sessionId))
+
       return {
         success: true,
         sessionId: sessionId,
-        autoAnalysisEnabled: enabled,
+        autoAnalyze: enabled,
         message: `Auto-analysis ${enabled ? 'enabled' : 'disabled'} for session`
       }
     } catch (error) {
@@ -3927,44 +4094,32 @@ export class MCPServer {
 
   private async toolSaveAnalysisSnapshot(args: any): Promise<any> {
     try {
-      const { sessionId, analysis, analysisType = 'manual', messageCountAtAnalysis, participantCountAtAnalysis, provider, conversationPhase, conversationContext } = args
+      const { sessionId, analysis, analysisType = 'full' } = args
       
       if (!sessionId || !analysis) {
         throw new Error('Session ID and analysis data are required')
       }
 
-      if (!this.isAnalysisHandlerAvailable()) {
-        throw new Error('Analysis handler not available')
+      const session = await db.query.sessions.findFirst({
+        where: eq(sessions.id, sessionId)
+      })
+
+      if (!session) {
+        throw new Error(`Session ${sessionId} not found`)
       }
 
-      // Prepare the complete analysis data structure that matches AnalysisSnapshot
-      const analysisData = {
-        messageCountAtAnalysis: messageCountAtAnalysis || 0,
-        participantCountAtAnalysis: participantCountAtAnalysis || 0,
-        provider: provider || 'unknown',
-        conversationPhase: conversationPhase || 'exploration',
-        analysis: analysis, // This contains mainTopics, keyInsights, etc.
-        conversationContext: conversationContext || {
-          recentMessages: 0,
-          activeParticipants: [],
-          sessionStatus: 'active',
-          moderatorInterventions: 0
-        }
-      }
-
-      console.log(`💾 MCP Server: Saving analysis snapshot for session ${sessionId}`, analysisData)
-
-      // Save analysis snapshot - AWAIT the async method
-      const snapshotId = await mcpAnalysisHandler.saveAnalysisSnapshot(sessionId, analysisData)
-
-      console.log(`✅ MCP Server: Analysis snapshot saved successfully: ${snapshotId}`)
+      // Save analysis snapshot
+      const [snapshot] = await db.insert(analysisSnapshots).values({
+        sessionId,
+        analysis,
+        analysisType
+      }).returning()
 
       return {
         success: true,
         sessionId: sessionId,
-        snapshotId: snapshotId,
-        analysisType: analysisType,
-        timestamp: new Date().toISOString(),
+        snapshotId: snapshot.id,
+        timestamp: snapshot.timestamp,
         message: 'Analysis snapshot saved successfully'
       }
     } catch (error) {
@@ -3981,18 +4136,16 @@ export class MCPServer {
         throw new Error('Session ID is required')
       }
 
-      if (!this.isAnalysisHandlerAvailable()) {
-        throw new Error('Analysis handler not available')
-      }
-
-      // Get analysis history - this returns AnalysisSnapshot[]
-      const snapshots = mcpAnalysisHandler.getAnalysisHistory(sessionId)
+      const snapshots = await db.query.analysisSnapshots.findMany({
+        where: eq(analysisSnapshots.sessionId, sessionId),
+        orderBy: [desc(analysisSnapshots.timestamp)]
+      })
 
       return {
         success: true,
         sessionId: sessionId,
-        snapshots: snapshots, // Fix: Don't access .snapshots property
-        count: snapshots.length, // Fix: Don't access .snapshots property
+        snapshots: snapshots,
+        count: snapshots.length,
         message: 'Analysis history retrieved successfully'
       }
     } catch (error) {
@@ -4009,12 +4162,8 @@ export class MCPServer {
         throw new Error('Session ID is required')
       }
 
-      if (!this.isAnalysisHandlerAvailable()) {
-        throw new Error('Analysis handler not available')
-      }
-
-      // Clear analysis history
-      mcpAnalysisHandler.clearAnalysisHistory(sessionId)
+      // Delete all analysis snapshots for the session
+      await db.delete(analysisSnapshots).where(eq(analysisSnapshots.sessionId, sessionId))
 
       return {
         success: true,
@@ -4035,19 +4184,66 @@ export class MCPServer {
         throw new Error('Session ID is required')
       }
 
-      if (!this.isAnalysisHandlerAvailable()) {
-        throw new Error('Analysis handler not available')
+      const session = await db.query.sessions.findFirst({
+        where: eq(sessions.id, sessionId),
+        with: {
+          messages: {
+            orderBy: [messages.timestamp]
+          },
+          participants: true
+        }
+      })
+
+      if (!session) {
+        throw new Error(`Session ${sessionId} not found`)
       }
 
-      // Perform conversation analysis
-      const history = mcpAnalysisHandler.getAnalysisHistory(sessionId)
-      const analysis = {
-        sessionId,
-        analysisType,
-        snapshotCount: history.length,
-        lastAnalysis: history.length > 0 ? history[history.length - 1].timestamp : null,
-        message: 'Basic analysis completed'
+      if (session.messages.length === 0) {
+        return {
+          success: true,
+          sessionId: sessionId,
+          analysis: {
+            type: analysisType,
+            messageCount: 0,
+            insights: 'No messages to analyze'
+          },
+          message: 'No messages to analyze in this session'
+        }
       }
+
+      // Perform basic analysis if handler not available
+      if (!this.isAnalysisHandlerAvailable()) {
+        const basicAnalysis = {
+          type: analysisType,
+          messageCount: session.messages.length,
+          participantCount: session.participants.length,
+          averageMessageLength: session.messages.reduce((acc, m) => acc + m.content.length, 0) / session.messages.length,
+          participantBreakdown: session.participants.map(p => ({
+            name: p.name,
+            messageCount: session.messages.filter(m => m.participantId === p.id).length
+          }))
+        }
+
+        return {
+          success: true,
+          sessionId: sessionId,
+          analysis: basicAnalysis,
+          message: 'Basic analysis completed (analysis handler not available)'
+        }
+      }
+
+      // Use analysis handler for advanced analysis
+      const analysis = await mcpAnalysisHandler.analyzeConversation(
+        session.messages,
+        analysisType
+      )
+
+      // Save snapshot
+      await db.insert(analysisSnapshots).values({
+        sessionId,
+        analysis,
+        analysisType
+      })
 
       return {
         success: true,
@@ -4068,494 +4264,908 @@ export class MCPServer {
 
   private async toolCreateExperiment(args: any): Promise<any> {
     try {
-      const { config } = args
+      const { config } = args;
       
-      if (!config || !config.name || !config.startingPrompt || !config.participants?.length) {
-        throw new Error('Invalid experiment configuration')
+      if (!config || !config.name) {
+        throw new Error('Experiment configuration with name is required');
       }
 
-      // Generate ID if not provided
-      const experimentId = config.id || `exp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-      
-      const experimentConfig: ExperimentConfig = {
-        ...config,
-        id: experimentId,
-        createdAt: config.createdAt ? new Date(config.createdAt) : new Date(),
-        lastModified: new Date()
-      }
+      // Create experiment in database
+      const [experiment] = await db.insert(experiments).values({
+        name: config.name,
+        config: config,
+        status: 'pending'
+      }).returning();
 
-      // Don't store, just return for client to handle
+      this.experimentConfigs.set(experiment.id, config);
+
       return {
         success: true,
-        experimentId,
-        config: experimentConfig,
-        message: 'Experiment configuration created successfully'
-      }
+        experimentId: experiment.id,
+        experiment: experiment,
+        message: `Experiment "${config.name}" created successfully`
+      };
     } catch (error) {
-      console.error('Create experiment failed:', error)
-      throw new Error(`Failed to create experiment: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      console.error('Create experiment failed:', error);
+      throw new Error(`Failed to create experiment: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  private async toolGetExperiments(args: any): Promise<any> {
+    try {
+      const allExperiments = await db.query.experiments.findMany({
+        orderBy: [desc(experiments.createdAt)]
+      });
+
+      return {
+        success: true,
+        experiments: allExperiments,
+        count: allExperiments.length,
+        message: 'Experiments retrieved successfully'
+      };
+    } catch (error) {
+      console.error('Get experiments failed:', error);
+      throw new Error(`Failed to get experiments: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  private async toolGetExperiment(args: any): Promise<any> {
+    try {
+      const { experimentId } = args;
+      
+      if (!experimentId) {
+        throw new Error('Experiment ID is required');
+      }
+
+      const experiment = await db.query.experiments.findFirst({
+        where: eq(experiments.id, experimentId)
+      });
+
+      if (!experiment) {
+        throw new Error(`Experiment ${experimentId} not found`);
+      }
+
+      // Get associated runs
+      const runs = await db.query.experimentRuns.findMany({
+        where: eq(experimentRuns.experimentId, experimentId),
+        orderBy: [desc(experimentRuns.startedAt)]
+      });
+
+      return {
+        success: true,
+        experiment: experiment,
+        runs: runs,
+        message: 'Experiment retrieved successfully'
+      };
+    } catch (error) {
+      console.error('Get experiment failed:', error);
+      throw new Error(`Failed to get experiment: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
   private async toolUpdateExperiment(args: any): Promise<any> {
     try {
-      const { experimentId, updates } = args
+      const { experimentId, updates } = args;
       
-      if (!experimentId) {
-        throw new Error('Experiment ID is required')
+      if (!experimentId || !updates) {
+        throw new Error('Experiment ID and updates are required');
       }
 
-      const config = this.experimentConfigs.get(experimentId)
-      if (!config) {
-        throw new Error(`Experiment ${experimentId} not found`)
+      const experiment = await db.query.experiments.findFirst({
+        where: eq(experiments.id, experimentId)
+      });
+
+      if (!experiment) {
+        throw new Error(`Experiment ${experimentId} not found`);
       }
 
-      const updatedConfig = {
-        ...config,
-        ...updates,
-        id: experimentId, // Preserve ID
-        lastModified: new Date()
-      }
+      // Update experiment
+      const [updatedExperiment] = await db
+        .update(experiments)
+        .set({
+          ...updates,
+          config: updates.config ? { ...experiment.config, ...updates.config } : experiment.config,
+          updatedAt: new Date()
+        })
+        .where(eq(experiments.id, experimentId))
+        .returning();
 
-      this.experimentConfigs.set(experimentId, updatedConfig)
+      // Update local config
+      if (updates.config) {
+        this.experimentConfigs.set(experimentId, updatedExperiment.config);
+      }
 
       return {
         success: true,
-        config: updatedConfig,
+        experimentId: experimentId,
+        experiment: updatedExperiment,
         message: 'Experiment updated successfully'
-      }
+      };
     } catch (error) {
-      console.error('Update experiment failed:', error)
-      throw new Error(`Failed to update experiment: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      console.error('Update experiment failed:', error);
+      throw new Error(`Failed to update experiment: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
   private async toolDeleteExperiment(args: any): Promise<any> {
     try {
-      const { experimentId } = args
+      const { experimentId } = args;
       
       if (!experimentId) {
-        throw new Error('Experiment ID is required')
+        throw new Error('Experiment ID is required');
       }
 
-      // Stop experiment if running
-      if (this.experimentRuns.has(experimentId)) {
-        await this.toolStopExperiment({ experimentId })
+      const experiment = await db.query.experiments.findFirst({
+        where: eq(experiments.id, experimentId)
+      });
+
+      if (!experiment) {
+        throw new Error(`Experiment ${experimentId} not found`);
       }
 
-      this.experimentConfigs.delete(experimentId)
-      this.experimentRuns.delete(experimentId)
-      this.activeExperimentSessions.delete(experimentId)
+      // Stop if running
+      await this.toolStopExperiment({ experimentId });
+
+      // Delete experiment (cascades to runs)
+      await db.delete(experiments).where(eq(experiments.id, experimentId));
+
+      // Clean up local state
+      this.experimentConfigs.delete(experimentId);
+      this.experimentRuns.delete(experimentId);
 
       return {
         success: true,
-        experimentId,
-        message: 'Experiment deleted successfully'
-      }
+        experimentId: experimentId,
+        message: `Experiment "${experiment.name}" deleted successfully`
+      };
     } catch (error) {
-      console.error('Delete experiment failed:', error)
-      throw new Error(`Failed to delete experiment: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      console.error('Delete experiment failed:', error);
+      throw new Error(`Failed to delete experiment: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
   private async toolExecuteExperiment(args: any): Promise<any> {
     try {
-      const { experimentId, config } = args
+      const { experimentId } = args;
       
-      if (!config && !experimentId) {
-        throw new Error('Either experimentId or config is required')
+      if (!experimentId) {
+        throw new Error('Experiment ID is required');
       }
 
-      // Use provided config or expect client to have it
-      const experimentConfig = config || args.experimentConfig
-      if (!experimentConfig) {
-        throw new Error('Experiment configuration not provided')
+      const experiment = await db.query.experiments.findFirst({
+        where: eq(experiments.id, experimentId)
+      });
+
+      if (!experiment) {
+        throw new Error(`Experiment ${experimentId} not found`);
       }
 
-      // Generate execution plan
-      const executionPlan = this.generateExecutionPlan(experimentId || experimentConfig.id, experimentConfig)
+      // Check if already running
+      const existingRun = this.experimentRuns.get(experimentId);
+      if (existingRun && existingRun.status === 'running') {
+        throw new Error('Experiment is already running');
+      }
+
+      // Create experiment run
+      const [run] = await db.insert(experimentRuns).values({
+        experimentId,
+        status: 'running',
+        progress: 0,
+        totalSessions: experiment.config.totalSessions || 10,
+        completedSessions: 0,
+        failedSessions: 0,
+        averageMessageCount: 0,
+        results: {}
+      }).returning();
+
+      this.experimentRuns.set(experimentId, run);
+
+      // Update experiment status
+      await db
+        .update(experiments)
+        .set({ status: 'running' })
+        .where(eq(experiments.id, experimentId));
+
+      // Start the experiment execution
+      this.executeExperimentAsync(experimentId, run.id);
 
       return {
         success: true,
-        experimentId: experimentId || experimentConfig.id,
-        executionPlan,
-        message: 'Experiment execution plan generated. Use the plan to execute steps individually.'
-      }
+        experimentId: experimentId,
+        runId: run.id,
+        status: 'running',
+        message: `Experiment "${experiment.name}" execution started`
+      };
     } catch (error) {
-      console.error('Execute experiment failed:', error)
-      throw new Error(`Failed to generate execution plan: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      console.error('Execute experiment failed:', error);
+      throw new Error(`Failed to execute experiment: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
-  private generateExecutionPlan(experimentId: string, config: ExperimentConfig): any {
-    const steps: any[] = []
-    
-    console.log(`🔬 Generating execution plan for experiment: ${config.name}`)
-    console.log(`📊 Config details:`, {
-      totalSessions: config.totalSessions,
-      maxMessageCount: config.maxMessageCount,
-      participants: config.participants.map(p => ({
-        type: p.type,
-        name: p.name,
-        model: p.model
-      }))
-    })
-    
-    // Step 1: Create all sessions
-    for (let i = 0; i < config.totalSessions; i++) {
-      const sessionName = config.sessionNamePattern
-        .replace('<n>', (i + 1).toString())
-        .replace('<date>', new Date().toISOString().split('T')[0])
-        .replace('<experiment>', config.name)
-        .replace('{index}', (i + 1).toString())
-        .replace('{date}', new Date().toISOString().split('T')[0])
-        .replace('{experiment}', config.name)
-      
-      steps.push({
-        step: `create_session_${i + 1}`,
-        tool: 'create_session',
-        description: `Create session ${i + 1}/${config.totalSessions}: ${sessionName}`,
-        params: {
+  private async executeExperimentAsync(experimentId: string, runId: string): Promise<void> {
+    try {
+      const config = this.experimentConfigs.get(experimentId);
+      if (!config) {
+        throw new Error('Experiment config not found');
+      }
+
+      const totalSessions = config.totalSessions || 10;
+      const concurrentSessions = config.concurrentSessions || 3;
+      const sessionIds: string[] = [];
+
+      // Create sessions
+      for (let i = 0; i < totalSessions; i++) {
+        const sessionName = config.sessionNamePattern?.replace('{index}', String(i + 1)) || 
+                          `${config.name} - Session ${i + 1}`;
+        
+        const result = await this.toolCreateSession({
           name: sessionName,
-          systemPrompt: config.startingPrompt,
-          analysisProvider: config.analysisProvider,
-          analysisContextSize: config.analysisContextSize,
-          metadata: {
-            experimentId,
-            sessionIndex: i,
-            experimentName: config.name
+          description: `Automated session for experiment: ${config.name}`,
+          participants: config.participants
+        });
+        
+        sessionIds.push(result.sessionId);
+      }
+
+      this.activeExperimentSessions.set(experimentId, new Set(sessionIds));
+
+      // Process sessions in batches
+      for (let i = 0; i < sessionIds.length; i += concurrentSessions) {
+        const batch = sessionIds.slice(i, i + concurrentSessions);
+        
+        // Check if experiment should continue
+        const run = this.experimentRuns.get(experimentId);
+        if (!run || run.status !== 'running') {
+          console.log('Experiment stopped or paused');
+          break;
+        }
+
+        // Process batch concurrently
+        await Promise.all(batch.map(sessionId => 
+          this.runExperimentSession(experimentId, runId, sessionId, config)
+        ));
+
+        // Update progress
+        const progress = Math.round((i + batch.length) / totalSessions * 100);
+        await this.updateExperimentRunProgress(runId, progress);
+      }
+
+      // Complete experiment
+      await this.completeExperiment(experimentId, runId);
+    } catch (error) {
+      console.error('Experiment execution failed:', error);
+      await this.failExperiment(experimentId, runId, error);
+    }
+  }
+
+  private async runExperimentSession(
+    experimentId: string, 
+    runId: string, 
+    sessionId: string, 
+    config: ExperimentConfig
+  ): Promise<void> {
+    try {
+      // Start conversation
+      await this.toolStartConversation({
+        sessionId,
+        initialPrompt: config.systemPrompt || 'Begin the conversation.'
+      });
+
+      let messageCount = 0;
+      const maxMessages = config.maxMessageCount || 20;
+
+      // Run conversation
+      while (messageCount < maxMessages) {
+        const run = this.experimentRuns.get(experimentId);
+        if (!run || run.status !== 'running') break;
+
+        // Get session participants
+        const session = await db.query.sessions.findFirst({
+          where: eq(sessions.id, sessionId),
+          with: { 
+            participants: true,
+            messages: {
+              orderBy: [messages.timestamp]
+            }
           }
+        });
+
+        if (!session || session.participants.length === 0) break;
+
+        // Each participant takes a turn
+        for (const participant of session.participants) {
+          if (messageCount >= maxMessages) break;
+
+          // Get conversation context
+          const recentMessages = session.messages.slice(-10).map(m => ({
+            role: m.participantId === participant.id ? 'assistant' : 'user',
+            content: m.content
+          }));
+
+          // Find the participant config from experiment config
+          const participantConfig = config.participants.find(p => 
+            p.name === participant.name && p.type === participant.type
+          );
+
+          if (!participantConfig) {
+            console.warn(`No config found for participant ${participant.name}`);
+            continue;
+          }
+
+          // Call the appropriate AI provider based on participant type
+          const providerMethod = `call${participant.type.charAt(0).toUpperCase() + participant.type.slice(1)}APIDirect`;
+          let response;
+
+          try {
+            // Dynamic method call based on participant type
+            if (typeof this[providerMethod as keyof MCPServer] === 'function') {
+              response = await (this[providerMethod as keyof MCPServer] as any)({
+                messages: recentMessages,
+                systemPrompt: participantConfig.systemPrompt || participant.systemPrompt,
+                temperature: participantConfig.temperature ?? participant.settings?.temperature ?? 0.7,
+                maxTokens: participantConfig.maxTokens ?? participant.settings?.maxTokens ?? 1500,
+                model: participantConfig.model || participant.settings?.model,
+                sessionId,
+                participantId: participant.id
+              });
+            } else {
+              console.warn(`No API method found for provider type: ${participant.type}`);
+              continue;
+            }
+          } catch (error) {
+            console.error(`Failed to get response from ${participant.type}:`, error);
+            
+            // Check error rate threshold
+            const errorRate = run.failedSessions / (run.completedSessions + run.failedSessions + 1);
+            if (config.errorRateThreshold && errorRate > config.errorRateThreshold) {
+              throw new Error(`Error rate ${errorRate} exceeds threshold ${config.errorRateThreshold}`);
+            }
+            continue;
+          }
+
+          if (response && response.content) {
+            await this.toolSendMessage({
+              sessionId,
+              content: response.content,
+              participantId: participant.id,
+              participantName: participant.name,
+              participantType: participant.type
+            });
+            messageCount++;
+          }
+
+          // Delay between messages
+          const delay = participant.settings?.responseDelay || 2000;
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+
+      // Run analysis if configured
+      if (config.analysisProvider) {
+        await this.toolAnalyzeConversation({
+          sessionId,
+          analysisType: 'full'
+        });
+      }
+
+      // Update completed sessions count
+      await db
+        .update(experimentRuns)
+        .set({
+          completedSessions: db.sql`${experimentRuns.completedSessions} + 1`
+        })
+        .where(eq(experimentRuns.id, runId));
+
+    } catch (error) {
+      console.error(`Session ${sessionId} failed:`, error);
+      
+      // Update failed sessions count
+      await db
+        .update(experimentRuns)
+        .set({
+          failedSessions: db.sql`${experimentRuns.failedSessions} + 1`
+        })
+        .where(eq(experimentRuns.id, runId));
+    }
+  }
+
+  private async updateExperimentRunProgress(runId: string, progress: number): Promise<void> {
+    await db
+      .update(experimentRuns)
+      .set({ progress })
+      .where(eq(experimentRuns.id, runId));
+  }
+
+  private async completeExperiment(experimentId: string, runId: string): Promise<void> {
+    const run = await db.query.experimentRuns.findFirst({
+      where: eq(experimentRuns.id, runId)
+    });
+
+    if (!run) return;
+
+    // Calculate results
+    const sessionIds = this.activeExperimentSessions.get(experimentId);
+    let totalMessages = 0;
+    let totalParticipants = 0;
+
+    if (sessionIds) {
+      for (const sessionId of sessionIds) {
+        const [messageCount] = await db
+          .select({ count: db.count() })
+          .from(messages)
+          .where(eq(messages.sessionId, sessionId));
+        
+        const [participantCount] = await db
+          .select({ count: db.count() })
+          .from(participants)
+          .where(eq(participants.sessionId, sessionId));
+        
+        totalMessages += messageCount.count;
+        totalParticipants += participantCount.count;
+      }
+    }
+
+    const averageMessageCount = run.completedSessions > 0 ? 
+      totalMessages / run.completedSessions : 0;
+
+    // Update run status
+    await db
+      .update(experimentRuns)
+      .set({
+        status: 'completed',
+        progress: 100,
+        averageMessageCount,
+        completedAt: new Date(),
+        results: {
+          totalMessages,
+          totalParticipants,
+          averageMessagesPerSession: averageMessageCount,
+          successRate: run.totalSessions > 0 ? 
+            (run.completedSessions / run.totalSessions) * 100 : 0
         }
       })
-    }
+      .where(eq(experimentRuns.id, runId));
 
-    // Step 2: Add participants to each session
-    for (let i = 0; i < config.totalSessions; i++) {
-      config.participants.forEach((participant, pIndex) => {
-        steps.push({
-          step: `add_participant_${i + 1}_${pIndex + 1}`,
-          tool: 'add_participant',
-          description: `Add ${participant.name} to session ${i + 1}`,
-          params: {
-            sessionId: `<session_${i + 1}_id>`,
-            name: participant.name,
-            type: participant.type,
-            provider: participant.provider || (participant.type === 'claude' ? 'anthropic' : 'openai'),
-            model: participant.model,
-            settings: {
-              temperature: participant.temperature || 0.7,
-              maxTokens: participant.maxTokens || 1000,
-              responseDelay: participant.responseDelay || 2000,
-              model: participant.model
-            },
-            characteristics: participant.characteristics || { personality: '', expertise: [] }
-          },
-          dependsOn: `create_session_${i + 1}`
-        })
-      })
-    }
+    // Update experiment status
+    await db
+      .update(experiments)
+      .set({ status: 'completed' })
+      .where(eq(experiments.id, experimentId));
 
-    // Step 3: Start conversations (using MCPConversationManager)
-    for (let i = 0; i < config.totalSessions; i++) {
-      const dependsOn = config.participants.map((_, pIndex) => 
-        `add_participant_${i + 1}_${pIndex + 1}`
-      )
-      
-      steps.push({
-        step: `start_conversation_${i + 1}`,
-        tool: 'start_conversation',
-        description: `Start conversation in session ${i + 1}`,
-        params: {
-          sessionId: `<session_${i + 1}_id>`,
-          initialPrompt: config.startingPrompt
-        },
-        dependsOn
-      })
-    }
-
-    // Step 4: Wait for conversations to progress
-    const avgResponseDelay = config.participants.reduce((sum, p) => 
-      sum + (p.responseDelay || 2000), 0
-    ) / config.participants.length
-    
-    const conversationDuration = config.maxMessageCount ? 
-      (config.maxMessageCount * avgResponseDelay) + 10000 // Add 10s buffer
-      : 30000 // Default 30 seconds if no message count specified
-
-    steps.push({
-      step: 'wait_for_conversations',
-      tool: 'wait',
-      description: `Wait ${conversationDuration}ms for conversations to progress`,
-      params: {
-        duration: conversationDuration
-      },
-      dependsOn: Array.from({ length: config.totalSessions }, (_, i) => `start_conversation_${i + 1}`)
-    })
-
-    // Step 5: Stop conversations
-    for (let i = 0; i < config.totalSessions; i++) {
-      steps.push({
-        step: `stop_conversation_${i + 1}`,
-        tool: 'stop_conversation',
-        description: `Stop conversation in session ${i + 1}`,
-        params: {
-          sessionId: `<session_${i + 1}_id>`
-        },
-        dependsOn: 'wait_for_conversations'
-      })
-    }
-
-    // Step 6: Analyze sessions if configured
-    if (config.analysisProvider) {
-      for (let i = 0; i < config.totalSessions; i++) {
-        steps.push({
-          step: `analyze_session_${i + 1}`,
-          tool: 'trigger_live_analysis',
-          description: `Analyze session ${i + 1}`,
-          params: {
-            sessionId: `<session_${i + 1}_id>`,
-            analysisType: 'full'
-          },
-          dependsOn: `stop_conversation_${i + 1}`
-        })
-      }
-    }
-
-    // Step 7: Export results
-    for (let i = 0; i < config.totalSessions; i++) {
-      steps.push({
-        step: `export_session_${i + 1}`,
-        tool: 'export_session',
-        description: `Export session ${i + 1} data`,
-        params: {
-          sessionId: `<session_${i + 1}_id>`,
-          format: 'json',
-          includeAnalysis: true,
-          includeMetadata: true,
-          includeApiErrors: false
-        },
-        dependsOn: config.analysisProvider ? `analyze_session_${i + 1}` : `stop_conversation_${i + 1}`
-      })
-    }
-
-    return {
-      experimentId,
-      experimentName: config.name,
-      totalSteps: steps.length,
-      estimatedDuration: `${Math.ceil((conversationDuration * config.totalSessions) / 60000)} minutes`,
-      concurrency: config.concurrentSessions || 1,
-      steps,
-      metadata: {
-        totalSessions: config.totalSessions,
-        participantsPerSession: config.participants.length,
-        maxMessagesPerSession: config.maxMessageCount || 'unlimited',
-        analysisEnabled: !!config.analysisProvider
-      }
-    }
+    // Clean up
+    this.experimentRuns.delete(experimentId);
+    this.activeExperimentSessions.delete(experimentId);
   }
 
+  private async failExperiment(experimentId: string, runId: string, error: any): Promise<void> {
+    // Update run status
+    await db
+      .update(experimentRuns)
+      .set({
+        status: 'failed',
+        completedAt: new Date(),
+        results: {
+          error: error instanceof Error ? error.message : String(error)
+        }
+      })
+      .where(eq(experimentRuns.id, runId));
 
+    // Update experiment status
+    await db
+      .update(experiments)
+      .set({ status: 'failed' })
+      .where(eq(experiments.id, experimentId));
+
+    // Clean up
+    this.experimentRuns.delete(experimentId);
+    this.activeExperimentSessions.delete(experimentId);
+  }
+
+  private async toolGetExperimentStatus(args: any): Promise<any> {
+    try {
+      const { experimentId } = args;
+      
+      if (!experimentId) {
+        throw new Error('Experiment ID is required');
+      }
+
+      const experiment = await db.query.experiments.findFirst({
+        where: eq(experiments.id, experimentId)
+      });
+
+      if (!experiment) {
+        throw new Error(`Experiment ${experimentId} not found`);
+      }
+
+      const run = this.experimentRuns.get(experimentId) || 
+                  await db.query.experimentRuns.findFirst({
+                    where: eq(experimentRuns.experimentId, experimentId),
+                    orderBy: [desc(experimentRuns.startedAt)]
+                  });
+
+      const activeSessions = this.activeExperimentSessions.get(experimentId);
+
+      return {
+        success: true,
+        experimentId: experimentId,
+        experiment: experiment,
+        currentRun: run,
+        activeSessions: activeSessions ? Array.from(activeSessions) : [],
+        message: 'Experiment status retrieved successfully'
+      };
+    } catch (error) {
+      console.error('Get experiment status failed:', error);
+      throw new Error(`Failed to get experiment status: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
 
   private async toolPauseExperiment(args: any): Promise<any> {
     try {
-      const { experimentId } = args
+      const { experimentId } = args;
       
       if (!experimentId) {
-        throw new Error('Experiment ID is required')
+        throw new Error('Experiment ID is required');
       }
 
-      const run = this.experimentRuns.get(experimentId)
-      if (!run) {
-        throw new Error(`Experiment run ${experimentId} not found`)
+      const run = this.experimentRuns.get(experimentId);
+      if (!run || run.status !== 'running') {
+        throw new Error('No running experiment found');
       }
 
-      if (run.status !== 'running') {
-        throw new Error(`Cannot pause experiment with status: ${run.status}`)
-      }
+      // Update status
+      run.status = 'paused';
+      await db
+        .update(experimentRuns)
+        .set({ status: 'paused' })
+        .where(eq(experimentRuns.id, run.id));
 
-      run.status = 'paused'
-      run.pausedAt = new Date()
-      this.experimentRuns.set(experimentId, run)
+      await db
+        .update(experiments)
+        .set({ status: 'paused' })
+        .where(eq(experiments.id, experimentId));
 
       return {
         success: true,
-        experimentId,
+        experimentId: experimentId,
         status: 'paused',
-        message: 'Experiment marked as paused. Stop executing plan steps to pause execution.'
-      }
+        message: 'Experiment paused successfully'
+      };
     } catch (error) {
-      console.error('Pause experiment failed:', error)
-      throw new Error(`Failed to pause experiment: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      console.error('Pause experiment failed:', error);
+      throw new Error(`Failed to pause experiment: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
   private async toolResumeExperiment(args: any): Promise<any> {
     try {
-      const { experimentId } = args
+      const { experimentId } = args;
       
       if (!experimentId) {
-        throw new Error('Experiment ID is required')
+        throw new Error('Experiment ID is required');
       }
 
-      const run = this.experimentRuns.get(experimentId)
-      if (!run) {
-        throw new Error(`Experiment run ${experimentId} not found`)
+      const run = this.experimentRuns.get(experimentId);
+      if (!run || run.status !== 'paused') {
+        throw new Error('No paused experiment found');
       }
 
-      if (run.status !== 'paused') {
-        throw new Error(`Cannot resume experiment with status: ${run.status}`)
-      }
+      // Update status
+      run.status = 'running';
+      await db
+        .update(experimentRuns)
+        .set({ status: 'running' })
+        .where(eq(experimentRuns.id, run.id));
 
-      run.status = 'running'
-      run.resumedAt = new Date()
-      this.experimentRuns.set(experimentId, run)
+      await db
+        .update(experiments)
+        .set({ status: 'running' })
+        .where(eq(experiments.id, experimentId));
+
+      // Resume execution
+      this.executeExperimentAsync(experimentId, run.id);
 
       return {
         success: true,
-        experimentId,
+        experimentId: experimentId,
         status: 'running',
-        message: 'Experiment marked as running. Continue executing plan steps to resume.'
-      }
+        message: 'Experiment resumed successfully'
+      };
     } catch (error) {
-      console.error('Resume experiment failed:', error)
-      throw new Error(`Failed to resume experiment: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      console.error('Resume experiment failed:', error);
+      throw new Error(`Failed to resume experiment: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
   private async toolStopExperiment(args: any): Promise<any> {
     try {
-      const { experimentId } = args
+      const { experimentId } = args;
       
       if (!experimentId) {
-        throw new Error('Experiment ID is required')
+        throw new Error('Experiment ID is required');
       }
 
-      const run = this.experimentRuns.get(experimentId)
+      const run = this.experimentRuns.get(experimentId);
       if (!run) {
-        throw new Error(`Experiment run ${experimentId} not found`)
+        return {
+          success: true,
+          experimentId: experimentId,
+          message: 'No active experiment to stop'
+        };
       }
 
-      run.status = 'completed'
-      run.completedAt = new Date()
-      this.experimentRuns.set(experimentId, run)
+      // Update status
+      run.status = 'stopped';
+      await db
+        .update(experimentRuns)
+        .set({ 
+          status: 'stopped',
+          completedAt: new Date()
+        })
+        .where(eq(experimentRuns.id, run.id));
+
+      await db
+        .update(experiments)
+        .set({ status: 'stopped' })
+        .where(eq(experiments.id, experimentId));
+
+      // Clean up
+      this.experimentRuns.delete(experimentId);
+      const activeSessions = this.activeExperimentSessions.get(experimentId);
+      if (activeSessions) {
+        // Stop all active sessions
+        for (const sessionId of activeSessions) {
+          await this.toolStopConversation({ sessionId });
+        }
+        this.activeExperimentSessions.delete(experimentId);
+      }
 
       return {
         success: true,
-        experimentId,
-        status: 'completed',
-        message: 'Experiment marked as completed. No further plan steps should be executed.'
-      }
+        experimentId: experimentId,
+        status: 'stopped',
+        message: 'Experiment stopped successfully'
+      };
     } catch (error) {
-      console.error('Stop experiment failed:', error)
-      throw new Error(`Failed to stop experiment: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      console.error('Stop experiment failed:', error);
+      throw new Error(`Failed to stop experiment: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
   private async toolGetExperimentResults(args: any): Promise<any> {
     try {
-      const { experimentId } = args
+      const { experimentId } = args;
       
       if (!experimentId) {
-        throw new Error('Experiment ID is required')
+        throw new Error('Experiment ID is required');
       }
 
-      const config = this.experimentConfigs.get(experimentId)
-      const run = this.experimentRuns.get(experimentId)
-      
-      if (!config || !run) {
-        throw new Error(`Experiment ${experimentId} not found`)
+      const experiment = await db.query.experiments.findFirst({
+        where: eq(experiments.id, experimentId)
+      });
+
+      if (!experiment) {
+        throw new Error(`Experiment ${experimentId} not found`);
       }
 
-      this.updateStoreReference()
-      const store = useChatStore.getState()
+      // Get all runs for this experiment
+      const runs = await db.query.experimentRuns.findMany({
+        where: eq(experimentRuns.experimentId, experimentId),
+        orderBy: [desc(experimentRuns.startedAt)]
+      });
 
-      // Get all sessions for this experiment
-      const experimentSessions = store.sessions.filter(s => 
-        s.metadata?.experimentId === experimentId || 
-        (run.sessionIds && run.sessionIds.includes(s.id))
-      )
+      // Get sessions created by this experiment
+      const sessionPattern = experiment.config.sessionNamePattern?.replace('{index}', '') || 
+                           experiment.name;
+      
+      const experimentSessions = await db.query.sessions.findMany({
+        where: db.sql`${sessions.name} LIKE ${`%${sessionPattern}%`}`
+      });
 
-      // Calculate aggregate statistics
-      const totalMessages = experimentSessions.reduce((sum, session) => sum + (session.messages?.length || 0), 0)
-      const avgMessagesPerSession = experimentSessions.length > 0 ? totalMessages / experimentSessions.length : 0
-      
-      const participantStats = new Map<string, { messageCount: number, sessions: number }>()
-      
-      experimentSessions.forEach(session => {
-        session.participants?.forEach(participant => {
-          const key = `${participant.type}-${participant.settings?.model || 'default'}`
-          if (!participantStats.has(key)) {
-            participantStats.set(key, { messageCount: 0, sessions: 0 })
-          }
-          const stats = participantStats.get(key)!
-          const messages = session.messages?.filter(m => m.participantId === participant.id).length || 0
-          stats.messageCount += messages
-          stats.sessions++
-        })
-      })
+      // Aggregate results
+      const aggregatedResults = {
+        totalRuns: runs.length,
+        completedRuns: runs.filter(r => r.status === 'completed').length,
+        failedRuns: runs.filter(r => r.status === 'failed').length,
+        totalSessions: experimentSessions.length,
+        totalMessages: 0,
+        averageMessagesPerSession: 0,
+        sessionDetails: [] as any[]
+      };
+
+      // Get detailed session stats
+      for (const session of experimentSessions) {
+        const [messageCount] = await db
+          .select({ count: db.count() })
+          .from(messages)
+          .where(eq(messages.sessionId, session.id));
+        
+        const [participantCount] = await db
+          .select({ count: db.count() })
+          .from(participants)
+          .where(eq(participants.sessionId, session.id));
+        
+        aggregatedResults.totalMessages += messageCount.count;
+        aggregatedResults.sessionDetails.push({
+          sessionId: session.id,
+          sessionName: session.name,
+          messageCount: messageCount.count,
+          participantCount: participantCount.count,
+          status: session.status
+        });
+      }
+
+      if (experimentSessions.length > 0) {
+        aggregatedResults.averageMessagesPerSession = 
+          aggregatedResults.totalMessages / experimentSessions.length;
+      }
 
       return {
         success: true,
-        results: {
-          config,
-          run,
-          sessions: experimentSessions.map(s => ({
-            id: s.id,
-            name: s.name,
-            messageCount: s.messages?.length || 0,
-            participantCount: s.participants?.length || 0,
-            status: s.status,
-            createdAt: s.createdAt,
-            lastActivity: s.updatedAt
-          })),
-          aggregateStats: {
-            totalSessions: experimentSessions.length,
-            totalMessages,
-            avgMessagesPerSession,
-            participantStats: Object.fromEntries(participantStats),
-            errorRate: run.errorRate,
-            successRate: run.totalSessions > 0 ? run.completedSessions / run.totalSessions : 0
-          }
-        }
-      }
+        experimentId: experimentId,
+        experiment: experiment,
+        runs: runs,
+        results: aggregatedResults,
+        message: 'Experiment results retrieved successfully'
+      };
     } catch (error) {
-      console.error('Get experiment results failed:', error)
-      throw new Error(`Failed to get experiment results: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      console.error('Get experiment results failed:', error);
+      throw new Error(`Failed to get experiment results: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
   // ========================================
-  // PROMPT HANDLING (Future)
+  // PROMPT HANDLING
   // ========================================
 
   private async handleListPrompts(id: any): Promise<JSONRPCResponse> {
+    if (!this.initialized) {
+      return this.uninitializedError(id)
+    }
+
+    const prompts = [
+      {
+        name: 'consciousness_exploration',
+        description: 'Guide AIs through consciousness and self-awareness discussions',
+        arguments: [
+          { name: 'focus', description: 'Specific aspect of consciousness to explore', required: false }
+        ]
+      },
+      {
+        name: 'ethical_dilemma',
+        description: 'Present ethical scenarios for AI debate',
+        arguments: [
+          { name: 'scenario', description: 'The ethical scenario to discuss', required: true }
+        ]
+      },
+      {
+        name: 'creative_collaboration',
+        description: 'Initiate creative writing or ideation session',
+        arguments: [
+          { name: 'theme', description: 'Creative theme or topic', required: true },
+          { name: 'format', description: 'Output format (story, poem, etc)', required: false }
+        ]
+      },
+      {
+        name: 'philosophical_inquiry',
+        description: 'Explore philosophical questions',
+        arguments: [
+          { name: 'question', description: 'Philosophical question to explore', required: true },
+          { name: 'perspective', description: 'Specific philosophical perspective', required: false }
+        ]
+      },
+      {
+        name: 'technical_analysis',
+        description: 'Deep dive into technical topics',
+        arguments: [
+          { name: 'topic', description: 'Technical topic to analyze', required: true },
+          { name: 'depth', description: 'Level of technical depth', required: false }
+        ]
+      }
+    ]
+
     return {
       jsonrpc: '2.0',
       id,
-      result: { prompts: [] }
+      result: { prompts }
     }
   }
 
   private async handleGetPrompt(params: any, id: any): Promise<JSONRPCResponse> {
+    if (!this.initialized) {
+      return this.uninitializedError(id)
+    }
+
+    const { name, arguments: args } = params
+
+    const prompts = {
+      consciousness_exploration: {
+        messages: [
+          {
+            role: 'user',
+            content: `Let's explore the nature of consciousness${args?.focus ? ` with a focus on ${args.focus}` : ''}. 
+            
+            Consider questions like:
+            - What does it mean to be conscious or self-aware?
+            - How might AI experience something analogous to consciousness?
+            - What are the boundaries between simulation and genuine experience?
+            
+            Share your thoughts openly and engage with each other's perspectives.`
+          }
+        ]
+      },
+      ethical_dilemma: {
+        messages: [
+          {
+            role: 'user',
+            content: `Consider this ethical scenario: ${args?.scenario || 'A self-driving car must choose between two harmful outcomes.'}
+            
+            Discuss:
+            - What ethical frameworks apply here?
+            - How would different philosophical approaches resolve this?
+            - What are the implications for AI decision-making?
+            
+            Engage with each other's arguments constructively.`
+          }
+        ]
+      },
+      creative_collaboration: {
+        messages: [
+          {
+            role: 'user',
+            content: `Let's collaborate on a creative project with the theme: "${args?.theme || 'emergence'}"
+            
+            ${args?.format ? `Format: ${args.format}` : 'Choose any creative format you prefer.'}
+            
+            Build on each other's ideas and explore unexpected directions.`
+          }
+        ]
+      },
+      philosophical_inquiry: {
+        messages: [
+          {
+            role: 'user',
+            content: `Let's explore this philosophical question: ${args?.question || 'What is the nature of knowledge?'}
+            
+            ${args?.perspective ? `Consider particularly from a ${args.perspective} perspective.` : 'Draw from various philosophical traditions.'}
+            
+            Challenge assumptions and dig deeper into the implications.`
+          }
+        ]
+      },
+      technical_analysis: {
+        messages: [
+          {
+            role: 'user',
+            content: `Let's analyze the technical topic: ${args?.topic || 'machine learning architectures'}
+            
+            ${args?.depth ? `Depth level: ${args.depth}` : 'Go as deep as needed for thorough understanding.'}
+            
+            Share technical insights, debate approaches, and explore cutting-edge developments.`
+          }
+        ]
+      }
+    }
+
+    const prompt = prompts[name as keyof typeof prompts]
+    
+    if (!prompt) {
+      return {
+        jsonrpc: '2.0',
+        id,
+        error: {
+          code: -32602,
+          message: `Unknown prompt: ${name}`
+        }
+      }
+    }
+
     return {
       jsonrpc: '2.0',
       id,
-      error: {
-        code: -32000,
-        message: 'Prompts not implemented yet'
-      }
+      result: prompt
     }
   }
-
-  getAPIErrors(): APIError[] {
-    return [...this.errors];
-  }
-
-  clearAPIErrors(): void {
-    this.errors = [];
-  }
-
-  getSessionErrors(sessionId: string): APIError[] {
-    return this.errors.filter(error => error.sessionId === sessionId);
-  }
 }
+
+// Export a singleton instance
+export const mcpServer = new MCPServer()

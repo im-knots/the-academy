@@ -1244,178 +1244,330 @@ export class MCPClient {
       throw new Error('Experiment ID is required')
     }
 
-    console.log('🔬 Generating execution plan for experiment:', experimentConfig.name)
-    console.log('📊 Config details:', {
-      totalSessions: experimentConfig.totalSessions,
-      maxMessageCount: experimentConfig.maxMessageCount,
-      participants: experimentConfig.participants
-    })
-
-    // Generate execution plan
-    const executionPlan = this.generateExecutionPlan(experimentConfig)
-
-    // Execute sessions according to plan
-    for (const batch of executionPlan.batches) {
-      console.log(`\n🚀 Starting batch ${batch.batchNumber} with ${batch.sessions.length} concurrent sessions`)
-      
-      // Execute sessions in parallel within batch
-      const sessionPromises = batch.sessions.map(async (sessionPlan) => {
-        try {
-          console.log(`\n📝 Starting session: ${sessionPlan.sessionName}`)
-          
-          // Step 1: Create the session first
-          const createResult = await this.callTool('create_session', {
-            name: sessionPlan.sessionName,
-            description: `Experiment session ${sessionPlan.sessionNumber} for ${experimentConfig.name}`,
-            participants: sessionPlan.participants.map(p => ({
-              type: p.type,
-              name: p.name,
-              model: p.model,
-              settings: {
-                temperature: p.temperature || 0.7,
-                maxTokens: p.maxTokens || 1500,
-                ...(p.ollamaUrl && { ollamaUrl: p.ollamaUrl })
-              },
-              characteristics: {
-                personality: p.personality,
-                expertise: p.expertise
-              }
-            }))
-          });
-          
-          if (!createResult.success || !createResult.sessionId) {
-            throw new Error(`Failed to create session: ${createResult.error || 'No session ID returned'}`);
-          }
-          
-          const sessionId = createResult.sessionId;
-          console.log(`✅ Created session ${sessionId}`);
-          
-          // Step 2: Start the conversation with the initial prompt (sets up session)
-          // Handle both systemPrompt and startingPrompt for backwards compatibility
-          const initialPrompt = (experimentConfig as any).startingPrompt || experimentConfig.systemPrompt || '';
-          
-          const startResult = await this.callTool('start_conversation', {
-            sessionId: sessionId,
-            initialPrompt: initialPrompt
-          });
-          
-          if (!startResult.success) {
-            throw new Error(`Failed to start conversation: ${startResult.error}`)
-          }
-          
-          console.log(`✅ Session setup completed for ${sessionId}`)
-          
-          // Step 3: Start the actual conversation loop (client-side only)
-          console.log(`🚀 Starting conversation loop for session ${sessionId}`)
-          const conversationManager = MCPConversationManager.getInstance()
-          await conversationManager.startConversation(sessionId, initialPrompt)
-          
-          console.log(`✅ Conversation loop started for session ${sessionId}`)
-          
-          // Wait for the conversation to complete based on maxMessageCount
-          // The conversation manager handles all the message flow automatically
-          await this.waitForConversationCompletion(sessionId, experimentConfig.maxMessageCount);
-          
-          // Step 4: Trigger analysis if configured
-          if (experimentConfig.analysisProvider) {
-            console.log(`🔍 Triggering analysis for session ${sessionId}`)
-            await this.callTool('trigger_live_analysis', {
-              sessionId: sessionId,
-              analysisType: 'full'
-            })
-          }
-          
-          // Step 5: Export session
-          console.log(`📤 Exporting session ${sessionId}`)
-          const exportResult = await this.callTool('export_session', {
-            sessionId: sessionId,
-            format: 'json',
-            includeAnalysis: true,
-            includeMetadata: true,
-            includeApiErrors: true
-          })
-          
-          return {
-            sessionId,
-            success: true,
-            sessionName: sessionPlan.sessionName,
-            exportData: exportResult.data
-          }
-          
-        } catch (error) {
-          console.error(`❌ Session ${sessionPlan.sessionName} failed:`, error)
-          return {
-            sessionId: null,
-            success: false,
-            sessionName: sessionPlan.sessionName,
-            error: error instanceof Error ? error.message : 'Unknown error'
-          }
-        }
+    console.log('🔬 Starting experiment execution:', experimentConfig.name)
+    
+    const store = useChatStore.getState()
+    const runId = `run-${experimentId}-${Date.now()}`
+    
+    // Track experiment run
+    if (store.createExperimentRun) {
+      store.createExperimentRun(experimentId, {
+        id: runId,
+        configId: experimentId,
+        status: 'running',
+        startedAt: new Date(),
+        totalSessions: experimentConfig.totalSessions,
+        completedSessions: 0,
+        failedSessions: 0,
+        activeSessions: 0,
+        sessionIds: [],
+        errorRate: 0,
+        errors: [],
+        progress: 0
       })
-
-      // Wait for all sessions in batch to complete
-      const batchResults = await Promise.all(sessionPromises)
-      
-      // Log batch summary
-      const successCount = batchResults.filter(r => r.success).length
-      console.log(`\n📊 Batch ${batch.batchNumber} completed: ${successCount}/${batch.sessions.length} successful`)
     }
 
-    console.log(`\n🎉 Experiment ${experimentConfig.name} completed!`)
+    const createdSessionIds: string[] = []
     
-    // Return success result
-    return {
-      success: true,
-      experimentId: experimentId,
-      runId: `run-${experimentId}-${Date.now()}`,
-      message: 'Experiment execution started successfully'
+    try {
+      const batches = this.generateBatches(experimentConfig)
+      
+      for (const batch of batches) {
+        console.log(`\n🚀 Starting batch ${batch.batchNumber} with ${batch.sessions.length} concurrent sessions`)
+        
+        const sessionPromises = batch.sessions.map(async (sessionPlan) => {
+          try {
+            console.log(`\n📝 Starting session: ${sessionPlan.sessionName}`)
+            
+            // Step 1: Create session via MCP
+            const createResult = await this.callTool('create_session', {
+              name: sessionPlan.sessionName,
+              description: `Experiment session ${sessionPlan.sessionNumber} for ${experimentConfig.name}`,
+              participants: sessionPlan.participants.map(p => ({
+                type: p.type,
+                name: p.name,
+                model: p.model,
+                settings: {
+                  temperature: p.temperature || 0.7,
+                  maxTokens: p.maxTokens || 1500,
+                  model: p.model,
+                  responseDelay: p.responseDelay || 3000,
+                  ...(p.ollamaUrl && { ollamaUrl: p.ollamaUrl })
+                },
+                characteristics: {
+                  personality: p.personality || '',
+                  expertise: p.expertise || []
+                }
+              }))
+            });
+            
+            if (!createResult.success || !createResult.sessionId) {
+              throw new Error(`Failed to create session: ${createResult.error || 'No session ID returned'}`);
+            }
+            
+            const sessionId = createResult.sessionId;
+            console.log(`✅ Created session ${sessionId} via MCP`);
+            createdSessionIds.push(sessionId);
+            
+            // Step 2: CRITICAL - Sync the session to client store
+            // This is what regular chat UI does after creating a session
+            await this.syncSessionToClientStore(sessionId);
+            console.log(`✅ Synced session ${sessionId} to client store`);
+            
+            // Step 3: Switch to session (ensures it's current for subsequent operations)
+            await this.callTool('switch_current_session', { sessionId });
+            console.log(`✅ Switched to session ${sessionId}`);
+            
+            // Small delay to ensure store updates propagate
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Update experiment progress
+            if (store.updateExperimentRun) {
+              store.updateExperimentRun(experimentId, {
+                sessionIds: createdSessionIds,
+                activeSessions: createdSessionIds.length,
+                progress: (createdSessionIds.length / experimentConfig.totalSessions) * 30
+              })
+            }
+            
+            // Step 4: Start the conversation with initial prompt
+            const initialPrompt = experimentConfig.systemPrompt || experimentConfig.startingPrompt || '';
+            
+            const startResult = await this.callTool('start_conversation', {
+              sessionId: sessionId,
+              initialPrompt: initialPrompt
+            });
+            
+            if (!startResult.success) {
+              throw new Error(`Failed to start conversation: ${startResult.error}`)
+            }
+            
+            console.log(`✅ Conversation started for session ${sessionId}`)
+            
+            // Step 5: Start the conversation manager
+            // Now it should find the session in the client store
+            const conversationManager = MCPConversationManager.getInstance()
+            await conversationManager.startConversation(sessionId)
+            
+            console.log(`✅ Conversation manager activated for session ${sessionId}`)
+            
+            // Step 6: Wait for conversation completion
+            await this.waitForConversationCompletion(sessionId, experimentConfig.maxMessageCount);
+            
+            // Step 7: Analysis if configured
+            if (experimentConfig.analysisProvider) {
+              console.log(`🔍 Triggering analysis for session ${sessionId}`)
+              try {
+                await this.callTool('trigger_live_analysis', {
+                  sessionId: sessionId,
+                  analysisType: 'full'
+                })
+              } catch (error) {
+                console.warn(`⚠️ Analysis failed for session ${sessionId}:`, error)
+              }
+            }
+            
+            // Step 8: Stop conversation
+            await this.callTool('stop_conversation', { sessionId });
+            console.log(`✅ Conversation stopped for session ${sessionId}`)
+            
+            // Update experiment progress
+            if (store.updateExperimentRun && store.experimentRuns?.get(experimentId)) {
+              const currentRun = store.experimentRuns.get(experimentId)!;
+              store.updateExperimentRun(experimentId, {
+                completedSessions: currentRun.completedSessions + 1,
+                progress: 30 + ((currentRun.completedSessions + 1) / experimentConfig.totalSessions) * 70
+              })
+            }
+            
+            return {
+              sessionId,
+              success: true,
+              sessionName: sessionPlan.sessionName
+            }
+            
+          } catch (error) {
+            console.error(`❌ Session ${sessionPlan.sessionName} failed:`, error)
+            
+            if (store.updateExperimentRun && store.experimentRuns?.get(experimentId)) {
+              const currentRun = store.experimentRuns.get(experimentId)!;
+              store.updateExperimentRun(experimentId, {
+                failedSessions: currentRun.failedSessions + 1,
+                errors: [
+                  ...currentRun.errors,
+                  { 
+                    step: `session_${sessionPlan.sessionNumber}`, 
+                    error: error instanceof Error ? error.message : 'Unknown error' 
+                  }
+                ]
+              })
+            }
+            
+            return {
+              sessionId: null,
+              success: false,
+              sessionName: sessionPlan.sessionName,
+              error: error instanceof Error ? error.message : 'Unknown error'
+            }
+          }
+        })
+
+        const batchResults = await Promise.all(sessionPromises)
+        
+        const successCount = batchResults.filter(r => r.success).length
+        console.log(`\n📊 Batch ${batch.batchNumber} completed: ${successCount}/${batch.sessions.length} successful`)
+      }
+
+      if (store.updateExperimentRun) {
+        store.updateExperimentRun(experimentId, {
+          status: 'completed',
+          completedAt: new Date(),
+          progress: 100
+        })
+      }
+
+      console.log(`\n🎉 Experiment ${experimentConfig.name} completed!`)
+      
+      return {
+        success: true,
+        experimentId: experimentId,
+        runId: runId,
+        message: `Experiment completed. Created ${createdSessionIds.length} sessions.`
+      }
+      
+    } catch (error) {
+      console.error(`💥 Experiment execution failed:`, error)
+      
+      if (store.updateExperimentRun && store.experimentRuns?.get(experimentId)) {
+        store.updateExperimentRun(experimentId, {
+          status: 'failed',
+          completedAt: new Date(),
+          errors: [{ 
+            step: 'execution', 
+            error: error instanceof Error ? error.message : 'Unknown error' 
+          }]
+        })
+      }
+      
+      throw error
+    }
+  }
+
+  // New method to sync a session from server to client store
+  private async syncSessionToClientStore(sessionId: string): Promise<void> {
+    try {
+      // Get the session data from the server via MCP
+      const debugResult = await this.callTool('debug_store', {});
+      
+      if (debugResult.success && debugResult.debug) {
+        const serverStore = debugResult.debug.storeState;
+        
+        // If we can access the sessions, sync them
+        if (serverStore.sessions) {
+          // Force a refresh of the store reference on the server
+          await this.callTool('refresh_resources', {});
+          
+          // Now get the specific session
+          const sessionData = await this.callTool('get_session', { sessionId });
+          
+          if (sessionData.success && sessionData.session) {
+            // Add to client store
+            const store = useChatStore.getState();
+            
+            // Check if session already exists in client store
+            const existingSession = store.sessions.find(s => s.id === sessionId);
+            if (!existingSession) {
+              // Manually add the session to the client store
+              const newSession = {
+                ...sessionData.session,
+                createdAt: new Date(sessionData.session.createdAt),
+                updatedAt: new Date(sessionData.session.updatedAt),
+                messages: (sessionData.session.messages || []).map((m: any) => ({
+                  ...m,
+                  timestamp: new Date(m.timestamp)
+                })),
+                participants: (sessionData.session.participants || []).map((p: any) => ({
+                  ...p,
+                  joinedAt: new Date(p.joinedAt),
+                  lastActive: p.lastActive ? new Date(p.lastActive) : undefined
+                }))
+              };
+              
+              // Directly update the store state
+              store.sessions.push(newSession);
+              store.setCurrentSession(newSession);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.warn(`⚠️ Failed to sync session ${sessionId} to client store:`, error);
+      
+      // Alternative approach: Use the switch_current_session response
+      // which might trigger the sync mechanism
+      try {
+        await this.callTool('switch_current_session', { sessionId });
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for sync
+      } catch (switchError) {
+        console.error('Failed to switch session:', switchError);
+      }
     }
   }
 
   // Helper method to wait for conversation completion
   private async waitForConversationCompletion(sessionId: string, maxMessages: number): Promise<void> {
     const pollInterval = 2000; // 2 seconds
-    const maxWaitTime = 600000; // 10 minutes as safety timeout
+    const maxWaitTime = 600000; // 10 minutes
     const startTime = Date.now();
     
     console.log(`⏳ Waiting for conversation ${sessionId} to reach ${maxMessages} messages...`);
     
     while (true) {
-      const statusResult = await this.callTool('get_conversation_status', { sessionId });
-      
-      if (statusResult.success && statusResult.data) {
-        const { status, messageCount } = statusResult.data;
+      try {
+        // Use MCP tool to get conversation status
+        const statusResult = await this.callTool('get_conversation_status', { sessionId });
         
-        // Check if conversation reached the target message count
-        if (messageCount >= maxMessages) {
-          console.log(`✅ Conversation ${sessionId} completed with ${messageCount}/${maxMessages} messages`);
+        if (statusResult.success && statusResult.status) {
+          const { sessionStatus, messageCount } = statusResult.status;
           
-          // Stop the conversation to ensure it doesn't continue
-          await this.callTool('stop_conversation', { sessionId });
-          return;
+          // Check if conversation reached the target message count
+          if (messageCount >= maxMessages) {
+            console.log(`✅ Conversation ${sessionId} completed with ${messageCount}/${maxMessages} messages`);
+            return;
+          }
+          
+          // Check if conversation stopped early
+          if (sessionStatus === 'completed' || sessionStatus === 'stopped') {
+            console.log(`⚠️ Conversation ${sessionId} stopped early with ${messageCount}/${maxMessages} messages`);
+            return;
+          }
+          
+          // Check if conversation failed
+          if (sessionStatus === 'error' || sessionStatus === 'failed') {
+            throw new Error(`Conversation ${sessionId} failed with status: ${sessionStatus}`);
+          }
+          
+          // Log progress periodically
+          if (messageCount > 0 && messageCount % 5 === 0) {
+            console.log(`📊 Progress: ${messageCount}/${maxMessages} messages`);
+          }
         }
-        
-        // Check if conversation stopped early
-        if (status === 'completed' || status === 'stopped') {
-          console.log(`⚠️ Conversation ${sessionId} stopped early with ${messageCount}/${maxMessages} messages`);
-          return;
-        }
-        
-        // Check if conversation failed
-        if (status === 'error' || status === 'failed') {
-          throw new Error(`Conversation ${sessionId} failed with status: ${status}`);
-        }
-        
-        // Log progress periodically
-        if (messageCount > 0 && messageCount % 5 === 0) {
-          console.log(`📊 Progress: ${messageCount}/${maxMessages} messages`);
-        }
+      } catch (error) {
+        // If we can't get status, log but continue (might be transient)
+        console.warn(`⚠️ Failed to get status for ${sessionId}:`, error);
       }
       
       // Safety check for timeout
       if (Date.now() - startTime > maxWaitTime) {
         console.warn(`⏱️ Conversation ${sessionId} timed out after ${maxWaitTime}ms`);
-        await this.callTool('stop_conversation', { sessionId });
+        
+        // Try to stop the conversation
+        try {
+          await this.callTool('stop_conversation', { sessionId });
+        } catch (e) {
+          console.error('Failed to stop conversation:', e);
+        }
+        
         throw new Error(`Conversation timed out after ${maxWaitTime}ms`);
       }
       
@@ -1424,41 +1576,38 @@ export class MCPClient {
     }
   }
 
-  // Helper method to generate execution plan
-  private generateExecutionPlan(experimentConfig: ExperimentConfig): any {
-    const { totalSessions, concurrentSessions, sessionNamePattern, participants } = experimentConfig;
+  private generateBatches(experimentConfig: ExperimentConfig): any[] {
+    const { totalSessions, concurrentSessions, sessionNamePattern, participants } = experimentConfig
     
-    // Simple batch organization based on concurrency limits
-    const batches = [];
-    let batchNumber = 1;
+    const batches = []
+    let batchNumber = 1
     
     for (let i = 0; i < totalSessions; i += concurrentSessions) {
-      const batchSessions = [];
+      const batchSessions = []
       
       for (let j = 0; j < concurrentSessions && (i + j) < totalSessions; j++) {
-        const sessionNumber = i + j + 1;
+        const sessionNumber = i + j + 1
         const sessionName = sessionNamePattern
           .replace('<date>', new Date().toISOString().split('T')[0])
-          .replace('<n>', sessionNumber.toString());
+          .replace('<n>', sessionNumber.toString())
+          .replace('{index}', sessionNumber.toString())
+          .replace('{date}', new Date().toISOString().split('T')[0])
+          .replace('{experiment}', experimentConfig.name)
         
         batchSessions.push({
           sessionNumber,
           sessionName,
-          participants: [...participants] // Copy participants array
-        });
+          participants: [...participants]
+        })
       }
       
       batches.push({
         batchNumber: batchNumber++,
         sessions: batchSessions
-      });
+      })
     }
     
-    return {
-      batches,
-      totalBatches: batches.length,
-      totalSessions
-    };
+    return batches
   }
 
   async getExperimentsViaMCP(): Promise<any> {
