@@ -78,8 +78,8 @@ export class MCPClient {
     }
     
     try {
-      // Use direct sendRequest to avoid circular dependency with callTool
-      const result = await this.sendRequest('call_tool', {
+      // Use sendRequestInternal directly to avoid circular dependency with sendRequest
+      const result = await this.sendRequestInternal('call_tool', {
         name: 'get_current_session_id',
         arguments: {}
       });
@@ -141,8 +141,8 @@ export class MCPClient {
         participantId: context.participantId
       };
       
-      // Save error via MCP using direct sendRequest to avoid circular dependency
-      await this.sendRequest('call_tool', {
+      // Save error via MCP using sendRequestInternal to avoid circular dependency
+      await this.sendRequestInternal('call_tool', {
         name: 'log_api_error',
         arguments: { error: apiError }
       });
@@ -165,16 +165,9 @@ export class MCPClient {
   ): Promise<T> {
     const finalConfig = { ...this.defaultRetryConfig, ...config };
     
-    // Only get session context if we're initialized and not in the initialize operation
-    let sessionContext: { sessionId?: string; participantId?: string } = {};
-    if (this.initialized && context.operationName !== 'initialize') {
-      sessionContext = await this.getCurrentSessionContext();
-    }
-    
-    const fullContext = {
-      ...sessionContext,
-      ...context
-    };
+    // Don't get session context here - it should be passed in via context parameter
+    // This prevents circular dependency when called from sendRequest
+    const fullContext = context;
     
     let lastError: any;
 
@@ -289,9 +282,11 @@ export class MCPClient {
       throw new Error('Request was aborted')
     }
 
-    // Don't try to get session context during initialization to avoid circular dependency
+    // Don't try to get session context during initialization or when getting session context itself
     let sessionContext: { sessionId?: string } = {};
-    if (this.initialized && method !== 'initialize') {
+    if (this.initialized && 
+        method !== 'initialize' && 
+        !(method === 'call_tool' && params?.name === 'get_current_session_id')) {
       sessionContext = await this.getCurrentSessionContext();
     }
 
@@ -312,9 +307,11 @@ export class MCPClient {
       throw new Error('Request was aborted')
     }
 
-    // Don't try to get session context during initialization to avoid circular dependency
+    // Don't try to get session context during initialization or when getting session context itself
     let sessionContext: { sessionId?: string; participantId?: string } = {};
-    if (this.initialized && method !== 'initialize') {
+    if (this.initialized && 
+        method !== 'initialize' && 
+        !(method === 'call_tool' && params?.name === 'get_current_session_id')) {
       sessionContext = await this.getCurrentSessionContext();
     }
     

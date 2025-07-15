@@ -639,6 +639,51 @@ export class MCPServer {
         }
       },
       {
+        name: 'get_sessions',
+        description: 'Get all sessions',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            status: { type: 'string', description: 'Filter by status (active, inactive, completed, etc.)' }
+          },
+          additionalProperties: false
+        }
+      },
+      {
+        name: 'get_current_session_id', 
+        description: 'Get the ID of the currently active session',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+          additionalProperties: false
+        }
+      },
+      {
+        name: 'log_api_error',
+        description: 'Log an API error for tracking',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            error: { 
+              type: 'object', 
+              description: 'API error object',
+              properties: {
+                id: { type: 'string' },
+                timestamp: { type: 'string' },
+                provider: { type: 'string' },
+                operation: { type: 'string' },
+                attempt: { type: 'number' },
+                maxAttempts: { type: 'number' },
+                error: { type: 'string' },
+                sessionId: { type: 'string' },
+                participantId: { type: 'string' }
+              }
+            }
+          },
+          required: ['error']
+        }
+      },
+      {
         name: 'delete_session',
         description: 'Delete a chat session',
         inputSchema: {
@@ -1293,6 +1338,15 @@ export class MCPServer {
           break
         case 'get_session':
           result = await this.toolGetSession(args)
+          break
+        case 'get_sessions':
+          result = await this.toolGetSessions(args)
+          break
+        case 'get_current_session_id':
+          result = await this.toolGetCurrentSessionId(args)
+          break
+        case 'log_api_error':
+          result = await this.toolLogAPIError(args)
           break
         case 'delete_session':
           result = await this.toolDeleteSession(args)
@@ -2672,6 +2726,110 @@ export class MCPServer {
     } catch (error) {
       console.error('Get session failed:', error)
       throw new Error(`Failed to get session: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  private async toolGetSessions(args: any): Promise<any> {
+    try {
+      const { status } = args
+      
+      // Get all sessions, optionally filtered by status
+      const allSessions = await db.query.sessions.findMany({
+        where: status ? eq(sessions.status, status) : undefined,
+        orderBy: [desc(sessions.updatedAt)],
+        with: {
+          participants: true,
+          messages: {
+            limit: 1,
+            orderBy: [desc(messages.timestamp)]
+          }
+        }
+      })
+      
+      // Format sessions for response
+      const formattedSessions = allSessions.map(session => ({
+        id: session.id,
+        name: session.name,
+        description: session.description,
+        status: session.status,
+        participantCount: session.participants.length,
+        lastMessage: session.messages[0] || null,
+        createdAt: session.createdAt,
+        updatedAt: session.updatedAt,
+        metadata: session.metadata
+      }))
+      
+      return {
+        success: true,
+        sessions: formattedSessions,
+        count: formattedSessions.length,
+        message: 'Sessions retrieved successfully'
+      }
+    } catch (error) {
+      console.error('Get sessions failed:', error)
+      throw new Error(`Failed to get sessions: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  private async toolGetCurrentSessionId(args: any): Promise<any> {
+    try {
+      // Find the active session
+      const currentSession = await db.query.sessions.findFirst({
+        where: eq(sessions.status, 'active'),
+        orderBy: [desc(sessions.updatedAt)]
+      })
+      
+      if (!currentSession) {
+        return {
+          success: true,
+          sessionId: null,
+          message: 'No active session found'
+        }
+      }
+      
+      return {
+        success: true,
+        sessionId: currentSession.id,
+        sessionName: currentSession.name,
+        message: 'Current session ID retrieved successfully'
+      }
+    } catch (error) {
+      console.error('Get current session ID failed:', error)
+      throw new Error(`Failed to get current session ID: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  private async toolLogAPIError(args: any): Promise<any> {
+    try {
+      const { error } = args
+      
+      if (!error || typeof error !== 'object') {
+        throw new Error('Valid error object is required')
+      }
+
+      // Save error to database
+      const [savedError] = await db.insert(apiErrors).values({
+        provider: error.provider || 'unknown',
+        operation: error.operation || 'unknown',
+        error: error.error || 'Unknown error',
+        attempt: error.attempt || 1,
+        maxAttempts: error.maxAttempts || 1,
+        sessionId: error.sessionId,
+        participantId: error.participantId,
+        metadata: {
+          timestamp: error.timestamp || new Date().toISOString(),
+          id: error.id
+        }
+      }).returning()
+
+      return {
+        success: true,
+        errorId: savedError.id,
+        message: 'API error logged successfully'
+      }
+    } catch (error) {
+      console.error('Log API error failed:', error)
+      throw new Error(`Failed to log API error: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
