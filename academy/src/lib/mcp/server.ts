@@ -2929,32 +2929,46 @@ export class MCPServer {
   // PHASE 1: MESSAGE MANAGEMENT TOOLS
   // ========================================
 
-private async toolSendMessage(args: any): Promise<any> {
-  try {
-    const { sessionId, content, participantId, participantName, participantType } = args
-    
-    if (!sessionId || !content || !participantId || !participantName || !participantType) {
-      throw new Error('Session ID, content, participant ID, name, and type are required')
-    }
+  private async toolSendMessage(args: any): Promise<any> {
+    try {
+      const { sessionId, content, participantId, participantName, participantType } = args
+      
+      if (!sessionId || !content || !participantId || !participantName || !participantType) {
+        throw new Error('Session ID, content, participant ID, name, and type are required')
+      }
 
-    this.updateStoreReference()
-    const store = useChatStore.getState()
-    
-    // Fix: Add null check for store.currentSession
-    if (!store.currentSession) {
-      throw new Error('No current session available')
-    }
-    
-    // Check if this is the current session
-    if (store.currentSession.id === sessionId) {
+      this.updateStoreReference()
+      const store = useChatStore.getState()
+      
+      // Find the target session
+      const targetSession = store.sessions.find(s => s.id === sessionId)
+      if (!targetSession) {
+        throw new Error(`Session ${sessionId} not found`)
+      }
+      
       const messageData = {
+        id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         content: content,
         participantId: participantId,
         participantName: participantName,
-        participantType: participantType
+        participantType: participantType,
+        timestamp: new Date()
       }
 
-      store.addMessage(messageData)
+      // If it's the current session, use the store method
+      if (store.currentSession?.id === sessionId) {
+        store.addMessage({
+          content: content,
+          participantId: participantId,
+          participantName: participantName,
+          participantType: participantType
+        })
+      } else {
+        // For non-current sessions, add message directly
+        const updatedMessages = [...targetSession.messages, messageData]
+        store.updateSession(sessionId, { messages: updatedMessages })
+      }
+      
       setMCPStoreReference(useChatStore.getState())
 
       return {
@@ -2963,14 +2977,11 @@ private async toolSendMessage(args: any): Promise<any> {
         messageData: messageData,
         message: 'Message sent successfully'
       }
-    } else {
-      throw new Error(`Session ${sessionId} is not the current session`)
+    } catch (error) {
+      console.error('Send message failed:', error)
+      throw new Error(`Failed to send message: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
-  } catch (error) {
-    console.error('Send message failed:', error)
-    throw new Error(`Failed to send message: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
-}
 
   // ========================================
   // PHASE 2: PARTICIPANT MANAGEMENT TOOLS
@@ -2987,49 +2998,62 @@ private async toolSendMessage(args: any): Promise<any> {
       this.updateStoreReference()
       const store = useChatStore.getState()
       
-      // Add explicit null check
-      if (!store.currentSession) {
-        throw new Error('No current session available')
+      // Find the target session
+      const targetSession = store.sessions.find(s => s.id === sessionId)
+      if (!targetSession) {
+        throw new Error(`Session ${sessionId} not found`)
       }
       
-      // Check if this is the current session
-      if (store.currentSession.id === sessionId) {
-        const participantData: Omit<Participant, 'id' | 'joinedAt' | 'messageCount'> = {
-          name: name,
-          type: type,
-          settings: {
-            temperature: 0.7,
-            maxTokens: 2000,
-            responseDelay: 2000,
-            model: model || 'claude-3-5-sonnet-20241022',
-            ...settings // Allow overriding defaults with provided settings
-          },
-          characteristics: characteristics || {},
-          status: 'active' as const,
-          systemPrompt: '',
-          avatar: undefined,
-          color: undefined,
-          lastActive: undefined
-        }
-        
+      // Create participant data
+      const participantData: Omit<Participant, 'id' | 'joinedAt' | 'messageCount'> = {
+        name: name,
+        type: type,
+        settings: {
+          temperature: 0.7,
+          maxTokens: 2000,
+          responseDelay: 2000,
+          model: model || 'claude-3-5-sonnet-20241022',
+          ...settings // Allow overriding defaults with provided settings
+        },
+        characteristics: characteristics || {},
+        status: 'active' as const,
+        systemPrompt: '',
+        avatar: undefined,
+        color: undefined,
+        lastActive: undefined
+      }
+      
+      // If it's the current session, use the store method
+      if (store.currentSession?.id === sessionId) {
         store.addParticipant(participantData)
-        setMCPStoreReference(useChatStore.getState())
-        
-        return {
-          success: true,
-          sessionId: sessionId,
-          participantData: participantData,
-          message: `Participant "${name}" added successfully`
-        }
       } else {
-        throw new Error(`Session ${sessionId} is not the current session`)
+        // For non-current sessions, add participant directly to the session
+        const newParticipant: Participant = {
+          ...participantData,
+          id: `participant-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          joinedAt: new Date(),
+          messageCount: 0
+        }
+        
+        // Update the session with the new participant
+        const updatedParticipants = [...targetSession.participants, newParticipant]
+        store.updateSession(sessionId, { participants: updatedParticipants })
+      }
+      
+      setMCPStoreReference(useChatStore.getState())
+      
+      return {
+        success: true,
+        sessionId: sessionId,
+        participantData: participantData,
+        message: `Participant "${name}" added successfully`
       }
     } catch (error) {
       console.error('Add participant failed:', error)
       throw new Error(`Failed to add participant: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
-  
+
   private async toolRemoveParticipant(args: any): Promise<any> {
     try {
       const { sessionId, participantId } = args
@@ -3041,33 +3065,35 @@ private async toolSendMessage(args: any): Promise<any> {
       this.updateStoreReference()
       const store = useChatStore.getState()
       
-      // Add explicit null check and store the session
-      if (!store.currentSession) {
-        throw new Error('No current session available')
+      // Find the target session
+      const targetSession = store.sessions.find(s => s.id === sessionId)
+      if (!targetSession) {
+        throw new Error(`Session ${sessionId} not found`)
       }
       
-      // Check if this is the current session
-      if (store.currentSession.id === sessionId) {
-        const participant = store.currentSession.participants.find(p => p.id === participantId)
-        
-        if (!participant) {
-          throw new Error(`Participant ${participantId} not found`)
-        }
-        
+      const participant = targetSession.participants.find(p => p.id === participantId)
+      if (!participant) {
+        throw new Error(`Participant ${participantId} not found`)
+      }
+      
+      // If it's the current session, use the store method
+      if (store.currentSession?.id === sessionId) {
         store.removeParticipant(participantId)
-        
-        // Update MCP store reference
-        setMCPStoreReference(useChatStore.getState())
-        
-        return {
-          success: true,
-          sessionId: sessionId,
-          participantId: participantId,
-          participantName: participant.name,
-          message: `Participant "${participant.name}" removed successfully`
-        }
       } else {
-        throw new Error(`Session ${sessionId} is not the current session`)
+        // For non-current sessions, remove participant directly
+        const updatedParticipants = targetSession.participants.filter(p => p.id !== participantId)
+        store.updateSession(sessionId, { participants: updatedParticipants })
+      }
+      
+      // Update MCP store reference
+      setMCPStoreReference(useChatStore.getState())
+      
+      return {
+        success: true,
+        sessionId: sessionId,
+        participantId: participantId,
+        participantName: participant.name,
+        message: `Participant "${participant.name}" removed successfully`
       }
     } catch (error) {
       console.error('Remove participant failed:', error)
@@ -3086,33 +3112,37 @@ private async toolSendMessage(args: any): Promise<any> {
       this.updateStoreReference()
       const store = useChatStore.getState()
       
-      // Add explicit null check
-      if (!store.currentSession) {
-        throw new Error('No current session available')
+      // Find the target session
+      const targetSession = store.sessions.find(s => s.id === sessionId)
+      if (!targetSession) {
+        throw new Error(`Session ${sessionId} not found`)
       }
       
-      // Check if this is the current session
-      if (store.currentSession.id === sessionId) {
-        const participant = store.currentSession.participants.find(p => p.id === participantId)
-        
-        if (!participant) {
-          throw new Error(`Participant ${participantId} not found`)
-        }
-        
+      const participant = targetSession.participants.find(p => p.id === participantId)
+      if (!participant) {
+        throw new Error(`Participant ${participantId} not found`)
+      }
+      
+      // If it's the current session, use the store method
+      if (store.currentSession?.id === sessionId) {
         store.updateParticipant(participantId, updates)
-        
-        // Update MCP store reference
-        setMCPStoreReference(useChatStore.getState())
-        
-        return {
-          success: true,
-          sessionId: sessionId,
-          participantId: participantId,
-          updates: updates,
-          message: `Participant updated successfully`
-        }
       } else {
-        throw new Error(`Session ${sessionId} is not the current session`)
+        // For non-current sessions, update participant directly
+        const updatedParticipants = targetSession.participants.map(p => 
+          p.id === participantId ? { ...p, ...updates } : p
+        )
+        store.updateSession(sessionId, { participants: updatedParticipants })
+      }
+      
+      // Update MCP store reference
+      setMCPStoreReference(useChatStore.getState())
+      
+      return {
+        success: true,
+        sessionId: sessionId,
+        participantId: participantId,
+        updates: updates,
+        message: `Participant updated successfully`
       }
     } catch (error) {
       console.error('Update participant failed:', error)
@@ -3211,28 +3241,23 @@ private async toolSendMessage(args: any): Promise<any> {
       this.updateStoreReference()
       const store = useChatStore.getState()
       
-      // Add explicit null check
-      if (!store.currentSession) {
-        throw new Error('No current session available')
+      // Find the target session
+      const targetSession = store.sessions.find(s => s.id === sessionId)
+      if (!targetSession) {
+        throw new Error(`Session ${sessionId} not found`)
       }
       
-      // Check if this is the current session
-      if (store.currentSession.id === sessionId) {
-        const participant = store.currentSession.participants.find(p => p.id === participantId)
-        
-        if (!participant) {
-          throw new Error(`Participant ${participantId} not found`)
-        }
-        
-        return {
-          success: true,
-          sessionId: sessionId,
-          participantId: participantId,
-          config: participant,
-          message: 'Participant configuration retrieved successfully'
-        }
-      } else {
-        throw new Error(`Session ${sessionId} is not the current session`)
+      const participant = targetSession.participants.find(p => p.id === participantId)
+      if (!participant) {
+        throw new Error(`Participant ${participantId} not found`)
+      }
+      
+      return {
+        success: true,
+        sessionId: sessionId,
+        participantId: participantId,
+        config: participant,
+        message: 'Participant configuration retrieved successfully'
       }
     } catch (error) {
       console.error('Get participant config failed:', error)
@@ -3266,6 +3291,17 @@ private async toolSendMessage(args: any): Promise<any> {
 
       // Add initial prompt if provided
       if (initialPrompt?.trim()) {
+        // Create message data
+        const messageData = {
+          id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          content: initialPrompt.trim(),
+          participantId: 'moderator',
+          participantName: 'Research Moderator',
+          participantType: 'moderator' as const,
+          timestamp: new Date()
+        }
+        
+        // If it's the current session, use the store method
         if (store.currentSession?.id === sessionId) {
           store.addMessage({
             content: initialPrompt.trim(),
@@ -3273,6 +3309,10 @@ private async toolSendMessage(args: any): Promise<any> {
             participantName: 'Research Moderator',
             participantType: 'moderator'
           })
+        } else {
+          // For non-current sessions, add message directly
+          const updatedMessages = [...session.messages, messageData]
+          store.updateSession(sessionId, { messages: updatedMessages })
         }
       }
 
@@ -3546,23 +3586,24 @@ private async toolSendMessage(args: any): Promise<any> {
       }
 
       this.updateStoreReference()
-      
       const store = useChatStore.getState()
       
-      if (store.currentSession?.id === sessionId) {
-        // Clear messages by updating session with empty messages array
-        store.updateSession(sessionId, { messages: [] })
+      // Find the target session
+      const targetSession = store.sessions.find(s => s.id === sessionId)
+      if (!targetSession) {
+        throw new Error(`Session ${sessionId} not found`)
+      }
+      
+      // Clear messages by updating session with empty messages array
+      store.updateSession(sessionId, { messages: [] })
 
-        // Update MCP store reference
-        setMCPStoreReference(useChatStore.getState())
+      // Update MCP store reference
+      setMCPStoreReference(useChatStore.getState())
 
-        return {
-          success: true,
-          sessionId: sessionId,
-          message: 'Messages cleared successfully'
-        }
-      } else {
-        throw new Error(`Session ${sessionId} is not the current session`)
+      return {
+        success: true,
+        sessionId: sessionId,
+        message: 'Messages cleared successfully'
       }
     } catch (error) {
       console.error('Clear messages failed:', error)
@@ -3579,29 +3620,46 @@ private async toolSendMessage(args: any): Promise<any> {
       }
 
       this.updateStoreReference()
-      
       const store = useChatStore.getState()
       
+      // Find the target session
+      const targetSession = store.sessions.find(s => s.id === sessionId)
+      if (!targetSession) {
+        throw new Error(`Session ${sessionId} not found`)
+      }
+      
+      // Create message data
+      const messageData = {
+        id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        content: prompt,
+        participantId: 'moderator',
+        participantName: 'Research Moderator',
+        participantType: 'moderator' as const,
+        timestamp: new Date()
+      }
+      
+      // If it's the current session, use the store method
       if (store.currentSession?.id === sessionId) {
-        // Add moderator prompt as message
         store.addMessage({
           content: prompt,
           participantId: 'moderator',
           participantName: 'Research Moderator',
           participantType: 'moderator'
         })
-
-        // Update MCP store reference
-        setMCPStoreReference(useChatStore.getState())
-
-        return {
-          success: true,
-          sessionId: sessionId,
-          prompt: prompt,
-          message: 'Moderator prompt injected successfully'
-        }
       } else {
-        throw new Error(`Session ${sessionId} is not the current session`)
+        // For non-current sessions, add message directly
+        const updatedMessages = [...targetSession.messages, messageData]
+        store.updateSession(sessionId, { messages: updatedMessages })
+      }
+
+      // Update MCP store reference
+      setMCPStoreReference(useChatStore.getState())
+
+      return {
+        success: true,
+        sessionId: sessionId,
+        prompt: prompt,
+        message: 'Moderator prompt injected successfully'
       }
     } catch (error) {
       console.error('Inject moderator prompt failed:', error)
@@ -4166,11 +4224,11 @@ private async toolSendMessage(args: any): Promise<any> {
         throw new Error('Experiment is already running')
       }
 
-      // Initialize experiment run
+      // Initialize experiment run (for tracking purposes)
       const run: ExperimentRun = {
         id: `run-${Date.now()}`,
         configId: experimentId,
-        status: 'pending',
+        status: 'planned', // Changed from 'pending' to 'planned'
         startedAt: new Date(),
         totalSessions: config.totalSessions,
         completedSessions: 0,
@@ -4183,21 +4241,222 @@ private async toolSendMessage(args: any): Promise<any> {
       }
 
       this.experimentRuns.set(experimentId, run)
-      this.activeExperimentSessions.set(experimentId, new Set())
 
-      // Start execution asynchronously
-      this.executeExperimentAsync(experimentId, config, run)
+      // Generate execution plan instead of running async
+      const executionPlan = this.generateExecutionPlan(experimentId, config)
 
       return {
         success: true,
         experimentId,
         runId: run.id,
-        status: 'pending',
-        message: 'Experiment execution started'
+        status: 'planned',
+        executionPlan,
+        message: 'Experiment execution plan generated. Use the plan to execute steps individually.'
       }
     } catch (error) {
       console.error('Execute experiment failed:', error)
-      throw new Error(`Failed to execute experiment: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      throw new Error(`Failed to generate execution plan: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  private generateExecutionPlan(experimentId: string, config: ExperimentConfig): any {
+    const steps: any[] = []
+    
+    console.log(`🔬 Generating execution plan for experiment: ${config.name}`)
+    console.log(`📊 Config details:`, {
+      totalSessions: config.totalSessions,
+      maxMessageCount: config.maxMessageCount,
+      participants: config.participants.map(p => ({
+        type: p.type,
+        name: p.name,
+        model: p.model
+      }))
+    })
+    
+    // Generate steps for each session
+    for (let i = 0; i < config.totalSessions; i++) {
+      const sessionName = config.sessionNamePattern
+        .replace('<n>', (i + 1).toString())
+        .replace('<date>', new Date().toISOString().split('T')[0])
+        .replace('<experiment>', config.name)
+        .replace('{index}', (i + 1).toString())
+        .replace('{date}', new Date().toISOString().split('T')[0])
+        .replace('{experiment}', config.name)
+      
+      const sessionSteps = [
+        {
+          step: `create_session_${i + 1}`,
+          tool: 'create_session',
+          description: `Create session ${i + 1}/${config.totalSessions}`,
+          params: {
+            name: sessionName,
+            systemPrompt: config.startingPrompt,
+            analysisProvider: config.analysisProvider,
+            analysisContextSize: config.analysisContextSize,
+            metadata: {
+              experimentId,
+              sessionIndex: i,
+              experimentName: config.name
+            }
+          }
+        }
+      ]
+
+      // Add participant steps
+      config.participants.forEach((participant, pIndex) => {
+        let provider = participant.type
+        if (participant.type === 'gpt') {
+          provider = 'openai'
+        } else if (participant.type === 'claude') {
+          provider = 'anthropic'
+        }
+
+        sessionSteps.push({
+          step: `add_participant_${i + 1}_${pIndex + 1}`,
+          tool: 'add_participant',
+          description: `Add participant ${participant.name} to session ${i + 1}`,
+          params: {
+            sessionId: `<session_${i + 1}_id>`,
+            name: participant.name,
+            type: participant.type,
+            provider: provider,
+            model: participant.model,
+            settings: {
+              temperature: participant.temperature || 0.7,
+              maxTokens: participant.maxTokens || 1000,
+              responseDelay: 2000,
+              model: participant.model
+            },
+            characteristics: {
+              personality: participant.personality || '',
+              expertise: participant.expertise || ''
+            }
+          },
+          dependsOn: `create_session_${i + 1}`
+        })
+      })
+
+      // Add conversation steps
+      sessionSteps.push({
+        step: `start_conversation_${i + 1}`,
+        tool: 'start_conversation',
+        description: `Start conversation in session ${i + 1}`,
+        params: {
+          sessionId: `<session_${i + 1}_id>`,
+          initialPrompt: config.startingPrompt
+        },
+        dependsOn: config.participants.map((_, pIndex) => `add_participant_${i + 1}_${pIndex + 1}`)
+      })
+
+      // If maxMessageCount specified, generate message exchange steps
+      if (config.maxMessageCount && config.maxMessageCount > 0) {
+        let messageCount = 0
+        
+        // Generate message steps in rounds (each participant gets a turn)
+        while (messageCount < config.maxMessageCount) {
+          config.participants.forEach((participant, pIndex) => {
+            if (messageCount < config.maxMessageCount) {
+              messageCount++
+              
+              // Map participant type to the correct chat tool
+              let chatTool = 'claude_chat' // default
+              switch (participant.type) {
+                case 'claude':
+                  chatTool = 'claude_chat'
+                  break
+                case 'gpt':
+                case 'openai':
+                  chatTool = 'openai_chat'
+                  break
+                case 'grok':
+                  chatTool = 'grok_chat'
+                  break
+                case 'gemini':
+                  chatTool = 'gemini_chat'
+                  break
+                case 'ollama':
+                  chatTool = 'ollama_chat'
+                  break
+                case 'deepseek':
+                  chatTool = 'deepseek_chat'
+                  break
+                case 'mistral':
+                  chatTool = 'mistral_chat'
+                  break
+                case 'cohere':
+                  chatTool = 'cohere_chat'
+                  break
+              }
+              
+              sessionSteps.push({
+                step: `message_${i + 1}_${messageCount}`,
+                tool: chatTool,
+                description: `Message ${messageCount} from ${participant.name} in session ${i + 1}`,
+                params: {
+                  message: messageCount === 1 ? config.startingPrompt : 'Continue the conversation based on previous messages',
+                  sessionId: `<session_${i + 1}_id>`,
+                  participantId: `<participant_${i + 1}_${pIndex + 1}_id>`,
+                  temperature: participant.temperature || 0.7,
+                  maxTokens: participant.maxTokens || 1000,
+                  model: participant.model,
+                  systemPrompt: `You are ${participant.name}. ${participant.personality || ''} ${participant.expertise || ''}`
+                },
+                dependsOn: messageCount === 1 ? `start_conversation_${i + 1}` : `message_${i + 1}_${messageCount - 1}`,
+                critical: false
+              })
+            }
+          })
+        }
+      }
+
+      // Add analysis step if configured
+      if (config.analysisProvider) {
+        sessionSteps.push({
+          step: `analyze_session_${i + 1}`,
+          tool: 'trigger_live_analysis',
+          description: `Analyze session ${i + 1}`,
+          params: {
+            sessionId: `<session_${i + 1}_id>`,
+            analysisType: 'full'
+          },
+          dependsOn: config.maxMessageCount > 0 ? `message_${i + 1}_${config.maxMessageCount}` : `start_conversation_${i + 1}`
+        })
+      }
+
+      steps.push(...sessionSteps)
+    }
+
+    // Add final aggregation step
+    steps.push({
+      step: 'aggregate_results',
+      tool: 'get_experiment_results',
+      description: 'Get aggregated experiment results',
+      params: {
+        experimentId
+      },
+      dependsOn: steps.filter(s => s.step.startsWith('analyze_session_') || s.step.startsWith('start_conversation_')).map(s => s.step)
+    })
+
+    return {
+      experimentId,
+      experimentName: config.name,
+      totalSteps: steps.length,
+      estimatedDuration: `${Math.ceil(config.totalSessions * 2)} minutes`,
+      concurrency: config.concurrentSessions || 1,
+      steps,
+      metadata: {
+        totalSessions: config.totalSessions,
+        participantsPerSession: config.participants.length,
+        maxMessagesPerSession: config.maxMessageCount || 0,
+        analysisEnabled: !!config.analysisProvider
+      },
+      instructions: [
+        'Execute steps in order, respecting dependencies',
+        'Replace placeholder IDs (e.g., <session_1_id>) with actual IDs from previous steps',
+        `Process up to ${config.concurrentSessions || 1} sessions concurrently`,
+        'Monitor error rate and stop if it exceeds threshold',
+        'Save intermediate results for recovery'
+      ]
     }
   }
 
@@ -4227,113 +4486,6 @@ private async toolSendMessage(args: any): Promise<any> {
           store.sessions.length; // Access to trigger any lazy loading
         }
       }
-    }
-  }
-
-
-  private async executeExperimentAsync(
-    experimentId: string,
-    config: ExperimentConfig,
-    run: ExperimentRun
-  ): Promise<void> {
-    console.log(`🚀 Starting experiment execution: ${experimentId}`)
-    
-    try {
-      // Update status to running
-      run.status = 'running'
-      this.experimentRuns.set(experimentId, run)
-
-      const sessionIds = this.activeExperimentSessions.get(experimentId) || new Set()
-      const concurrentLimit = config.concurrentSessions || 1
-      
-      // Create session execution promises
-      const sessionPromises: Promise<void>[] = []
-      let sessionStartIndex = 0
-      
-      // Process sessions in batches to avoid overwhelming the system
-      while (sessionStartIndex < config.totalSessions) {
-        // Check if experiment was stopped
-        const currentRun = this.experimentRuns.get(experimentId)
-        if (!currentRun || currentRun.status !== 'running') {
-          console.log(`🛑 Experiment ${experimentId} stopped, aborting execution`)
-          break
-        }
-
-        // Wait if we're at the concurrent limit
-        while (sessionPromises.length >= concurrentLimit) {
-          // Wait for at least one to complete
-          await Promise.race(sessionPromises)
-          
-          // Remove completed promises
-          const stillRunning = await Promise.all(
-            sessionPromises.map(async (p, idx) => {
-              try {
-                // Check if promise is settled using Promise.race with immediate resolution
-                await Promise.race([p, Promise.resolve('check')])
-                return false // Promise is settled
-              } catch {
-                return true // Promise is still pending
-              }
-            })
-          )
-          
-          sessionPromises.splice(0, sessionPromises.length)
-          stillRunning.forEach((running, idx) => {
-            if (running) sessionPromises.push(sessionPromises[idx])
-          })
-        }
-
-        // Add a longer delay between starting new sessions to ensure store sync
-        if (sessionStartIndex > 0) {
-          await new Promise(resolve => setTimeout(resolve, 1000)) // Increased from 500ms
-        }
-
-        // Create and start a new session
-        const sessionIndex = sessionStartIndex
-        const sessionPromise = this.createAndRunExperimentSession(
-          experimentId,
-          config,
-          sessionIndex,
-          sessionIds
-        ).then(() => {
-          // Update completed count
-          run.completedSessions++
-          run.progress = (run.completedSessions / config.totalSessions) * 100
-          this.experimentRuns.set(experimentId, run)
-        }).catch((error) => {
-          console.error(`Session ${sessionIndex + 1} failed:`, error)
-          run.failedSessions++
-          run.errorRate = run.failedSessions / (run.completedSessions + run.failedSessions)
-          this.addExperimentError(experimentId, 'session_error', error.message)
-          this.experimentRuns.set(experimentId, run)
-        })
-
-        sessionPromises.push(sessionPromise)
-        sessionStartIndex++
-        
-        // Update active sessions count
-        run.activeSessions = sessionPromises.length
-        this.experimentRuns.set(experimentId, run)
-      }
-
-      // Wait for all remaining sessions to complete
-      await Promise.allSettled(sessionPromises)
-
-      // Final update
-      run.status = 'completed'
-      run.completedAt = new Date()
-      run.activeSessions = 0
-      this.experimentRuns.set(experimentId, run)
-
-      console.log(`✅ Experiment ${experimentId} completed: ${run.completedSessions}/${config.totalSessions} sessions`)
-
-    } catch (error) {
-      console.error(`❌ Experiment ${experimentId} failed:`, error)
-      run.status = 'failed'
-      run.completedAt = new Date()
-      run.activeSessions = 0
-      this.addExperimentError(experimentId, 'experiment_error', error instanceof Error ? error.message : 'Unknown error')
-      this.experimentRuns.set(experimentId, run)
     }
   }
 
@@ -4441,10 +4593,42 @@ private async toolSendMessage(args: any): Promise<any> {
       }
 
       const run = this.experimentRuns.get(experimentId)
+      const config = this.experimentConfigs.get(experimentId)
+      
+      if (!config) {
+        throw new Error(`Experiment ${experimentId} not found`)
+      }
+      
+      // If there's a run, calculate actual progress from completed sessions
+      if (run) {
+        this.updateStoreReference()
+        const store = useChatStore.getState()
+        
+        // Count sessions that belong to this experiment
+        const experimentSessions = store.sessions.filter(s => 
+          s.metadata?.experimentId === experimentId
+        )
+        
+        // Update run statistics based on actual sessions
+        run.completedSessions = experimentSessions.length
+        run.progress = (run.completedSessions / config.totalSessions) * 100
+        run.sessionIds = experimentSessions.map(s => s.id)
+        
+        // Update status based on progress
+        if (run.status === 'planned' && run.completedSessions > 0) {
+          run.status = 'running'
+        } else if (run.completedSessions >= config.totalSessions) {
+          run.status = 'completed'
+          run.completedAt = new Date()
+        }
+        
+        this.experimentRuns.set(experimentId, run)
+      }
       
       return {
         success: true,
-        status: run || null
+        status: run || null,
+        config: config
       }
     } catch (error) {
       console.error('Get experiment status failed:', error)
@@ -4473,21 +4657,11 @@ private async toolSendMessage(args: any): Promise<any> {
       run.pausedAt = new Date()
       this.experimentRuns.set(experimentId, run)
 
-      // Pause all active sessions
-      const sessionIds = this.activeExperimentSessions.get(experimentId) || new Set()
-      for (const sessionId of sessionIds) {
-        try {
-          await this.toolPauseConversation({ sessionId })
-        } catch (error) {
-          console.warn(`Failed to pause session ${sessionId}:`, error)
-        }
-      }
-
       return {
         success: true,
         experimentId,
         status: 'paused',
-        message: 'Experiment paused successfully'
+        message: 'Experiment marked as paused. Stop executing plan steps to pause execution.'
       }
     } catch (error) {
       console.error('Pause experiment failed:', error)
@@ -4516,27 +4690,11 @@ private async toolSendMessage(args: any): Promise<any> {
       run.resumedAt = new Date()
       this.experimentRuns.set(experimentId, run)
 
-      // Resume all paused sessions
-      const sessionIds = this.activeExperimentSessions.get(experimentId) || new Set()
-      for (const sessionId of sessionIds) {
-        try {
-          await this.toolResumeConversation({ sessionId })
-        } catch (error) {
-          console.warn(`Failed to resume session ${sessionId}:`, error)
-        }
-      }
-
-      // Continue the experiment execution
-      const config = this.experimentConfigs.get(experimentId)
-      if (config) {
-        this.executeExperimentAsync(experimentId, config, run)
-      }
-
       return {
         success: true,
         experimentId,
         status: 'running',
-        message: 'Experiment resumed successfully'
+        message: 'Experiment marked as running. Continue executing plan steps to resume.'
       }
     } catch (error) {
       console.error('Resume experiment failed:', error)
@@ -4561,21 +4719,11 @@ private async toolSendMessage(args: any): Promise<any> {
       run.completedAt = new Date()
       this.experimentRuns.set(experimentId, run)
 
-      // Stop all active sessions
-      const sessionIds = this.activeExperimentSessions.get(experimentId) || new Set()
-      for (const sessionId of sessionIds) {
-        try {
-          await this.toolStopConversation({ sessionId })
-        } catch (error) {
-          console.warn(`Failed to stop session ${sessionId}:`, error)
-        }
-      }
-
       return {
         success: true,
         experimentId,
         status: 'completed',
-        message: 'Experiment stopped successfully'
+        message: 'Experiment marked as completed. No further plan steps should be executed.'
       }
     } catch (error) {
       console.error('Stop experiment failed:', error)

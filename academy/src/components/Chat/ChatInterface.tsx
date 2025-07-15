@@ -38,7 +38,7 @@ interface ExperimentConfig {
     expertise?: string
     ollamaUrl?: string
   }>
-  systemPrompt: string
+  startingPrompt: string
   analysisContextSize: number
   analysisProvider: 'claude' | 'gpt'
   maxMessageCount: number
@@ -335,7 +335,7 @@ export function ChatInterface() {
         <div className={`${showLeftPanel ? 'w-80' : 'w-0'} transition-all duration-300 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden`}>
           <div className="p-6 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center p-1">
+              <div className="w-10 h-10 bg-gradient-to-br from-black-500 to-black-600 rounded-xl flex items-center justify-center p-1">
                 <Image
                   src="/icons/logo.png"
                   alt="The Academy"
@@ -406,7 +406,7 @@ export function ChatInterface() {
         <div className="w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
           <div className="p-6 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center p-1">
+              <div className="w-10 h-10 bg-gradient-to-br from-black-500 to-black-600 rounded-xl flex items-center justify-center p-1">
                 <Image
                   src="/icons/logo.png"
                   alt="The Academy"
@@ -468,7 +468,7 @@ export function ChatInterface() {
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="w-32 h-32 bg-gradient-to-br from-blue-400/20 to-purple-600/20 rounded-full animate-pulse"></div>
                 </div>
-                <div className="relative w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto">
+                <div className="relative w-20 h-20 bg-gradient-to-br from-black-500 to-black-600 rounded-2xl flex items-center justify-center mx-auto">
                   <Image
                     src="/icons/logo.png"
                     alt="The Academy"
@@ -482,16 +482,6 @@ export function ChatInterface() {
               <p className="text-gray-600 dark:text-gray-400 mb-6">
                 Select a session from the sidebar or create a new one to begin
               </p>
-              <div className="flex justify-center gap-3">
-                <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                  <MessageSquare className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                  <span className="text-sm font-medium text-blue-900 dark:text-blue-100">AI Dialogue</span>
-                </div>
-                <div className="flex items-center gap-2 px-3 py-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                  <Zap className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                  <span className="text-sm font-medium text-purple-900 dark:text-purple-100">Research</span>
-                </div>
-              </div>
             </div>
           ) : (
             <ExperimentsInterface 
@@ -516,7 +506,7 @@ export function ChatInterface() {
         {/* Academy Header */}
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center p-1">
+            <div className="w-10 h-10 bg-gradient-to-br from-black-500 to-black-600 rounded-xl flex items-center justify-center p-1">
               <Image
                 src="/icons/logo.png"
                 alt="The Academy"
@@ -769,7 +759,7 @@ export function ChatInterface() {
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="w-24 h-24 bg-gradient-to-br from-blue-400/20 to-purple-600/20 rounded-full animate-pulse"></div>
                   </div>
-                  <div className="relative w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto">
+                  <div className="relative w-16 h-16 bg-gradient-to-br from-black-500 to-black-600 rounded-2xl flex items-center justify-center mx-auto">
                     <Image
                       src="/icons/logo.png"
                       alt="The Academy"
@@ -788,16 +778,6 @@ export function ChatInterface() {
                     : "Add AI participants and then send an opening prompt to begin the dialogue."
                   }
                 </p>
-                <div className="flex justify-center gap-3">
-                  <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                    <MessageSquare className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                    <span className="text-sm font-medium text-blue-900 dark:text-blue-100">Dialogue</span>
-                  </div>
-                  <div className="flex items-center gap-2 px-3 py-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                    <Zap className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                    <span className="text-sm font-medium text-purple-900 dark:text-purple-100">Research</span>
-                  </div>
-                </div>
               </div>
             </div>
           ) : (

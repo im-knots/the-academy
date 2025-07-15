@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { CreateExperimentModal } from '@/components/Research/CreateExperimentModal'
 import { 
-  Beaker, Plus, Play, Pause, Square, 
+  TestTubeDiagonal, Plus, Play, Pause, Square, 
   AlertCircle, CheckCircle2, Loader2, 
   Activity, Trash2, Clock,
   TrendingUp, AlertTriangle, Zap, Users, 
@@ -361,9 +361,6 @@ export function ExperimentsInterface({
         <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center shadow-lg">
-                <Beaker className="h-6 w-6 text-white" />
-              </div>
               <div>
                 <h1 className="font-semibold text-gray-900 dark:text-gray-100">Bulk Experiments</h1>
                 <p className="text-sm text-gray-500 dark:text-gray-400">Create and run AI conversation experiments at scale</p>
@@ -516,7 +513,7 @@ export function ExperimentsInterface({
                             </div>
                             <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                               <div 
-                                className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full transition-all duration-300"
+                                className="bg-gradient-to-r from-blue-500 to-green-600 h-2 rounded-full transition-all duration-300"
                                 style={{ width: `${activeRun.progress}%` }}
                               />
                             </div>
@@ -670,8 +667,8 @@ export function ExperimentsInterface({
                               </div>
                               <div className="text-sm text-gray-600 dark:text-gray-400">Avg Messages/Session</div>
                             </div>
-                            <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg p-4">
-                              <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">
+                            <div className="bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 rounded-lg p-4">
+                              <div className="text-3xl font-bold text-green-600 dark:text-green-400">
                                 {(experimentResults.aggregateStats.successRate * 100).toFixed(1)}%
                               </div>
                               <div className="text-sm text-gray-600 dark:text-gray-400">Success Rate</div>
@@ -740,10 +737,10 @@ export function ExperimentsInterface({
               <div className="text-center">
                 <div className="relative mb-8">
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-32 h-32 bg-gradient-to-br from-purple-400/20 to-pink-600/20 rounded-full animate-pulse"></div>
+                    <div className="w-32 h-32 bg-gradient-to-br from-green-400/20 to-blue-600/20 rounded-full animate-pulse"></div>
                   </div>
-                  <div className="relative w-20 h-20 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center mx-auto shadow-xl">
-                    <Beaker className="h-10 w-10 text-white" />
+                  <div className="relative w-20 h-20 bg-gradient-to-br from-green-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto shadow-xl">
+                    <TestTubeDiagonal className="h-10 w-10 text-white" />
                   </div>
                 </div>
                 <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-3">
@@ -754,7 +751,7 @@ export function ExperimentsInterface({
                 </p>
                 <Button
                   onClick={handleNewExperiment}
-                  className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 shadow-lg"
+                  className="bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 shadow-lg"
                 >
                   <Plus className="h-5 w-5 mr-2" />
                   Create New Experiment

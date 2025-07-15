@@ -1271,14 +1271,187 @@ export class MCPClient {
     }
   }
 
-  async executeExperimentViaMCP(experimentId: string): Promise<any> {
-    const result = await this.callTool('execute_experiment', { experimentId })
+  async executeExperimentViaMCP(
+    experimentId: string,
+    options?: {
+      onStepStart?: (step: any) => void;
+      onStepComplete?: (step: any, result: any) => void;
+      onStepError?: (step: any, error: any) => void;
+      onProgress?: (progress: number) => void;
+      concurrency?: number;
+      abortSignal?: AbortSignal;
+    }
+  ): Promise<any> {
+    console.log(`🚀 Starting experiment execution: ${experimentId}`);
     
-    if (result.success) {
-      console.log(`✅ Experiment execution started via MCP: ${experimentId}`)
-      return result
-    } else {
-      throw new Error('Failed to execute experiment via MCP')
+    try {
+      // Step 1: Get the execution plan from the server
+      const planResult = await this.callTool('execute_experiment', { experimentId });
+      
+      if (!planResult.success || !planResult.executionPlan) {
+        throw new Error('Failed to generate execution plan');
+      }
+      
+      console.log(`📋 Execution plan generated with ${planResult.executionPlan.totalSteps} steps`);
+      
+      // Step 2: Execute the plan
+      const executionPlan = planResult.executionPlan;
+      const steps = executionPlan.steps;
+      const totalSteps = steps.length;
+      const results = new Map<string, any>();
+      const errors: any[] = [];
+      let completedSteps = 0;
+      
+      const {
+        onStepStart,
+        onStepComplete,
+        onStepError,
+        onProgress,
+        concurrency = executionPlan.concurrency || 1,
+        abortSignal
+      } = options || {};
+
+      // Helper to replace placeholders with actual values
+      const replacePlaceholders = (params: any, results: Map<string, any>): any => {
+        const paramsStr = JSON.stringify(params);
+        let updatedStr = paramsStr;
+        
+        // Replace placeholders like <session_1_id> with actual IDs
+        const placeholderRegex = /<([^>]+)>/g;
+        updatedStr = updatedStr.replace(placeholderRegex, (match, placeholder) => {
+          // Extract session ID from placeholder (e.g., "session_1_id" -> "create_session_1")
+          const sessionMatch = placeholder.match(/session_(\d+)_id/);
+          if (sessionMatch) {
+            const sessionNum = sessionMatch[1];
+            const createStepName = `create_session_${sessionNum}`;
+            const createResult = results.get(createStepName);
+            return createResult?.sessionId || match;
+          }
+          
+          // Extract participant ID from placeholder (e.g., "participant_1_2_id" -> "add_participant_1_2")
+          const participantMatch = placeholder.match(/participant_(\d+)_(\d+)_id/);
+          if (participantMatch) {
+            const sessionNum = participantMatch[1];
+            const participantNum = participantMatch[2];
+            const addStepName = `add_participant_${sessionNum}_${participantNum}`;
+            const addResult = results.get(addStepName);
+            return addResult?.participantId || match;
+          }
+          
+          return match;
+        });
+        
+        return JSON.parse(updatedStr);
+      };
+
+      // Check if step dependencies are met
+      const canExecuteStep = (step: any): boolean => {
+        if (!step.dependsOn) return true;
+        
+        const dependencies = Array.isArray(step.dependsOn) ? step.dependsOn : [step.dependsOn];
+        return dependencies.every(dep => results.has(dep));
+      };
+
+      // Execute a single step
+      const executeStep = async (step: any): Promise<void> => {
+        if (abortSignal?.aborted) {
+          throw new Error('Execution aborted');
+        }
+
+        try {
+          onStepStart?.(step);
+          console.log(`🔄 Executing step: ${step.description}`);
+          
+          // Replace placeholders in params
+          const params = replacePlaceholders(step.params, results);
+          
+          // Call the appropriate tool
+          const result = await this.callToolWithAbort(step.tool, params, abortSignal);
+          
+          results.set(step.step, result);
+          completedSteps++;
+          
+          onStepComplete?.(step, result);
+          onProgress?.((completedSteps / totalSteps) * 100);
+          
+          console.log(`✅ Step completed: ${step.step} (${completedSteps}/${totalSteps})`);
+          
+        } catch (error) {
+          console.error(`❌ Step ${step.step} failed:`, error);
+          errors.push({ step: step.step, error });
+          onStepError?.(step, error);
+          
+          // Decide whether to continue or abort on error
+          if (step.critical !== false) {
+            throw new Error(`Critical step ${step.step} failed: ${error}`);
+          }
+        }
+      };
+
+      // Process steps with concurrency control
+      const pendingSteps = [...steps];
+      const executing = new Set<Promise<void>>();
+      
+      while (pendingSteps.length > 0 || executing.size > 0) {
+        if (abortSignal?.aborted) {
+          throw new Error('Execution aborted');
+        }
+
+        // Find steps that can be executed
+        const executableSteps = pendingSteps.filter(canExecuteStep);
+        
+        // Start new executions up to concurrency limit
+        while (executableSteps.length > 0 && executing.size < concurrency) {
+          const step = executableSteps.shift()!;
+          pendingSteps.splice(pendingSteps.indexOf(step), 1);
+          
+          const execution = executeStep(step).finally(() => {
+            executing.delete(execution);
+          });
+          
+          executing.add(execution);
+        }
+        
+        // Wait for at least one execution to complete if we're at capacity
+        if (executing.size >= concurrency || (executing.size > 0 && executableSteps.length === 0)) {
+          await Promise.race(executing);
+        }
+        
+        // Small delay to prevent tight loop
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      // Update experiment status to completed
+      await this.callTool('stop_experiment', { experimentId });
+
+      console.log(`✅ Experiment execution completed: ${completedSteps}/${totalSteps} steps`);
+      
+      // Return comprehensive results
+      return {
+        success: errors.length === 0,
+        experimentId: experimentId,
+        runId: planResult.runId,
+        completedSteps,
+        totalSteps,
+        results: Object.fromEntries(results),
+        errors,
+        finalResults: results.get('aggregate_results'),
+        message: errors.length === 0 
+          ? `Experiment completed successfully with ${completedSteps} steps`
+          : `Experiment completed with ${errors.length} errors`
+      };
+      
+    } catch (error) {
+      console.error(`❌ Experiment execution failed:`, error);
+      
+      // Try to update status to failed
+      try {
+        await this.callTool('stop_experiment', { experimentId });
+      } catch (stopError) {
+        console.error('Failed to update experiment status:', stopError);
+      }
+      
+      throw error;
     }
   }
 

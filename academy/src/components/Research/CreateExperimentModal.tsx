@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/Badge'
 import { ParticipantAvatar } from '@/components/ui/ParticipantAvatar'
 import { 
   X, Plus, Upload, Save, Users, AlertCircle,
-  Beaker, FileJson, ChevronDown, ChevronUp, Settings
+  TestTubeDiagonal, FileJson, ChevronDown, ChevronUp, Settings
 } from 'lucide-react'
 
 interface ParticipantConfig {
@@ -269,8 +269,8 @@ export function CreateExperimentModal({ isOpen, onClose, onSave }: CreateExperim
         {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center">
-              <Beaker className="h-6 w-6 text-white" />
+            <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-blue-600 rounded-xl flex items-center justify-center">
+              <TestTubeDiagonal className="h-6 w-6 text-white" />
             </div>
             <div>
               <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Create New Experiment</h2>
@@ -374,7 +374,7 @@ export function CreateExperimentModal({ isOpen, onClose, onSave }: CreateExperim
                     <Button 
                       onClick={handleAddSelectedParticipants}
                       size="sm"
-                      className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                      className="w-full bg-gradient-to-r from-blue-500 to-green-600 hover:from-blue-600 hover:to-green-700"
                     >
                       Add {selectedTypes.size} Participant{selectedTypes.size > 1 ? 's' : ''}
                     </Button>
@@ -673,7 +673,7 @@ export function CreateExperimentModal({ isOpen, onClose, onSave }: CreateExperim
             <Button 
               onClick={handleCreate}
               disabled={!formData.name || !formData.startingPrompt || !formData.participants || formData.participants.length < 2}
-              className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700"
+              className="bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700"
             >
               Create Experiment
             </Button>
