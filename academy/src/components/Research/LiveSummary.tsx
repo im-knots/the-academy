@@ -1,8 +1,8 @@
-// src/components/Research/LiveSummary.tsx - Fixed Header and Added Analysis Details + Message Window
+// src/components/Research/LiveSummary.tsx - Updated to use MCP Client instead of Zustand
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useChatStore } from '@/lib/stores/chatStore'
+import { MCPClient } from '@/lib/mcp/client'
 import { useMCP } from '@/hooks/useMCP'
 import { mcpAnalysisHandler } from '@/lib/mcp/analysis-handler'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
@@ -15,6 +15,12 @@ import {
   Save, CheckCircle2, BookmarkPlus, History, Database,
   Layers
 } from 'lucide-react'
+import type { ChatSession } from '@/types/chat'
+
+interface LiveSummaryProps {
+  className?: string
+  sessionId: string // Now required since we don't have global store
+}
 
 interface AnalysisProvider {
   id: 'claude' | 'gpt'
@@ -44,10 +50,6 @@ interface SummaryData {
   messageWindow: number // Track which window size was used
 }
 
-interface LiveSummaryProps {
-  className?: string
-}
-
 const ANALYSIS_PROVIDERS: AnalysisProvider[] = [
   {
     id: 'claude',
@@ -72,10 +74,12 @@ const WINDOW_PRESETS = [
   { size: 100, label: '100', description: 'Full context (100 messages)' }
 ]
 
-export function LiveSummary({ className = '' }: LiveSummaryProps) {
-  const { currentSession, addAnalysisSnapshot } = useChatStore()
+export function LiveSummary({ className = '', sessionId }: LiveSummaryProps) {
+  const mcpClient = useRef(MCPClient.getInstance())
   const mcp = useMCP()
   
+  const [currentSession, setCurrentSession] = useState<ChatSession | null>(null)
+  const [isLoadingSession, setIsLoadingSession] = useState(true)
   const [summary, setSummary] = useState<SummaryData | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [isExpanded, setIsExpanded] = useState(true)
@@ -93,7 +97,49 @@ export function LiveSummary({ className = '' }: LiveSummaryProps) {
   const [analysisCount, setAnalysisCount] = useState(0)
   
   const analysisIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const pollingInterval = useRef<NodeJS.Timeout | null>(null)
   const ANALYSIS_TRIGGER_INTERVAL = 3 // Analyze every 3 new messages
+
+  // Fetch session data from MCP
+  const fetchSessionData = async () => {
+    if (!sessionId) return
+
+    try {
+      const result = await mcpClient.current.callTool('get_session', { sessionId })
+      if (result.success && result.session) {
+        const session = {
+          ...result.session,
+          createdAt: new Date(result.session.createdAt),
+          updatedAt: new Date(result.session.updatedAt)
+        }
+        setCurrentSession(session)
+      }
+    } catch (error) {
+      console.error('Failed to fetch session:', error)
+    } finally {
+      setIsLoadingSession(false)
+    }
+  }
+
+  // Initial load and polling setup
+  useEffect(() => {
+    if (!sessionId) return
+
+    // Initial fetch
+    fetchSessionData()
+
+    // Set up polling for updates (every 2 seconds)
+    pollingInterval.current = setInterval(() => {
+      fetchSessionData()
+    }, 2000)
+
+    return () => {
+      if (pollingInterval.current) {
+        clearInterval(pollingInterval.current)
+        pollingInterval.current = null
+      }
+    }
+  }, [sessionId])
 
   // Subscribe to MCP analysis events for real-time updates
   useEffect(() => {
@@ -101,13 +147,20 @@ export function LiveSummary({ className = '' }: LiveSummaryProps) {
 
     console.log(`📊 LiveSummary: Setting up MCP subscriptions for session ${currentSession.id}`)
 
-    // Initial load of analysis count from both MCP and store
-    const mcpSnapshots = mcpAnalysisHandler.getAnalysisHistory(currentSession.id)
-    const storeSnapshots = currentSession.analysisHistory || []
-    const totalCount = Math.max(mcpSnapshots.length, storeSnapshots.length)
-    
-    setAnalysisCount(totalCount)
-    console.log(`📊 LiveSummary: Initial analysis count = ${totalCount} (MCP: ${mcpSnapshots.length}, Store: ${storeSnapshots.length})`)
+    // Initial load of analysis count
+    const fetchAnalysisCount = async () => {
+      try {
+        const result = await mcpClient.current.getAnalysisHistoryViaMCP(currentSession.id)
+        if (result.success && result.snapshots) {
+          setAnalysisCount(result.snapshots.length)
+          console.log(`📊 LiveSummary: Initial analysis count = ${result.snapshots.length}`)
+        }
+      } catch (error) {
+        console.error('Failed to fetch analysis count:', error)
+      }
+    }
+
+    fetchAnalysisCount()
 
     // Subscribe to MCP analysis updates
     const unsubscribeSaved = mcpAnalysisHandler.subscribe('analysis_snapshot_saved', (data) => {
@@ -156,7 +209,7 @@ export function LiveSummary({ className = '' }: LiveSummaryProps) {
       setLastAnalyzedSessionId(currentSession.id)
       
       // Perform fresh analysis if we have enough messages and no current analysis
-      if (currentSession.messages.length >= 4 && !summary) {
+      if (currentSession.messages && currentSession.messages.length >= 4 && !summary) {
         console.log(`📊 LiveSummary: Performing fresh analysis for session ${currentSession.id}`)
         // Small delay to ensure UI updates
         setTimeout(() => {
@@ -171,7 +224,7 @@ export function LiveSummary({ className = '' }: LiveSummaryProps) {
     if (!currentSession || !mcp.isConnected) return
     if (currentSession.id !== lastAnalyzedSessionId) return // Don't auto-analyze if session just changed
 
-    const messageCount = currentSession.messages.length
+    const messageCount = currentSession.messages?.length || 0
     
     // Trigger analysis if we have enough messages and enough new messages since last analysis
     const shouldAnalyze = 
@@ -197,21 +250,19 @@ export function LiveSummary({ className = '' }: LiveSummaryProps) {
         clearTimeout(analysisIntervalRef.current)
       }
     }
-  }, [currentSession?.messages.length, mcp.isConnected, lastAnalyzedMessageCount, isAnalyzing, lastAnalyzedSessionId])
+  }, [currentSession?.messages?.length, mcp.isConnected, lastAnalyzedMessageCount, isAnalyzing, lastAnalyzedSessionId])
 
-  const buildAnalysisPrompt = (session: any): string => {
-    // Ensure we're using the most current session data
-    const currentSessionData = session || currentSession
-    if (!currentSessionData) {
+  const buildAnalysisPrompt = (session: ChatSession): string => {
+    if (!session) {
       throw new Error('No session data available for analysis')
     }
 
-    console.log(`📊 LiveSummary: Building analysis prompt for session ${currentSessionData.id} with ${currentSessionData.messages.length} messages`)
+    console.log(`📊 LiveSummary: Building analysis prompt for session ${session.id} with ${session.messages?.length || 0} messages`)
 
     // Apply message window filtering
-    let messagesToAnalyze = currentSessionData.messages
-    if (messageWindow > 0 && messageWindow < currentSessionData.messages.length) {
-      messagesToAnalyze = currentSessionData.messages.slice(-messageWindow)
+    let messagesToAnalyze = session.messages || []
+    if (messageWindow > 0 && messageWindow < messagesToAnalyze.length) {
+      messagesToAnalyze = messagesToAnalyze.slice(-messageWindow)
       console.log(`📊 LiveSummary: Using message window of ${messageWindow}, analyzing ${messagesToAnalyze.length} recent messages`)
     }
 
@@ -221,7 +272,7 @@ export function LiveSummary({ className = '' }: LiveSummaryProps) {
       )
       .join('\n\n')
 
-    const participantProfiles = currentSessionData.participants
+    const participantProfiles = (session.participants || [])
       .filter((p: any) => p.type !== 'moderator')
       .map((p: any) => 
         `${p.name} (${p.type}): ${p.characteristics?.personality || 'Standard AI'}`
@@ -229,17 +280,17 @@ export function LiveSummary({ className = '' }: LiveSummaryProps) {
       .join('\n')
 
     const windowInfo = messageWindow > 0 
-      ? `\nAnalysis Window: Last ${messageWindow} messages (out of ${currentSessionData.messages.length} total)`
-      : `\nAnalysis Window: Complete conversation (${currentSessionData.messages.length} messages)`
+      ? `\nAnalysis Window: Last ${messageWindow} messages (out of ${session.messages?.length || 0} total)`
+      : `\nAnalysis Window: Complete conversation (${session.messages?.length || 0} messages)`
 
-    console.log(`📊 LiveSummary: Analysis will cover ${messagesToAnalyze.length} messages from ${currentSessionData.participants.length} participants`)
+    console.log(`📊 LiveSummary: Analysis will cover ${messagesToAnalyze.length} messages from ${session.participants?.length || 0} participants`)
 
     return `You are a research assistant analyzing an AI-to-AI philosophical dialogue. Please provide a comprehensive analysis of this conversation.
 
 **Session Context:**
-Title: ${currentSessionData.name}
-Description: ${currentSessionData.description || 'AI consciousness research dialogue'}
-Session ID: ${currentSessionData.id}
+Title: ${session.name}
+Description: ${session.description || 'AI consciousness research dialogue'}
+Session ID: ${session.id}
 Message Count: ${messagesToAnalyze.length}${windowInfo}
 
 **Participants:**
@@ -287,25 +338,17 @@ Return only the JSON object, no additional text.`
       setIsAnalyzing(true)
       setError(null)
       
-      // Get fresh session data from store to ensure we have the latest
-      const store = useChatStore.getState()
-      const freshSession = store.currentSession || currentSession
-      
-      if (!freshSession || freshSession.messages.length < 4) {
-        console.log(`📊 LiveSummary: Insufficient messages for analysis (${freshSession?.messages.length || 0})`)
+      if (!currentSession.messages || currentSession.messages.length < 4) {
+        console.log(`📊 LiveSummary: Insufficient messages for analysis (${currentSession.messages?.length || 0})`)
         setIsAnalyzing(false)
         return
       }
       
-      console.log(`🧠 LiveSummary: Performing AI analysis for session ${freshSession.id} with ${selectedProvider}`)
-      console.log(`📊 LiveSummary: Analyzing ${freshSession.messages.length} messages from ${freshSession.participants.length} participants`)
+      console.log(`🧠 LiveSummary: Performing AI analysis for session ${currentSession.id} with ${selectedProvider}`)
+      console.log(`📊 LiveSummary: Analyzing ${currentSession.messages.length} messages from ${currentSession.participants?.length || 0} participants`)
       
-      // Log recent messages for debugging
-      const recentMessages = freshSession.messages.slice(-3)
-      console.log(`📊 LiveSummary: Recent messages:`, recentMessages.map(m => `${m.participantName}: ${m.content.substring(0, 50)}...`))
-      
-      // Build analysis prompt with fresh session data
-      const analysisPrompt = buildAnalysisPrompt(freshSession)
+      // Build analysis prompt
+      const analysisPrompt = buildAnalysisPrompt(currentSession)
       
       // Use MCP to call the selected AI provider directly
       const toolName = selectedProvider === 'claude' ? 'claude_chat' : 'openai_chat'
@@ -357,15 +400,15 @@ Return only the JSON object, no additional text.`
             nextLikelyDirections: analysisData.nextLikelyDirections || [],
             philosophicalDepth: analysisData.philosophicalDepth || 'moderate',
             lastUpdated: new Date(),
-            messageCount: freshSession.messages.length,
+            messageCount: currentSession.messages.length,
             analysisProvider: selectedProvider,
             messageWindow: messageWindow
           }
           
           setSummary(summaryData)
-          setLastAnalyzedMessageCount(freshSession.messages.length)
-          setLastAnalyzedSessionId(freshSession.id) // Track which session we analyzed
-          console.log(`✅ LiveSummary: AI analysis completed for session ${freshSession.id} with ${selectedProvider}`)
+          setLastAnalyzedMessageCount(currentSession.messages.length)
+          setLastAnalyzedSessionId(currentSession.id)
+          console.log(`✅ LiveSummary: AI analysis completed for session ${currentSession.id} with ${selectedProvider}`)
 
           // Auto-save if requested
           if (autoSave) {
@@ -401,22 +444,22 @@ Return only the JSON object, no additional text.`
       console.log(`💾 LiveSummary: Saving analysis snapshot for session ${currentSession.id}`)
 
       // Count moderator interventions
-      const moderatorInterventions = currentSession.messages.filter(
+      const moderatorInterventions = (currentSession.messages || []).filter(
         msg => msg.participantType === 'moderator'
       ).length
 
       // Get active participants
-      const activeParticipants = currentSession.participants
+      const activeParticipants = (currentSession.participants || [])
         .filter(p => p.status === 'active' || p.status === 'thinking')
         .map(p => p.name)
 
-      // Prepare analysis data for both MCP handler AND chat store
+      // Prepare analysis data
       const analysisSnapshotData = {
         messageCountAtAnalysis: dataToSave.messageCount,
-        participantCountAtAnalysis: currentSession.participants.length,
+        participantCountAtAnalysis: currentSession.participants?.length || 0,
         provider: selectedProvider,
         conversationPhase: dataToSave.conversationPhase,
-        messageWindow: dataToSave.messageWindow, // Include window size in saved data
+        messageWindow: dataToSave.messageWindow,
         analysis: {
           mainTopics: dataToSave.mainTopics,
           keyInsights: dataToSave.keyInsights,
@@ -430,7 +473,7 @@ Return only the JSON object, no additional text.`
           philosophicalDepth: dataToSave.philosophicalDepth
         },
         conversationContext: {
-          recentMessages: Math.min(currentSession.messages.length, 10),
+          recentMessages: Math.min(currentSession.messages?.length || 0, 10),
           activeParticipants,
           sessionStatus: currentSession.status,
           moderatorInterventions
@@ -439,32 +482,25 @@ Return only the JSON object, no additional text.`
 
       console.log('📊 LiveSummary: Analysis data prepared:', analysisSnapshotData)
 
-      // Save to BOTH MCP handler AND chat store for maximum compatibility
+      // Save via MCP
+      const result = await mcpClient.current.saveAnalysisSnapshotViaMCP(
+        currentSession.id,
+        analysisSnapshotData,
+        'full'
+      )
       
-      // 1. Save to MCP analysis handler (for real-time updates and export)
-      const snapshotId = await mcpAnalysisHandler.saveAnalysisSnapshot(currentSession.id, analysisSnapshotData)
-      console.log(`💾 LiveSummary: MCP analysis snapshot saved: ${snapshotId}`)
-      
-      // 2. Save to chat store (for persistence and compatibility)
-      addAnalysisSnapshot(analysisSnapshotData)
-      console.log(`💾 LiveSummary: Chat store analysis snapshot saved`)
-
-      // 3. Also try saving via MCP tool (for completeness)
-      try {
-        if (mcp.isConnected) {
-          await mcp.callTool('save_analysis_snapshot', {
-            sessionId: currentSession.id,
-            ...analysisSnapshotData
-          })
-          console.log(`💾 LiveSummary: MCP tool save also completed`)
-        }
-      } catch (mcpError) {
-        console.warn('⚠️ LiveSummary: MCP tool save failed, but other saves succeeded:', mcpError)
+      if (result.success) {
+        console.log(`💾 LiveSummary: MCP analysis snapshot saved successfully`)
+        
+        // Also save to MCP handler for real-time updates
+        const snapshotId = await mcpAnalysisHandler.saveAnalysisSnapshot(currentSession.id, analysisSnapshotData)
+        console.log(`💾 LiveSummary: MCP handler snapshot saved: ${snapshotId}`)
+        
+        // Update analysis count
+        setAnalysisCount(prev => prev + 1)
+        setLastSaved(new Date())
+        setTimeout(() => setLastSaved(null), 3000)
       }
-
-      // The MCP handler will emit events that will update our UI automatically
-      setLastSaved(new Date())
-      setTimeout(() => setLastSaved(null), 3000)
 
     } catch (error) {
       console.error('❌ LiveSummary: Failed to save analysis snapshot:', error)
@@ -494,7 +530,20 @@ Return only the JSON object, no additional text.`
     return `Last ${windowSize} of ${totalMessages} messages`
   }
 
-  if (!currentSession || currentSession.messages.length < 4) {
+  if (isLoadingSession) {
+    return (
+      <Card className={`bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-700/50 border-gray-200 dark:border-gray-700 ${className}`}>
+        <CardContent className="text-center py-8">
+          <Loader2 className="h-8 w-8 mx-auto mb-3 animate-spin text-gray-400" />
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            Loading session data...
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (!currentSession || !currentSession.messages || currentSession.messages.length < 4) {
     return (
       <Card className={`bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-700/50 border-gray-200 dark:border-gray-700 ${className}`}>
         <CardHeader className="pb-3">
@@ -704,7 +753,7 @@ Return only the JSON object, no additional text.`
               <div className="p-2 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-700 rounded-lg">
                 <div className="flex items-center gap-2 text-xs text-indigo-800 dark:text-indigo-200">
                   <Layers className="h-3 w-3" />
-                  <span>Analyzing: {getWindowDescription(summary.messageWindow, currentSession.messages.length)}</span>
+                  <span>Analyzing: {getWindowDescription(summary.messageWindow, currentSession.messages?.length || 0)}</span>
                 </div>
               </div>
 

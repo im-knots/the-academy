@@ -1,8 +1,8 @@
-// src/components/Export/ExportModal.tsx - Fixed TypeScript Errors
+// src/components/Export/ExportModal.tsx - Updated to use MCP Client instead of Zustand
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
-import { useChatStore } from '@/lib/stores/chatStore'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { MCPClient } from '@/lib/mcp/client'
 import { mcpAnalysisHandler } from '@/lib/mcp/analysis-handler'
 import { ExportManager, ExportOptions } from '@/lib/utils/export'
 import { Button } from '@/components/ui/Button'
@@ -13,14 +13,19 @@ import {
   MessageSquare, Users, Clock, CheckCircle2, FileDown,
   Copy, Check, Brain, History, TrendingUp, Zap, AlertTriangle
 } from 'lucide-react'
+import type { ChatSession, APIError } from '@/types/chat'
 
 interface ExportModalProps {
   isOpen: boolean
   onClose: () => void
+  sessionId?: string // Now passed as prop since we don't have global store
 }
 
-export function ExportModal({ isOpen, onClose }: ExportModalProps) {
-  const { currentSession, getSessionErrors, getErrorStats } = useChatStore()
+export function ExportModal({ isOpen, onClose, sessionId }: ExportModalProps) {
+  const mcpClient = useRef(MCPClient.getInstance())
+  const [currentSession, setCurrentSession] = useState<ChatSession | null>(null)
+  const [sessionErrors, setSessionErrors] = useState<APIError[]>([])
+  const [errorStats, setErrorStats] = useState<any>({})
   const [exportOptions, setExportOptions] = useState<ExportOptions>({
     format: 'json',
     includeMetadata: true,
@@ -33,53 +38,102 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
   const [previewContent, setPreviewContent] = useState('')
   const [isExporting, setIsExporting] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   
   // MCP-powered analysis tracking
   const [analysisCount, setAnalysisCount] = useState(0)
   const [analysisTimeline, setAnalysisTimeline] = useState<any[]>([])
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
 
-  // Error tracking
-  const sessionErrors = currentSession ? getSessionErrors(currentSession.id) : []
-  const errorStats = getErrorStats()
+  // Polling interval ref
+  const pollingInterval = useRef<NodeJS.Timeout | null>(null)
 
-  // Subscribe to MCP analysis events for real-time updates
-  useEffect(() => {
-    if (!currentSession || !isOpen) return
+  // Fetch session data from MCP
+  const fetchSessionData = async () => {
+    if (!sessionId) return
 
-    console.log(`📊 ExportModal: Setting up MCP subscriptions for session ${currentSession.id}`)
+    try {
+      // Get current session via MCP
+      const sessionResult = await mcpClient.current.callTool('get_session', { sessionId })
+      if (sessionResult.success && sessionResult.session) {
+        setCurrentSession(sessionResult.session)
+      }
 
-    // Initial load of analysis data
-    const loadAnalysisData = () => {
-      const snapshots = mcpAnalysisHandler.getAnalysisHistory(currentSession.id)
-      const timeline = mcpAnalysisHandler.getAnalysisTimeline(currentSession.id)
+      // Get session errors via MCP
+      const errorsResult = await mcpClient.current.getAPIErrors(sessionId)
+      if (errorsResult.success) {
+        setSessionErrors(errorsResult.errors || [])
+      }
+
+      // Get all errors for stats
+      const allErrorsResult = await mcpClient.current.getAPIErrors()
+      if (allErrorsResult.success) {
+        // Calculate error stats
+        const stats = (allErrorsResult.errors || []).reduce((acc: any, error: APIError) => {
+          acc[error.provider] = (acc[error.provider] || 0) + 1
+          return acc
+        }, {})
+        setErrorStats(stats)
+      }
+
+      setIsLoading(false)
+    } catch (error) {
+      console.error('Failed to fetch session data:', error)
+      setIsLoading(false)
+    }
+  }
+
+  // Fetch analysis data
+  const loadAnalysisData = async () => {
+    if (!sessionId || !isOpen) return
+
+    try {
+      const snapshots = mcpAnalysisHandler.getAnalysisHistory(sessionId)
+      const timeline = mcpAnalysisHandler.getAnalysisTimeline(sessionId)
       
       setAnalysisCount(snapshots.length)
       setAnalysisTimeline(timeline)
       setLastUpdate(new Date())
       
       console.log(`📊 ExportModal: Loaded ${snapshots.length} analysis snapshots and ${timeline.length} timeline entries`)
+    } catch (error) {
+      console.error('Failed to load analysis data:', error)
     }
+  }
 
+  // Initial data load and polling setup
+  useEffect(() => {
+    if (!isOpen || !sessionId) return
+
+    console.log(`📊 ExportModal: Setting up data fetching for session ${sessionId}`)
+
+    // Initial fetch
+    fetchSessionData()
     loadAnalysisData()
 
-    // Subscribe to real-time updates
+    // Set up polling for updates (every 2 seconds)
+    pollingInterval.current = setInterval(() => {
+      fetchSessionData()
+      loadAnalysisData()
+    }, 2000)
+
+    // Subscribe to MCP analysis events for real-time updates
     const unsubscribeSaved = mcpAnalysisHandler.subscribe('analysis_snapshot_saved', (data) => {
-      if (data.sessionId === currentSession.id) {
+      if (data.sessionId === sessionId) {
         console.log(`📊 ExportModal: Analysis snapshot saved event received. New count: ${data.totalSnapshots}`)
-        loadAnalysisData() // Reload all data
+        loadAnalysisData()
       }
     })
 
     const unsubscribeUpdated = mcpAnalysisHandler.subscribe('analysis_history_updated', (data) => {
-      if (data.sessionId === currentSession.id) {
+      if (data.sessionId === sessionId) {
         console.log(`📊 ExportModal: Analysis history updated event received. New count: ${data.count}`)
-        loadAnalysisData() // Reload all data
+        loadAnalysisData()
       }
     })
 
     const unsubscribeCleared = mcpAnalysisHandler.subscribe('analysis_history_cleared', (data) => {
-      if (data.sessionId === currentSession.id) {
+      if (data.sessionId === sessionId) {
         console.log(`📊 ExportModal: Analysis history cleared event received`)
         setAnalysisCount(0)
         setAnalysisTimeline([])
@@ -88,19 +142,23 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
     })
 
     return () => {
-      console.log(`📊 ExportModal: Cleaning up MCP subscriptions`)
+      console.log(`📊 ExportModal: Cleaning up polling and subscriptions`)
+      if (pollingInterval.current) {
+        clearInterval(pollingInterval.current)
+        pollingInterval.current = null
+      }
       unsubscribeSaved()
       unsubscribeUpdated()
       unsubscribeCleared()
     }
-  }, [currentSession?.id, isOpen])
+  }, [sessionId, isOpen])
 
   // Create enhanced session object with MCP analysis data and errors for export
   const enhancedSession = useMemo(() => {
     if (!currentSession) return null
 
     // Get fresh analysis data from MCP
-    const mcpAnalysisSnapshots = mcpAnalysisHandler.getAnalysisHistory(currentSession.id)
+    const mcpAnalysisSnapshots = mcpAnalysisHandler.getAnalysisHistory(sessionId!)
     
     console.log(`📊 ExportModal: Creating enhanced session with ${mcpAnalysisSnapshots.length} MCP analysis snapshots and ${sessionErrors.length} errors`)
 
@@ -116,7 +174,7 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
         exportEnhanced: true
       }
     }
-  }, [currentSession, analysisCount, lastUpdate, sessionErrors])
+  }, [currentSession, analysisCount, lastUpdate, sessionErrors, sessionId])
 
   // Generate analysis timeline with MCP data
   const mcpAnalysisTimeline = useMemo(() => {
@@ -140,7 +198,7 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
       console.log(`   - Last Update: ${lastUpdate}`)
       console.log(`   - Enhanced Session Analysis Count: ${enhancedSession?.analysisHistory?.length || 0}`)
     }
-  }, [isOpen, currentSession, analysisCount, analysisTimeline.length, sessionErrors.length, lastUpdate])
+  }, [isOpen, currentSession, analysisCount, analysisTimeline.length, sessionErrors.length, lastUpdate, enhancedSession])
 
   // Update preview when options change - with MCP data, errors, and full content
   useEffect(() => {
@@ -253,7 +311,29 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
     setExportOptions(prev => ({ ...prev, [key]: value }))
   }
 
-  if (!isOpen || !currentSession) return null
+  if (!isOpen || !sessionId) return null
+
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8">
+          <div className="animate-spin h-8 w-8 border-2 border-emerald-500 border-t-transparent rounded-full mx-auto" />
+          <p className="text-gray-600 dark:text-gray-400 mt-4">Loading session data...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!currentSession) {
+    return (
+      <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8">
+          <p className="text-red-600 dark:text-red-400">Failed to load session data</p>
+          <Button className="mt-4" onClick={onClose}>Close</Button>
+        </div>
+      </div>
+    )
+  }
 
   const estimatedFileSize = currentSession.messages.reduce((size, msg) => 
     size + msg.content.length + msg.participantName.length + 100, 0
@@ -352,7 +432,7 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
                       <div className="flex items-center gap-2">
                         <Clock className="h-4 w-4 text-green-500" />
                         <span className="font-medium text-gray-900 dark:text-gray-100">
-                          {Math.round((currentSession.updatedAt.getTime() - currentSession.createdAt.getTime()) / (1000 * 60))} min
+                          {Math.round((new Date(currentSession.updatedAt).getTime() - new Date(currentSession.createdAt).getTime()) / (1000 * 60))} min
                         </span>
                       </div>
                     </div>

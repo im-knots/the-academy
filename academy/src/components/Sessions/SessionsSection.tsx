@@ -1,16 +1,22 @@
-// src/components/Sessions/SessionsSection.tsx
+// src/components/Sessions/SessionsSection.tsx - Updated to use MCP Client instead of Zustand
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { useChatStore } from '@/lib/stores/chatStore'
+import { MCPClient } from '@/lib/mcp/client'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { 
   Plus, MoreVertical, Edit3, Trash2, Copy, MessageSquare, 
   Users, Clock, Sparkles, Brain, BookOpen, Search,
-  ChevronDown, Star, Archive, Coffee, Zap
+  ChevronDown, Star, Archive, Coffee, Zap, Loader2
 } from 'lucide-react'
 import { DeleteConfirmationModal } from './DeleteConfirmationModal'
+import type { ChatSession } from '@/types/chat'
+
+interface SessionsSectionProps {
+  currentSessionId?: string | null
+  onSessionChange?: (sessionId: string) => void
+}
 
 const SESSION_TEMPLATES = [
   {
@@ -215,15 +221,13 @@ const SESSION_TEMPLATES = [
   }
 ]
 
-export function SessionsSection() {
-  const { 
-    currentSession, 
-    sessions, 
-    createSession, 
-    setCurrentSession, 
-    deleteSession,
-    updateSession
-  } = useChatStore()
+export function SessionsSection({ currentSessionId, onSessionChange }: SessionsSectionProps) {
+  const mcpClient = useRef(MCPClient.getInstance())
+  const [sessions, setSessions] = useState<ChatSession[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [isCreating, setIsCreating] = useState(false)
+  const [isUpdating, setIsUpdating] = useState(false)
+  const pollingInterval = useRef<NodeJS.Timeout | null>(null)
   
   const [showCreateMenu, setShowCreateMenu] = useState(false)
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
@@ -243,6 +247,41 @@ export function SessionsSection() {
   const dropdownRef = useRef<HTMLDivElement>(null)
   const createMenuRef = useRef<HTMLDivElement>(null)
 
+  // Fetch sessions from MCP
+  const fetchSessions = async () => {
+    try {
+      const result = await mcpClient.current.callTool('list_sessions', {})
+      if (result.success && result.sessions) {
+        setSessions(result.sessions.map((s: any) => ({
+          ...s,
+          createdAt: new Date(s.createdAt),
+          updatedAt: new Date(s.updatedAt)
+        })))
+      }
+    } catch (error) {
+      console.error('Failed to fetch sessions:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Initial load and polling setup
+  useEffect(() => {
+    fetchSessions()
+
+    // Set up polling for updates (every 3 seconds)
+    pollingInterval.current = setInterval(() => {
+      fetchSessions()
+    }, 3000)
+
+    return () => {
+      if (pollingInterval.current) {
+        clearInterval(pollingInterval.current)
+        pollingInterval.current = null
+      }
+    }
+  }, [])
+
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -257,46 +296,98 @@ export function SessionsSection() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const handleCreateFromTemplate = (template: any) => {
-    const sessionId = createSession(template.name, template.description, {
-      initialPrompt: template.prompt,
-      template: template.id
-    }, template.participants) // Pass participants from template
-    
-    setShowCreateMenu(false)
-    
-    // Auto-fill the moderator input with the template prompt
-    if (template.prompt) {
-      // This could be handled by passing the prompt to the parent component
-      // For now, the prompt is stored in the session metadata
+  const handleCreateFromTemplate = async (template: any) => {
+    try {
+      setIsCreating(true)
+      const result = await mcpClient.current.createSessionViaMCP(
+        template.name, 
+        template.description,
+        template.id,
+        template.participants
+      )
+      
+      if (result.success && result.sessionId) {
+        setShowCreateMenu(false)
+        if (onSessionChange) {
+          onSessionChange(result.sessionId)
+        }
+        
+        // Store the template prompt in session metadata if needed
+        if (template.prompt) {
+          await mcpClient.current.updateSessionViaMCP(
+            result.sessionId,
+            undefined,
+            undefined,
+            { initialPrompt: template.prompt }
+          )
+        }
+        
+        // Refresh sessions list
+        await fetchSessions()
+      }
+    } catch (error) {
+      console.error('Failed to create session from template:', error)
+      alert('Failed to create session. Please try again.')
+    } finally {
+      setIsCreating(false)
     }
   }
 
-  const handleCreateBlankSession = () => {
-    const sessionNumber = sessions.length + 1
-    createSession(
-      `Session ${sessionNumber}`,
-      "New research dialogue",
-      { template: 'blank' }
-    )
-    setShowCreateMenu(false)
+  const handleCreateBlankSession = async () => {
+    try {
+      setIsCreating(true)
+      const sessionNumber = sessions.length + 1
+      const result = await mcpClient.current.createSessionViaMCP(
+        `Session ${sessionNumber}`,
+        "New research dialogue",
+        'blank'
+      )
+      
+      if (result.success && result.sessionId) {
+        setShowCreateMenu(false)
+        if (onSessionChange) {
+          onSessionChange(result.sessionId)
+        }
+        await fetchSessions()
+      }
+    } catch (error) {
+      console.error('Failed to create blank session:', error)
+      alert('Failed to create session. Please try again.')
+    } finally {
+      setIsCreating(false)
+    }
   }
 
-  const handleSessionClick = (session: any) => {
+  const handleSessionClick = async (session: ChatSession) => {
     if (editingSessionId === session.id) return
-    setCurrentSession(session)
+    
+    if (onSessionChange) {
+      onSessionChange(session.id)
+    }
   }
 
-  const handleStartEdit = (session: any, e: React.MouseEvent) => {
+  const handleStartEdit = (session: ChatSession, e: React.MouseEvent) => {
     e.stopPropagation()
     setEditingSessionId(session.id)
     setEditingName(session.name)
     setSelectedSessionId(null)
   }
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (editingSessionId && editingName.trim()) {
-      updateSession(editingSessionId, { name: editingName.trim() })
+      try {
+        setIsUpdating(true)
+        await mcpClient.current.updateSessionViaMCP(
+          editingSessionId,
+          editingName.trim()
+        )
+        await fetchSessions()
+      } catch (error) {
+        console.error('Failed to update session:', error)
+        alert('Failed to update session name.')
+      } finally {
+        setIsUpdating(false)
+      }
     }
     setEditingSessionId(null)
     setEditingName('')
@@ -321,9 +412,24 @@ export function SessionsSection() {
     setSelectedSessionId(null)
   }
 
-  const confirmDeleteSession = () => {
+  const confirmDeleteSession = async () => {
     if (deleteModal.sessionId) {
-      deleteSession(deleteModal.sessionId)
+      try {
+        await mcpClient.current.deleteSessionViaMCP(deleteModal.sessionId)
+        
+        // If deleting current session, notify parent
+        if (deleteModal.sessionId === currentSessionId && onSessionChange) {
+          const remainingSessions = sessions.filter(s => s.id !== deleteModal.sessionId)
+          if (remainingSessions.length > 0) {
+            onSessionChange(remainingSessions[0].id)
+          }
+        }
+        
+        await fetchSessions()
+      } catch (error) {
+        console.error('Failed to delete session:', error)
+        alert('Failed to delete session. Please try again.')
+      }
     }
     setDeleteModal({
       isOpen: false,
@@ -332,22 +438,26 @@ export function SessionsSection() {
     })
   }
 
-  const handleDuplicateSession = (session: any, e: React.MouseEvent) => {
+  const handleDuplicateSession = async (session: ChatSession, e: React.MouseEvent) => {
     e.stopPropagation()
-    createSession(
-      `${session.name} (Copy)`,
-      session.description,
-      { 
-        template: 'duplicate',
-        participants: session.participants.map((p: any) => ({ 
-          ...p, 
-          id: undefined, 
-          joinedAt: undefined, 
-          messageCount: 0 
-        }))
+    try {
+      setIsCreating(true)
+      const result = await mcpClient.current.duplicateSessionViaMCP(
+        session.id,
+        `${session.name} (Copy)`,
+        false // Don't include messages
+      )
+      
+      if (result.success) {
+        await fetchSessions()
       }
-    )
-    setSelectedSessionId(null)
+    } catch (error) {
+      console.error('Failed to duplicate session:', error)
+      alert('Failed to duplicate session. Please try again.')
+    } finally {
+      setIsCreating(false)
+      setSelectedSessionId(null)
+    }
   }
 
   const filteredSessions = sessions.filter(session =>
@@ -379,6 +489,14 @@ export function SessionsSection() {
     }
   }
 
+  if (isLoading) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+      </div>
+    )
+  }
+
   return (
     <div className="flex-1 flex flex-col">
       {/* Header */}
@@ -392,9 +510,14 @@ export function SessionsSection() {
               variant="ghost"
               size="sm"
               onClick={() => setShowCreateMenu(!showCreateMenu)}
+              disabled={isCreating}
               className="h-8 px-3 rounded-full bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/20 dark:hover:bg-blue-800/30 text-blue-700 dark:text-blue-300"
             >
-              <Plus className="h-4 w-4 mr-1" />
+              {isCreating ? (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4 mr-1" />
+              )}
               New
               <ChevronDown className={`h-3 w-3 ml-1 transition-transform ${showCreateMenu ? 'rotate-180' : ''}`} />
             </Button>
@@ -410,7 +533,8 @@ export function SessionsSection() {
                 <div className="mb-3">
                   <button
                     onClick={handleCreateBlankSession}
-                    className="w-full text-left p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group border-2 border-dashed border-gray-200 dark:border-gray-600"
+                    disabled={isCreating}
+                    className="w-full text-left p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group border-2 border-dashed border-gray-200 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
@@ -438,7 +562,8 @@ export function SessionsSection() {
                         <button
                           key={template.id}
                           onClick={() => handleCreateFromTemplate(template)}
-                          className="w-full text-left p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group"
+                          disabled={isCreating}
+                          className="w-full text-left p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <div className="flex items-start gap-3">
                             <div className={`w-8 h-8 bg-gradient-to-r ${template.color} rounded-lg flex items-center justify-center flex-shrink-0`}>
@@ -495,7 +620,7 @@ export function SessionsSection() {
         ) : (
           <div className="space-y-1">
             {filteredSessions.map((session) => {
-              const isActive = currentSession?.id === session.id
+              const isActive = currentSessionId === session.id
               const isEditing = editingSessionId === session.id
               
               return (
@@ -517,7 +642,8 @@ export function SessionsSection() {
                             onChange={(e) => setEditingName(e.target.value)}
                             onBlur={handleSaveEdit}
                             onKeyDown={handleKeyPress}
-                            className="w-full px-2 py-1 text-sm font-medium bg-white dark:bg-gray-700 border border-blue-500 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            disabled={isUpdating}
+                            className="w-full px-2 py-1 text-sm font-medium bg-white dark:bg-gray-700 border border-blue-500 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
                             autoFocus
                             onClick={(e) => e.stopPropagation()}
                           />
@@ -533,13 +659,13 @@ export function SessionsSection() {
                           <div className="flex items-center gap-1">
                             <MessageSquare className="h-3 w-3 text-gray-400" />
                             <span className="text-xs text-gray-500 dark:text-gray-400">
-                              {session.messages.length}
+                              {session.messages?.length || 0}
                             </span>
                           </div>
                           <div className="flex items-center gap-1">
                             <Users className="h-3 w-3 text-gray-400" />
                             <span className="text-xs text-gray-500 dark:text-gray-400">
-                              {session.participants.length}
+                              {session.participants?.length || 0}
                             </span>
                           </div>
                           <div className={`text-xs ${getStatusColor(session.status)}`}>

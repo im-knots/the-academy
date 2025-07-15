@@ -1,9 +1,9 @@
-// src/components/MCP/MCPModal.tsx
+// src/components/MCP/MCPModal.tsx - Updated to use MCP Client instead of Zustand
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useMCP, useSessionMCP } from '@/hooks/useMCP'
-import { useChatStore } from '@/lib/stores/chatStore'
+import { MCPClient } from '@/lib/mcp/client'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
@@ -14,10 +14,12 @@ import {
   BookOpen, Play, Pause, Square, Send, FileDown, Settings,
   Monitor, Wifi, WifiOff, Server, Code, Cpu
 } from 'lucide-react'
+import type { ChatSession } from '@/types/chat'
 
 interface MCPModalProps {
   isOpen: boolean
   onClose: () => void
+  sessionId?: string // Now passed as prop since we don't have global store
 }
 
 interface PromptArgument {
@@ -33,7 +35,7 @@ interface MCPPrompt {
   arguments?: PromptArgument[]
 }
 
-export function MCPModal({ isOpen, onClose }: MCPModalProps) {
+export function MCPModal({ isOpen, onClose, sessionId }: MCPModalProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'resources' | 'tools' | 'prompts' | 'analysis' | 'control'>('overview')
   const [selectedResource, setSelectedResource] = useState<string | null>(null)
   const [resourceContent, setResourceContent] = useState<any>(null)
@@ -44,10 +46,58 @@ export function MCPModal({ isOpen, onClose }: MCPModalProps) {
   const [toolArgs, setToolArgs] = useState<string>('')
   const [toolResult, setToolResult] = useState<any>(null)
   const [isExecutingTool, setIsExecutingTool] = useState(false)
+  
+  // New state for session data
+  const [currentSession, setCurrentSession] = useState<ChatSession | null>(null)
+  const [isLoadingSession, setIsLoadingSession] = useState(false)
+  
+  // MCP client ref
+  const mcpClient = useRef(MCPClient.getInstance())
+  
+  // Polling interval ref
+  const pollingInterval = useRef<NodeJS.Timeout | null>(null)
 
   const mcp = useMCP()
   const sessionMCP = useSessionMCP()
-  const { currentSession } = useChatStore()
+
+  // Fetch session data from MCP
+  const fetchSessionData = async () => {
+    if (!sessionId) {
+      setCurrentSession(null)
+      return
+    }
+
+    try {
+      const sessionResult = await mcpClient.current.callTool('get_session', { sessionId })
+      if (sessionResult.success && sessionResult.session) {
+        setCurrentSession(sessionResult.session)
+      }
+    } catch (error) {
+      console.error('Failed to fetch session data:', error)
+      setCurrentSession(null)
+    }
+  }
+
+  // Initial load and polling setup
+  useEffect(() => {
+    if (!isOpen) return
+
+    // Initial fetch
+    setIsLoadingSession(true)
+    fetchSessionData().finally(() => setIsLoadingSession(false))
+
+    // Set up polling for updates (every 2 seconds)
+    pollingInterval.current = setInterval(() => {
+      fetchSessionData()
+    }, 2000)
+
+    return () => {
+      if (pollingInterval.current) {
+        clearInterval(pollingInterval.current)
+        pollingInterval.current = null
+      }
+    }
+  }, [sessionId, isOpen])
 
   // Load analysis when switching to analysis tab
   useEffect(() => {
@@ -683,7 +733,7 @@ export function MCPModal({ isOpen, onClose }: MCPModalProps) {
                     <CardContent className="text-center py-12">
                       <Brain className="h-12 w-12 mx-auto mb-4 text-gray-400" />
                       <p className="text-gray-500 dark:text-gray-400">
-                        No active session to analyze
+                        {isLoadingSession ? 'Loading session...' : 'No active session to analyze'}
                       </p>
                     </CardContent>
                   </Card>

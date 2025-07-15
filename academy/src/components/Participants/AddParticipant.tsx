@@ -1,18 +1,20 @@
-// src/components/Participants/AddParticipant.tsx
+// src/components/Participants/AddParticipant.tsx - Updated to use MCP Client instead of Zustand
 'use client'
 
-import { useState } from 'react'
-import { useChatStore } from '@/lib/stores/chatStore'
+import { useState, useEffect, useRef } from 'react'
+import { MCPClient } from '@/lib/mcp/client'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { ParticipantAvatar } from '@/components/ui/ParticipantAvatar'
-import { X, Plus, Brain, MessageSquare, User, Sparkles, Settings } from 'lucide-react'
-import { Participant } from '@/types/chat'
+import { X, Plus, Brain, MessageSquare, User, Sparkles, Settings, Loader2 } from 'lucide-react'
+import { Participant, ChatSession } from '@/types/chat'
 
 interface AddParticipantProps {
   isOpen: boolean
   onClose: () => void
+  sessionId: string // Now required since we don't have global store
+  onParticipantAdded?: () => void // Callback to refresh parent component
 }
 
 const typeNames: Record<string, string> = {
@@ -26,8 +28,11 @@ const typeNames: Record<string, string> = {
   cohere: 'Cohere'
 }
 
-export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
-  const { addParticipant, currentSession } = useChatStore()
+export function AddParticipant({ isOpen, onClose, sessionId, onParticipantAdded }: AddParticipantProps) {
+  const mcpClient = useRef(MCPClient.getInstance())
+  const [currentSession, setCurrentSession] = useState<ChatSession | null>(null)
+  const [isLoadingSession, setIsLoadingSession] = useState(true)
+  const [isAddingParticipant, setIsAddingParticipant] = useState(false)
   const [selectedType, setSelectedType] = useState<'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama' | 'deepseek' | 'mistral' | 'cohere' | null>(null)
   const [name, setName] = useState('')
   const [customSettings, setCustomSettings] = useState({
@@ -175,45 +180,85 @@ export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
     }
   ]
 
-  const handleAdd = () => {
-    if (!selectedType) return
+  // Fetch session data
+  useEffect(() => {
+    if (!isOpen) return
 
-    const participantName = name.trim() || 
-      `${typeNames[selectedType] || 'AI Agent'} ${(currentSession?.participants.length || 0) + 1}`
-
-    const newParticipant: Omit<Participant, 'id' | 'joinedAt' | 'messageCount'> = {
-      name: participantName,
-      type: selectedType,
-      status: 'idle',
-      settings: {
-        temperature: customSettings.temperature,
-        maxTokens: customSettings.maxTokens,
-        model: customSettings.model || modelOptions[selectedType]?.[0]?.value,
-        ollamaUrl: selectedType === 'ollama' ? customSettings.ollamaUrl : undefined, // New
-      },
-      characteristics: {
-        personality: customSettings.personality || 'Curious and thoughtful',
-        expertise: customSettings.expertise ? 
-          customSettings.expertise.split(',').map(e => e.trim()) : 
-          ['General knowledge']
+    const fetchSession = async () => {
+      try {
+        setIsLoadingSession(true)
+        const result = await mcpClient.current.callTool('get_session', { sessionId })
+        if (result.success && result.session) {
+          setCurrentSession(result.session)
+        }
+      } catch (error) {
+        console.error('Failed to fetch session:', error)
+      } finally {
+        setIsLoadingSession(false)
       }
     }
 
-    addParticipant(newParticipant)
-    
-    // Reset form
-    setSelectedType(null)
-    setName('')
-    setCustomSettings({
-      temperature: 0.7,
-      maxTokens: 1000,
-      model: '',
-      personality: '',
-      expertise: '',
-      ollamaUrl: 'http://localhost:11434'
-    })
-    
-    onClose()
+    fetchSession()
+  }, [isOpen, sessionId])
+
+  const handleAdd = async () => {
+    if (!selectedType || !sessionId) return
+
+    const participantName = name.trim() || 
+      `${typeNames[selectedType] || 'AI Agent'} ${(currentSession?.participants?.length || 0) + 1}`
+
+    try {
+      setIsAddingParticipant(true)
+
+      // Call MCP to add participant
+      const result = await mcpClient.current.addParticipantViaMCP(
+        sessionId,
+        participantName,
+        selectedType,
+        selectedType, // provider
+        customSettings.model || modelOptions[selectedType]?.[0]?.value,
+        {
+          temperature: customSettings.temperature,
+          maxTokens: customSettings.maxTokens,
+          model: customSettings.model || modelOptions[selectedType]?.[0]?.value,
+          ollamaUrl: selectedType === 'ollama' ? customSettings.ollamaUrl : undefined,
+        },
+        {
+          personality: customSettings.personality || 'Curious and thoughtful',
+          expertise: customSettings.expertise ? 
+            customSettings.expertise.split(',').map(e => e.trim()) : 
+            ['General knowledge']
+        }
+      )
+
+      if (result.success) {
+        // Reset form
+        setSelectedType(null)
+        setName('')
+        setCustomSettings({
+          temperature: 0.7,
+          maxTokens: 1000,
+          model: '',
+          personality: '',
+          expertise: '',
+          ollamaUrl: 'http://localhost:11434'
+        })
+        
+        // Notify parent to refresh
+        if (onParticipantAdded) {
+          onParticipantAdded()
+        }
+        
+        onClose()
+      } else {
+        throw new Error(result.error || 'Failed to add participant')
+      }
+    } catch (error) {
+      console.error('Failed to add participant:', error)
+      alert('Failed to add participant. Please try again.')
+    } finally {
+      setIsAddingParticipant(false)
+    }
   }
 
   if (!isOpen) return null
@@ -234,193 +279,209 @@ export function AddParticipant({ isOpen, onClose }: AddParticipantProps) {
 
         {/* Content - Scrollable */}
         <div className="overflow-y-auto max-h-[calc(90vh-140px)]">
-          <div className="p-6 space-y-6">
-            {/* Type Selection */}
-            <div>
-              <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
-                Participant Type
-              </label>
-              <div className="grid grid-cols-1 gap-3">
-                {participantTypes.map((type) => {
-                  const isSelected = selectedType === type.type
-                  
-                  return (
-                    <button
-                      key={type.type}
-                      onClick={() => setSelectedType(type.type)}
-                      className={`p-4 rounded-xl border-2 transition-all text-left ${
-                        isSelected
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                      }`}
-                    >
-                      <div className="flex items-center gap-4">
-                        <ParticipantAvatar 
-                          participantType={type.type} 
-                          size="lg"
-                          className="flex-shrink-0"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-medium text-gray-900 dark:text-gray-100">{type.name}</h3>
-                            <Badge variant={type.badge as any} className="text-xs">
-                              {type.type.toUpperCase()}
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">{type.description}</p>
-                        </div>
-                        {isSelected && (
-                          <div className="flex-shrink-0">
-                            <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
-                              <div className="w-2 h-2 bg-white rounded-full" />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
+          {isLoadingSession ? (
+            <div className="p-12 text-center">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-gray-400" />
+              <p className="text-gray-500 dark:text-gray-400">Loading session data...</p>
             </div>
-
-            {/* Configuration - Only show when type is selected */}
-            {selectedType && (
-              <div className="space-y-4 animate-in slide-in-from-top-2 duration-200">
-                {/* Name Input */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                    Name (optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder={`${typeNames[selectedType] || 'AI Agent'} ${(currentSession?.participants.length || 0) + 1}`}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
+          ) : (
+            <div className="p-6 space-y-6">
+              {/* Type Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
+                  Participant Type
+                </label>
+                <div className="grid grid-cols-1 gap-3">
+                  {participantTypes.map((type) => {
+                    const isSelected = selectedType === type.type
+                    
+                    return (
+                      <button
+                        key={type.type}
+                        onClick={() => setSelectedType(type.type)}
+                        className={`p-4 rounded-xl border-2 transition-all text-left ${
+                          isSelected
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                        }`}
+                      >
+                        <div className="flex items-center gap-4">
+                          <ParticipantAvatar 
+                            participantType={type.type} 
+                            size="lg"
+                            className="flex-shrink-0"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className="font-medium text-gray-900 dark:text-gray-100">{type.name}</h3>
+                              <Badge variant={type.badge as any} className="text-xs">
+                                {type.type.toUpperCase()}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">{type.description}</p>
+                          </div>
+                          {isSelected && (
+                            <div className="flex-shrink-0">
+                              <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                                <div className="w-2 h-2 bg-white rounded-full" />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    )
+                  })}
                 </div>
+              </div>
 
-                {/* AI-specific settings */}
-                <div className="space-y-4">
-                  {/* Model Selection */}
+              {/* Configuration - Only show when type is selected */}
+              {selectedType && (
+                <div className="space-y-4 animate-in slide-in-from-top-2 duration-200">
+                  {/* Name Input */}
                   <div>
                     <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                      Model
+                      Name (optional)
                     </label>
-                    <select
-                      value={customSettings.model || modelOptions[selectedType]?.[0]?.value || ''}
-                      onChange={(e) => setCustomSettings(prev => ({ ...prev, model: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      {modelOptions[selectedType]?.map((model) => (
-                        <option key={model.value} value={model.value}>
-                          {model.label}
-                        </option>
-                      ))}
-                    </select>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder={`${typeNames[selectedType] || 'AI Agent'} ${(currentSession?.participants?.length || 0) + 1}`}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
                   </div>
-                  {selectedType === 'ollama' && (
+
+                  {/* AI-specific settings */}
+                  <div className="space-y-4">
+                    {/* Model Selection */}
                     <div>
                       <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                        Ollama Server URL
+                        Model
+                      </label>
+                      <select
+                        value={customSettings.model || modelOptions[selectedType]?.[0]?.value || ''}
+                        onChange={(e) => setCustomSettings(prev => ({ ...prev, model: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        {modelOptions[selectedType]?.map((model) => (
+                          <option key={model.value} value={model.value}>
+                            {model.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {selectedType === 'ollama' && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+                          Ollama Server URL
+                        </label>
+                        <input
+                          type="text"
+                          value={customSettings.ollamaUrl}
+                          onChange={(e) => setCustomSettings(prev => ({ ...prev, ollamaUrl: e.target.value }))}
+                          placeholder="http://localhost:11434"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          URL of your local Ollama server
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Temperature and Tokens */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+                          Temperature
+                        </label>
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.1"
+                          value={customSettings.temperature}
+                          onChange={(e) => setCustomSettings(prev => ({ ...prev, temperature: parseFloat(e.target.value) }))}
+                          className="w-full"
+                        />
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          {customSettings.temperature} (creativity)
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+                          Max Tokens
+                        </label>
+                        <input
+                          type="range"
+                          min="0"
+                          max="3"
+                          step="1"
+                          value={tokenSteps.indexOf(customSettings.maxTokens)}
+                          onChange={(e) => setCustomSettings(prev => ({ ...prev, maxTokens: tokenSteps[parseInt(e.target.value)] }))}
+                          className="w-full"
+                        />
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          {customSettings.maxTokens} tokens
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Characteristics */}
+                  <div className="grid grid-cols-1 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+                        Personality (optional)
                       </label>
                       <input
                         type="text"
-                        value={customSettings.ollamaUrl}
-                        onChange={(e) => setCustomSettings(prev => ({ ...prev, ollamaUrl: e.target.value }))}
-                        placeholder="http://localhost:11434"
+                        value={customSettings.personality}
+                        onChange={(e) => setCustomSettings(prev => ({ ...prev, personality: e.target.value }))}
+                        placeholder="e.g., Curious and analytical, Empathetic and philosophical"
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
-                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        URL of your local Ollama server
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Temperature and Tokens */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                        Temperature
-                      </label>
-                      <input
-                        type="range"
-                        min="0"
-                        max="1"
-                        step="0.1"
-                        value={customSettings.temperature}
-                        onChange={(e) => setCustomSettings(prev => ({ ...prev, temperature: parseFloat(e.target.value) }))}
-                        className="w-full"
-                      />
-                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {customSettings.temperature} (creativity)
-                      </div>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                        Max Tokens
+                        Expertise (optional)
                       </label>
                       <input
-                        type="range"
-                        min="0"
-                        max="3"
-                        step="1"
-                        value={tokenSteps.indexOf(customSettings.maxTokens)}
-                        onChange={(e) => setCustomSettings(prev => ({ ...prev, maxTokens: tokenSteps[parseInt(e.target.value)] }))}
-                        className="w-full"
+                        type="text"
+                        value={customSettings.expertise}
+                        onChange={(e) => setCustomSettings(prev => ({ ...prev, expertise: e.target.value }))}
+                        placeholder="e.g., Philosophy, Science, Psychology"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
-                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {customSettings.maxTokens} tokens
-                      </div>
                     </div>
                   </div>
                 </div>
-                
-                {/* Characteristics */}
-                <div className="grid grid-cols-1 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                      Personality (optional)
-                    </label>
-                    <input
-                      type="text"
-                      value={customSettings.personality}
-                      onChange={(e) => setCustomSettings(prev => ({ ...prev, personality: e.target.value }))}
-                      placeholder="e.g., Curious and analytical, Empathetic and philosophical"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                      Expertise (optional)
-                    </label>
-                    <input
-                      type="text"
-                      value={customSettings.expertise}
-                      onChange={(e) => setCustomSettings(prev => ({ ...prev, expertise: e.target.value }))}
-                      placeholder="e.g., Philosophy, Science, Psychology"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Footer - Fixed */}
         <div className="border-t border-gray-200 dark:border-gray-700 p-6 bg-gray-50 dark:bg-gray-800/50">
           <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={onClose}>
+            <Button variant="outline" onClick={onClose} disabled={isAddingParticipant}>
               Cancel
             </Button>
             <Button 
               onClick={handleAdd}
-              disabled={!selectedType}
+              disabled={!selectedType || isAddingParticipant || isLoadingSession}
               className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
             >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Participant
+              {isAddingParticipant ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Participant
+                </>
+              )}
             </Button>
           </div>
         </div>

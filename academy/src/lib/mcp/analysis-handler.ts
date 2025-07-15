@@ -1,5 +1,4 @@
 // src/lib/mcp/analysis-handler.ts - Universal Analysis Handler (Server & Client Compatible)
-// Remove the 'use client' directive to make this work in both contexts
 
 import { AnalysisSnapshot } from '@/types/chat'
 
