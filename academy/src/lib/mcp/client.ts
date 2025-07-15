@@ -1,6 +1,8 @@
 // src/lib/mcp/client.ts - Fixed with Proper Retry Logic and Error Tracking
 import { JSONRPCRequest, JSONRPCResponse, APIError, RetryConfig } from './types'
 import { useChatStore } from '@/lib/stores/chatStore'
+import { ExperimentConfig } from '@/types/experiment'
+import { MCPConversationManager } from '../ai/mcp-conversation-manager'
 
 export class MCPClient {
   private static instance: MCPClient
@@ -1216,296 +1218,467 @@ export class MCPClient {
   // EXPERIMENT MANAGEMENT METHODS
   // ========================================
 
-  async createExperimentViaMCP(config: any): Promise<any> {
+  async createExperimentViaMCP(config: ExperimentConfig): Promise<any> {
+    // Create experiment config via MCP (for ID generation)
     const result = await this.callTool('create_experiment', { config })
     
     if (result.success) {
-      console.log(`✅ Experiment created via MCP: ${result.experimentId}`)
+      // Store in Zustand
+      const store = useChatStore.getState()
+      if (store.createExperiment) {
+        store.createExperiment(result.config)
+      }
+      
+      console.log(`✅ Experiment created: ${result.experimentId}`)
       return result
     } else {
       throw new Error('Failed to create experiment via MCP')
     }
   }
 
-  async getExperimentsViaMCP(): Promise<any> {
-    const result = await this.callTool('get_experiments', {})
+  async executeExperimentViaMCP(
+    experimentId: string,
+    experimentConfig: ExperimentConfig
+  ): Promise<{ success: boolean; experimentId: string; runId?: string; message: string }> {
+    if (!experimentId) {
+      throw new Error('Experiment ID is required')
+    }
+
+    console.log('🔬 Generating execution plan for experiment:', experimentConfig.name)
+    console.log('📊 Config details:', {
+      totalSessions: experimentConfig.totalSessions,
+      maxMessageCount: experimentConfig.maxMessageCount,
+      participants: experimentConfig.participants
+    })
+
+    // Generate execution plan
+    const executionPlan = this.generateExecutionPlan(experimentConfig)
+
+    // Execute sessions according to plan
+    for (const batch of executionPlan.batches) {
+      console.log(`\n🚀 Starting batch ${batch.batchNumber} with ${batch.sessions.length} concurrent sessions`)
+      
+      // Execute sessions in parallel within batch
+      const sessionPromises = batch.sessions.map(async (sessionPlan) => {
+        try {
+          console.log(`\n📝 Starting session: ${sessionPlan.sessionName}`)
+          
+          // Step 1: Create the session first
+          const createResult = await this.callTool('create_session', {
+            name: sessionPlan.sessionName,
+            description: `Experiment session ${sessionPlan.sessionNumber} for ${experimentConfig.name}`,
+            participants: sessionPlan.participants.map(p => ({
+              type: p.type,
+              name: p.name,
+              model: p.model,
+              settings: {
+                temperature: p.temperature || 0.7,
+                maxTokens: p.maxTokens || 1500,
+                ...(p.ollamaUrl && { ollamaUrl: p.ollamaUrl })
+              },
+              characteristics: {
+                personality: p.personality,
+                expertise: p.expertise
+              }
+            }))
+          });
+          
+          if (!createResult.success || !createResult.sessionId) {
+            throw new Error(`Failed to create session: ${createResult.error || 'No session ID returned'}`);
+          }
+          
+          const sessionId = createResult.sessionId;
+          console.log(`✅ Created session ${sessionId}`);
+          
+          // Step 2: Start the conversation with the initial prompt (sets up session)
+          // Handle both systemPrompt and startingPrompt for backwards compatibility
+          const initialPrompt = (experimentConfig as any).startingPrompt || experimentConfig.systemPrompt || '';
+          
+          const startResult = await this.callTool('start_conversation', {
+            sessionId: sessionId,
+            initialPrompt: initialPrompt
+          });
+          
+          if (!startResult.success) {
+            throw new Error(`Failed to start conversation: ${startResult.error}`)
+          }
+          
+          console.log(`✅ Session setup completed for ${sessionId}`)
+          
+          // Step 3: Start the actual conversation loop (client-side only)
+          console.log(`🚀 Starting conversation loop for session ${sessionId}`)
+          const conversationManager = MCPConversationManager.getInstance()
+          await conversationManager.startConversation(sessionId, initialPrompt)
+          
+          console.log(`✅ Conversation loop started for session ${sessionId}`)
+          
+          // Wait for the conversation to complete based on maxMessageCount
+          // The conversation manager handles all the message flow automatically
+          await this.waitForConversationCompletion(sessionId, experimentConfig.maxMessageCount);
+          
+          // Step 4: Trigger analysis if configured
+          if (experimentConfig.analysisProvider) {
+            console.log(`🔍 Triggering analysis for session ${sessionId}`)
+            await this.callTool('trigger_live_analysis', {
+              sessionId: sessionId,
+              analysisType: 'full'
+            })
+          }
+          
+          // Step 5: Export session
+          console.log(`📤 Exporting session ${sessionId}`)
+          const exportResult = await this.callTool('export_session', {
+            sessionId: sessionId,
+            format: 'json',
+            includeAnalysis: true,
+            includeMetadata: true,
+            includeApiErrors: true
+          })
+          
+          return {
+            sessionId,
+            success: true,
+            sessionName: sessionPlan.sessionName,
+            exportData: exportResult.data
+          }
+          
+        } catch (error) {
+          console.error(`❌ Session ${sessionPlan.sessionName} failed:`, error)
+          return {
+            sessionId: null,
+            success: false,
+            sessionName: sessionPlan.sessionName,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          }
+        }
+      })
+
+      // Wait for all sessions in batch to complete
+      const batchResults = await Promise.all(sessionPromises)
+      
+      // Log batch summary
+      const successCount = batchResults.filter(r => r.success).length
+      console.log(`\n📊 Batch ${batch.batchNumber} completed: ${successCount}/${batch.sessions.length} successful`)
+    }
+
+    console.log(`\n🎉 Experiment ${experimentConfig.name} completed!`)
     
-    if (result.success) {
-      console.log(`✅ Retrieved ${result.total} experiments via MCP`)
-      return result
-    } else {
-      throw new Error('Failed to get experiments via MCP')
+    // Return success result
+    return {
+      success: true,
+      experimentId: experimentId,
+      runId: `run-${experimentId}-${Date.now()}`,
+      message: 'Experiment execution started successfully'
+    }
+  }
+
+  // Helper method to wait for conversation completion
+  private async waitForConversationCompletion(sessionId: string, maxMessages: number): Promise<void> {
+    const pollInterval = 2000; // 2 seconds
+    const maxWaitTime = 600000; // 10 minutes as safety timeout
+    const startTime = Date.now();
+    
+    console.log(`⏳ Waiting for conversation ${sessionId} to reach ${maxMessages} messages...`);
+    
+    while (true) {
+      const statusResult = await this.callTool('get_conversation_status', { sessionId });
+      
+      if (statusResult.success && statusResult.data) {
+        const { status, messageCount } = statusResult.data;
+        
+        // Check if conversation reached the target message count
+        if (messageCount >= maxMessages) {
+          console.log(`✅ Conversation ${sessionId} completed with ${messageCount}/${maxMessages} messages`);
+          
+          // Stop the conversation to ensure it doesn't continue
+          await this.callTool('stop_conversation', { sessionId });
+          return;
+        }
+        
+        // Check if conversation stopped early
+        if (status === 'completed' || status === 'stopped') {
+          console.log(`⚠️ Conversation ${sessionId} stopped early with ${messageCount}/${maxMessages} messages`);
+          return;
+        }
+        
+        // Check if conversation failed
+        if (status === 'error' || status === 'failed') {
+          throw new Error(`Conversation ${sessionId} failed with status: ${status}`);
+        }
+        
+        // Log progress periodically
+        if (messageCount > 0 && messageCount % 5 === 0) {
+          console.log(`📊 Progress: ${messageCount}/${maxMessages} messages`);
+        }
+      }
+      
+      // Safety check for timeout
+      if (Date.now() - startTime > maxWaitTime) {
+        console.warn(`⏱️ Conversation ${sessionId} timed out after ${maxWaitTime}ms`);
+        await this.callTool('stop_conversation', { sessionId });
+        throw new Error(`Conversation timed out after ${maxWaitTime}ms`);
+      }
+      
+      // Wait before next poll
+      await new Promise(resolve => setTimeout(resolve, pollInterval));
+    }
+  }
+
+  // Helper method to generate execution plan
+  private generateExecutionPlan(experimentConfig: ExperimentConfig): any {
+    const { totalSessions, concurrentSessions, sessionNamePattern, participants } = experimentConfig;
+    
+    // Simple batch organization based on concurrency limits
+    const batches = [];
+    let batchNumber = 1;
+    
+    for (let i = 0; i < totalSessions; i += concurrentSessions) {
+      const batchSessions = [];
+      
+      for (let j = 0; j < concurrentSessions && (i + j) < totalSessions; j++) {
+        const sessionNumber = i + j + 1;
+        const sessionName = sessionNamePattern
+          .replace('<date>', new Date().toISOString().split('T')[0])
+          .replace('<n>', sessionNumber.toString());
+        
+        batchSessions.push({
+          sessionNumber,
+          sessionName,
+          participants: [...participants] // Copy participants array
+        });
+      }
+      
+      batches.push({
+        batchNumber: batchNumber++,
+        sessions: batchSessions
+      });
+    }
+    
+    return {
+      batches,
+      totalBatches: batches.length,
+      totalSessions
+    };
+  }
+
+  async getExperimentsViaMCP(): Promise<any> {
+    const store = useChatStore.getState()
+    const experiments = Array.from(store.experiments?.values() || [])
+    
+    console.log(`✅ Retrieved ${experiments.length} experiments from store`)
+    return {
+      success: true,
+      experiments,
+      total: experiments.length
     }
   }
 
   async getExperimentViaMCP(experimentId: string): Promise<any> {
-    const result = await this.callTool('get_experiment', { experimentId })
+    const store = useChatStore.getState()
+    const config = store.experiments?.get(experimentId)
+    const run = store.experimentRuns?.get(experimentId)
     
-    if (result.success) {
-      console.log(`✅ Retrieved experiment via MCP: ${experimentId}`)
-      return result
-    } else {
-      throw new Error('Failed to get experiment via MCP')
+    if (!config) {
+      throw new Error(`Experiment ${experimentId} not found`)
+    }
+    
+    console.log(`✅ Retrieved experiment from store: ${experimentId}`)
+    return {
+      success: true,
+      config,
+      run: run || null
     }
   }
 
   async updateExperimentViaMCP(experimentId: string, updates: any): Promise<any> {
-    const result = await this.callTool('update_experiment', { experimentId, updates })
+    const store = useChatStore.getState()
     
-    if (result.success) {
-      console.log(`✅ Experiment updated via MCP: ${experimentId}`)
-      return result
-    } else {
-      throw new Error('Failed to update experiment via MCP')
+    if (!store.experiments?.has(experimentId)) {
+      throw new Error(`Experiment ${experimentId} not found`)
+    }
+    
+    if (store.updateExperiment) {
+      store.updateExperiment(experimentId, updates)
+    }
+    
+    console.log(`✅ Experiment updated in store: ${experimentId}`)
+    return {
+      success: true,
+      experimentId,
+      message: 'Experiment updated successfully'
     }
   }
 
   async deleteExperimentViaMCP(experimentId: string): Promise<any> {
-    const result = await this.callTool('delete_experiment', { experimentId })
+    const store = useChatStore.getState()
     
-    if (result.success) {
-      console.log(`✅ Experiment deleted via MCP: ${experimentId}`)
-      return result
-    } else {
-      throw new Error('Failed to delete experiment via MCP')
+    if (!store.experiments?.has(experimentId)) {
+      throw new Error(`Experiment ${experimentId} not found`)
     }
-  }
-
-  async executeExperimentViaMCP(
-    experimentId: string,
-    options?: {
-      onStepStart?: (step: any) => void;
-      onStepComplete?: (step: any, result: any) => void;
-      onStepError?: (step: any, error: any) => void;
-      onProgress?: (progress: number) => void;
-      concurrency?: number;
-      abortSignal?: AbortSignal;
-    }
-  ): Promise<any> {
-    console.log(`🚀 Starting experiment execution: ${experimentId}`);
     
-    try {
-      // Step 1: Get the execution plan from the server
-      const planResult = await this.callTool('execute_experiment', { experimentId });
-      
-      if (!planResult.success || !planResult.executionPlan) {
-        throw new Error('Failed to generate execution plan');
-      }
-      
-      console.log(`📋 Execution plan generated with ${planResult.executionPlan.totalSteps} steps`);
-      
-      // Step 2: Execute the plan
-      const executionPlan = planResult.executionPlan;
-      const steps = executionPlan.steps;
-      const totalSteps = steps.length;
-      const results = new Map<string, any>();
-      const errors: any[] = [];
-      let completedSteps = 0;
-      
-      const {
-        onStepStart,
-        onStepComplete,
-        onStepError,
-        onProgress,
-        concurrency = executionPlan.concurrency || 1,
-        abortSignal
-      } = options || {};
-
-      // Helper to replace placeholders with actual values
-      const replacePlaceholders = (params: any, results: Map<string, any>): any => {
-        const paramsStr = JSON.stringify(params);
-        let updatedStr = paramsStr;
-        
-        // Replace placeholders like <session_1_id> with actual IDs
-        const placeholderRegex = /<([^>]+)>/g;
-        updatedStr = updatedStr.replace(placeholderRegex, (match, placeholder) => {
-          // Extract session ID from placeholder (e.g., "session_1_id" -> "create_session_1")
-          const sessionMatch = placeholder.match(/session_(\d+)_id/);
-          if (sessionMatch) {
-            const sessionNum = sessionMatch[1];
-            const createStepName = `create_session_${sessionNum}`;
-            const createResult = results.get(createStepName);
-            return createResult?.sessionId || match;
-          }
-          
-          // Extract participant ID from placeholder (e.g., "participant_1_2_id" -> "add_participant_1_2")
-          const participantMatch = placeholder.match(/participant_(\d+)_(\d+)_id/);
-          if (participantMatch) {
-            const sessionNum = participantMatch[1];
-            const participantNum = participantMatch[2];
-            const addStepName = `add_participant_${sessionNum}_${participantNum}`;
-            const addResult = results.get(addStepName);
-            return addResult?.participantId || match;
-          }
-          
-          return match;
-        });
-        
-        return JSON.parse(updatedStr);
-      };
-
-      // Check if step dependencies are met
-      const canExecuteStep = (step: any): boolean => {
-        if (!step.dependsOn) return true;
-        
-        const dependencies = Array.isArray(step.dependsOn) ? step.dependsOn : [step.dependsOn];
-        return dependencies.every(dep => results.has(dep));
-      };
-
-      // Execute a single step
-      const executeStep = async (step: any): Promise<void> => {
-        if (abortSignal?.aborted) {
-          throw new Error('Execution aborted');
-        }
-
-        try {
-          onStepStart?.(step);
-          console.log(`🔄 Executing step: ${step.description}`);
-          
-          // Replace placeholders in params
-          const params = replacePlaceholders(step.params, results);
-          
-          // Call the appropriate tool
-          const result = await this.callToolWithAbort(step.tool, params, abortSignal);
-          
-          results.set(step.step, result);
-          completedSteps++;
-          
-          onStepComplete?.(step, result);
-          onProgress?.((completedSteps / totalSteps) * 100);
-          
-          console.log(`✅ Step completed: ${step.step} (${completedSteps}/${totalSteps})`);
-          
-        } catch (error) {
-          console.error(`❌ Step ${step.step} failed:`, error);
-          errors.push({ step: step.step, error });
-          onStepError?.(step, error);
-          
-          // Decide whether to continue or abort on error
-          if (step.critical !== false) {
-            throw new Error(`Critical step ${step.step} failed: ${error}`);
-          }
-        }
-      };
-
-      // Process steps with concurrency control
-      const pendingSteps = [...steps];
-      const executing = new Set<Promise<void>>();
-      
-      while (pendingSteps.length > 0 || executing.size > 0) {
-        if (abortSignal?.aborted) {
-          throw new Error('Execution aborted');
-        }
-
-        // Find steps that can be executed
-        const executableSteps = pendingSteps.filter(canExecuteStep);
-        
-        // Start new executions up to concurrency limit
-        while (executableSteps.length > 0 && executing.size < concurrency) {
-          const step = executableSteps.shift()!;
-          pendingSteps.splice(pendingSteps.indexOf(step), 1);
-          
-          const execution = executeStep(step).finally(() => {
-            executing.delete(execution);
-          });
-          
-          executing.add(execution);
-        }
-        
-        // Wait for at least one execution to complete if we're at capacity
-        if (executing.size >= concurrency || (executing.size > 0 && executableSteps.length === 0)) {
-          await Promise.race(executing);
-        }
-        
-        // Small delay to prevent tight loop
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-
-      // Update experiment status to completed
-      await this.callTool('stop_experiment', { experimentId });
-
-      console.log(`✅ Experiment execution completed: ${completedSteps}/${totalSteps} steps`);
-      
-      // Return comprehensive results
-      return {
-        success: errors.length === 0,
-        experimentId: experimentId,
-        runId: planResult.runId,
-        completedSteps,
-        totalSteps,
-        results: Object.fromEntries(results),
-        errors,
-        finalResults: results.get('aggregate_results'),
-        message: errors.length === 0 
-          ? `Experiment completed successfully with ${completedSteps} steps`
-          : `Experiment completed with ${errors.length} errors`
-      };
-      
-    } catch (error) {
-      console.error(`❌ Experiment execution failed:`, error);
-      
-      // Try to update status to failed
-      try {
-        await this.callTool('stop_experiment', { experimentId });
-      } catch (stopError) {
-        console.error('Failed to update experiment status:', stopError);
-      }
-      
-      throw error;
+    if (store.deleteExperiment) {
+      store.deleteExperiment(experimentId)
+    }
+    
+    console.log(`✅ Experiment deleted from store: ${experimentId}`)
+    return {
+      success: true,
+      experimentId,
+      message: 'Experiment deleted successfully'
     }
   }
 
   async getExperimentStatusViaMCP(experimentId: string): Promise<any> {
-    const result = await this.callTool('get_experiment_status', { experimentId })
+    const store = useChatStore.getState()
+    const run = store.experimentRuns?.get(experimentId)
     
-    if (result.success) {
-      return result.status
-    } else {
-      throw new Error('Failed to get experiment status via MCP')
+    if (!run) {
+      return {
+        experimentId,
+        status: 'not_started',
+        message: 'Experiment has not been started'
+      }
+    }
+    
+    return {
+      experimentId,
+      status: run.status,
+      progress: run.progress,
+      completedSessions: run.completedSessions,
+      totalSessions: run.totalSessions,
+      startedAt: run.startedAt,
+      completedAt: run.completedAt
     }
   }
 
   async pauseExperimentViaMCP(experimentId: string): Promise<any> {
-    const result = await this.callTool('pause_experiment', { experimentId })
+    const store = useChatStore.getState()
+    const run = store.experimentRuns?.get(experimentId)
     
-    if (result.success) {
-      console.log(`✅ Experiment paused via MCP: ${experimentId}`)
-      return result
-    } else {
-      throw new Error('Failed to pause experiment via MCP')
+    if (!run || run.status !== 'running') {
+      throw new Error('Can only pause running experiments')
+    }
+    
+    if (store.updateExperimentRun) {
+      store.updateExperimentRun(experimentId, {
+        status: 'paused',
+        pausedAt: new Date()
+      })
+    }
+    
+    console.log(`✅ Experiment paused in store: ${experimentId}`)
+    return {
+      success: true,
+      experimentId,
+      status: 'paused',
+      message: 'Experiment paused successfully'
     }
   }
 
   async resumeExperimentViaMCP(experimentId: string): Promise<any> {
-    const result = await this.callTool('resume_experiment', { experimentId })
+    const store = useChatStore.getState()
+    const run = store.experimentRuns?.get(experimentId)
     
-    if (result.success) {
-      console.log(`✅ Experiment resumed via MCP: ${experimentId}`)
-      return result
-    } else {
-      throw new Error('Failed to resume experiment via MCP')
+    if (!run || run.status !== 'paused') {
+      throw new Error('Can only resume paused experiments')
+    }
+    
+    if (store.updateExperimentRun) {
+      store.updateExperimentRun(experimentId, {
+        status: 'running',
+        resumedAt: new Date()
+      })
+    }
+    
+    console.log(`✅ Experiment resumed in store: ${experimentId}`)
+    return {
+      success: true,
+      experimentId,
+      status: 'running',
+      message: 'Experiment resumed successfully'
     }
   }
 
   async stopExperimentViaMCP(experimentId: string): Promise<any> {
-    const result = await this.callTool('stop_experiment', { experimentId })
+    const store = useChatStore.getState()
+    const run = store.experimentRuns?.get(experimentId)
     
-    if (result.success) {
-      console.log(`✅ Experiment stopped via MCP: ${experimentId}`)
-      return result
-    } else {
-      throw new Error('Failed to stop experiment via MCP')
+    if (!run) {
+      throw new Error('Experiment run not found')
+    }
+    
+    if (store.updateExperimentRun) {
+      store.updateExperimentRun(experimentId, {
+        status: 'completed',
+        completedAt: new Date()
+      })
+    }
+    
+    console.log(`✅ Experiment stopped in store: ${experimentId}`)
+    return {
+      success: true,
+      experimentId,
+      status: 'completed',
+      message: 'Experiment stopped successfully'
     }
   }
 
   async getExperimentResultsViaMCP(experimentId: string): Promise<any> {
-    const result = await this.callTool('get_experiment_results', { experimentId })
+    const store = useChatStore.getState()
+    const config = store.experiments?.get(experimentId)
+    const run = store.experimentRuns?.get(experimentId)
     
-    if (result.success) {
-      console.log(`✅ Experiment results retrieved via MCP: ${experimentId}`)
-      return result.results
-    } else {
-      throw new Error('Failed to get experiment results via MCP')
+    if (!config) {
+      throw new Error(`Experiment ${experimentId} not found`)
+    }
+    
+    // Get all sessions for this experiment
+    const experimentSessions = store.sessions.filter(s => 
+      s.metadata?.experimentId === experimentId ||
+      (run?.sessionIds && run.sessionIds.includes(s.id))
+    )
+    
+    // Calculate aggregate statistics
+    const totalMessages = experimentSessions.reduce((sum, session) => sum + (session.messages?.length || 0), 0)
+    const avgMessagesPerSession = experimentSessions.length > 0 ? totalMessages / experimentSessions.length : 0
+    
+    const participantStats = new Map<string, { messageCount: number, sessions: number }>()
+    
+    experimentSessions.forEach(session => {
+      session.participants?.forEach(participant => {
+        const key = `${participant.type}-${participant.settings?.model || 'default'}`
+        if (!participantStats.has(key)) {
+          participantStats.set(key, { messageCount: 0, sessions: 0 })
+        }
+        const stats = participantStats.get(key)!
+        const messages = session.messages?.filter(m => m.participantId === participant.id).length || 0
+        stats.messageCount += messages
+        stats.sessions++
+      })
+    })
+    
+    console.log(`✅ Experiment results retrieved from store: ${experimentId}`)
+    return {
+      config,
+      run,
+      sessions: experimentSessions.map(s => ({
+        id: s.id,
+        name: s.name,
+        messageCount: s.messages?.length || 0,
+        participantCount: s.participants?.length || 0,
+        status: s.status,
+        createdAt: s.createdAt,
+        lastActivity: s.updatedAt
+      })),
+      aggregateStats: {
+        totalSessions: experimentSessions.length,
+        totalMessages,
+        avgMessagesPerSession,
+        participantStats: Object.fromEntries(participantStats),
+        errorRate: run?.errorRate || 0,
+        successRate: experimentSessions.length > 0 ? 
+          experimentSessions.filter(s => s.status === 'completed').length / experimentSessions.length : 0
+      }
     }
   }
 

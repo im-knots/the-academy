@@ -32,8 +32,15 @@ export class MCPStoreIntegration {
     try {
       console.log('🔧 MCP Store Integration: Starting initialization with direct API support...')
       
-      // Wait for store to be properly hydrated
-      await this.waitForStoreHydration()
+      // Check if we're in an environment with localStorage support
+      const hasLocalStorage = typeof window !== 'undefined' && typeof window.localStorage !== 'undefined'
+      
+      if (hasLocalStorage) {
+        // Wait for store to be properly hydrated in browser environment
+        await this.waitForStoreHydration()
+      } else {
+        console.log('⚠️ MCP Store Integration: No localStorage available (server environment)')
+      }
       
       // Get the current store state
       const store = useChatStore.getState()
@@ -72,7 +79,8 @@ export class MCPStoreIntegration {
 
     } catch (error) {
       console.error('💥 MCP Store Integration: Initialization failed:', error)
-      throw error
+      // Don't throw - allow MCP to work even if store integration fails
+      this.isInitialized = true // Mark as initialized to prevent retries
     }
   }
 
@@ -138,7 +146,15 @@ export class MCPStoreIntegration {
 
   private handleStoreChange(newState: any, prevState: any): void {
     try {
-      console.log('🔄 MCP Store Integration: Store state changed')
+      // Only log significant changes to reduce noise
+      const significantChange = 
+        newState.currentSession?.id !== prevState.currentSession?.id ||
+        newState.currentSession?.messages?.length !== prevState.currentSession?.messages?.length ||
+        newState.sessions.length !== prevState.sessions.length
+
+      if (significantChange) {
+        console.log('🔄 MCP Store Integration: Store state changed')
+      }
 
       // Update store reference immediately
       this.updateMCPStoreReference()
@@ -161,7 +177,10 @@ export class MCPStoreIntegration {
         
         // Trigger analysis for new messages if handler is available
         if (typeof mcpAnalysisHandler !== 'undefined') {
-          mcpAnalysisHandler.handleNewMessage(newState.currentSession.id, newState.currentSession.messages[newState.currentSession.messages.length - 1])
+          const lastMessage = newState.currentSession.messages[newState.currentSession.messages.length - 1]
+          if (lastMessage) {
+            mcpAnalysisHandler.handleNewMessage(newState.currentSession.id, lastMessage)
+          }
         }
       }
 

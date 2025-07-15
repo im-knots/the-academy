@@ -223,7 +223,7 @@ export function ExperimentsInterface({
     if (!selectedExperiment) return
 
     try {
-      const result = await executeExperimentViaMCP(selectedExperiment.id)
+      const result = await executeExperimentViaMCP(selectedExperiment.id, selectedExperiment)
       if (result.success) {
         // Initial status will be set by the polling mechanism
         setActiveRun({

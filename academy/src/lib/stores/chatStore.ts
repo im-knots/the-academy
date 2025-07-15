@@ -11,6 +11,41 @@ interface SessionTemplate {
   participants?: Omit<Participant, 'id' | 'joinedAt' | 'messageCount'>[]
 }
 
+// Experiment interfaces
+interface ExperimentConfig {
+  id: string
+  name: string
+  participants: any[]
+  startingPrompt: string
+  analysisContextSize: number
+  analysisProvider: string
+  maxMessageCount: number
+  totalSessions: number
+  concurrentSessions: number
+  sessionNamePattern: string
+  errorRateThreshold: number
+  createdAt: Date
+  lastModified: Date
+}
+
+interface ExperimentRun {
+  id: string
+  configId: string
+  status: 'pending' | 'running' | 'paused' | 'completed' | 'failed'
+  startedAt: Date
+  completedAt?: Date
+  pausedAt?: Date
+  resumedAt?: Date
+  totalSessions: number
+  completedSessions: number
+  failedSessions: number
+  activeSessions: number
+  sessionIds: string[]
+  errorRate: number
+  errors: Array<{ step: string; error: string }>
+  progress: number
+}
+
 interface ChatState {
   // Session state
   currentSession: ChatSession | null
@@ -97,6 +132,17 @@ interface ChatState {
     bySession: Record<string, number>;
     recent: APIError[];
   };
+
+  // Experiment Management
+  experiments: Map<string, ExperimentConfig>
+  experimentRuns: Map<string, ExperimentRun>
+  createExperiment: (config: ExperimentConfig) => void
+  updateExperiment: (id: string, updates: Partial<ExperimentConfig>) => void
+  deleteExperiment: (id: string) => void
+  createExperimentRun: (experimentId: string, run: ExperimentRun) => void
+  updateExperimentRun: (experimentId: string, updates: Partial<ExperimentRun>) => void
+  getExperiment: (id: string) => ExperimentConfig | undefined
+  getExperimentRun: (experimentId: string) => ExperimentRun | undefined
 }
 // Default participants for templates
 const getDefaultParticipants = () => [
@@ -147,6 +193,8 @@ export const useChatStore = create<ChatState>()(
         showModeratorPanel: true,
         selectedMessageId: null,
         apiErrors: [],
+        experiments: new Map(),
+        experimentRuns: new Map(),
 
         // Helper function to ensure we always have a current session
         ensureCurrentSession: () => {
@@ -705,6 +753,63 @@ export const useChatStore = create<ChatState>()(
           }
           
           return sessionId
+        },
+
+        // Experiment Management
+        createExperiment: (config) => {
+          set((state) => {
+            const newExperiments = new Map(state.experiments)
+            newExperiments.set(config.id, config)
+            return { experiments: newExperiments }
+          })
+        },
+
+        updateExperiment: (id, updates) => {
+          set((state) => {
+            const newExperiments = new Map(state.experiments)
+            const existing = newExperiments.get(id)
+            if (existing) {
+              newExperiments.set(id, { ...existing, ...updates, lastModified: new Date() })
+            }
+            return { experiments: newExperiments }
+          })
+        },
+
+        deleteExperiment: (id) => {
+          set((state) => {
+            const newExperiments = new Map(state.experiments)
+            const newRuns = new Map(state.experimentRuns)
+            newExperiments.delete(id)
+            newRuns.delete(id)
+            return { experiments: newExperiments, experimentRuns: newRuns }
+          })
+        },
+
+        createExperimentRun: (experimentId, run) => {
+          set((state) => {
+            const newRuns = new Map(state.experimentRuns)
+            newRuns.set(experimentId, run)
+            return { experimentRuns: newRuns }
+          })
+        },
+
+        updateExperimentRun: (experimentId, updates) => {
+          set((state) => {
+            const newRuns = new Map(state.experimentRuns)
+            const existing = newRuns.get(experimentId)
+            if (existing) {
+              newRuns.set(experimentId, { ...existing, ...updates })
+            }
+            return { experimentRuns: newRuns }
+          })
+        },
+
+        getExperiment: (id) => {
+          return get().experiments.get(id)
+        },
+
+        getExperimentRun: (experimentId) => {
+          return get().experimentRuns.get(experimentId)
         }
       }),
       {
@@ -713,7 +818,9 @@ export const useChatStore = create<ChatState>()(
         partialize: (state) => ({ 
           sessions: state.sessions,
           currentSession: state.currentSession,
-          apiErrors: state.apiErrors.slice(-50)
+          apiErrors: state.apiErrors.slice(-50),
+          experiments: Array.from(state.experiments.entries()), // Convert Map to array for persistence
+          experimentRuns: Array.from(state.experimentRuns.entries())
         }),
         // Rehydrate dates correctly and ensure current session
         onRehydrateStorage: () => (state) => {
@@ -769,6 +876,37 @@ export const useChatStore = create<ChatState>()(
               }
               
               console.log(`📊 Rehydrated current session with ${state.currentSession.analysisHistory?.length || 0} analysis snapshots`)
+            }
+
+            // Restore Maps from persisted arrays
+            if (Array.isArray(state.experiments)) {
+              state.experiments = new Map(state.experiments.map(([id, config]) => [
+                id,
+                {
+                  ...config,
+                  createdAt: new Date(config.createdAt),
+                  lastModified: new Date(config.lastModified)
+                }
+              ]))
+              console.log(`🧪 Rehydrated ${state.experiments.size} experiments`)
+            } else {
+              state.experiments = new Map()
+            }
+
+            if (Array.isArray(state.experimentRuns)) {
+              state.experimentRuns = new Map(state.experimentRuns.map(([id, run]) => [
+                id,
+                {
+                  ...run,
+                  startedAt: new Date(run.startedAt),
+                  completedAt: run.completedAt ? new Date(run.completedAt) : undefined,
+                  pausedAt: run.pausedAt ? new Date(run.pausedAt) : undefined,
+                  resumedAt: run.resumedAt ? new Date(run.resumedAt) : undefined
+                }
+              ]))
+              console.log(`🏃 Rehydrated ${state.experimentRuns.size} experiment runs`)
+            } else {
+              state.experimentRuns = new Map()
             }
 
             // Ensure we have a current session if we have any sessions

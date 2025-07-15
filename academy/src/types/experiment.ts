@@ -11,7 +11,7 @@ export interface ExperimentConfig {
     expertise?: string
     ollamaUrl?: string
   }>
-  systemPrompt: string
+  startingPrompt: string
   analysisContextSize: number
   analysisProvider: 'claude' | 'gpt'
   maxMessageCount: number

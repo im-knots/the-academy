@@ -101,11 +101,7 @@ interface MCPHookMethods {
 
   // Experiment methods
   createExperimentViaMCP: (config: any) => Promise<any>
-  getExperimentsViaMCP: () => Promise<any>
-  getExperimentViaMCP: (experimentId: string) => Promise<any>
-  updateExperimentViaMCP: (experimentId: string, updates: any) => Promise<any>
-  deleteExperimentViaMCP: (experimentId: string) => Promise<any>
-  executeExperimentViaMCP: (experimentId: string) => Promise<any>
+  executeExperimentViaMCP: (experimentId: string, experimentConfig: any) => Promise<any>
   getExperimentStatusViaMCP: (experimentId: string) => Promise<any>
   pauseExperimentViaMCP: (experimentId: string) => Promise<any>
   resumeExperimentViaMCP: (experimentId: string) => Promise<any>
@@ -1485,13 +1481,13 @@ export function useMCP(): MCPHook {
     }
   }, [refreshResources])
 
-  const executeExperimentViaMCP = useCallback(async (experimentId: string) => {
+  const executeExperimentViaMCP = useCallback(async (experimentId: string, experimentConfig: any) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
     
     console.log(`🚀 useMCP: Executing experiment via MCP: ${experimentId}`)
     
     try {
-      const result = await clientRef.current.executeExperimentViaMCP(experimentId)
+      const result = await clientRef.current.executeExperimentViaMCP(experimentId, experimentConfig)
       
       // Refresh resources after experiment execution starts
       setTimeout(refreshResources, 100)
