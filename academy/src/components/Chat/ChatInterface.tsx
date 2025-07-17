@@ -1,4 +1,4 @@
-// src/components/Chat/ChatInterface.tsx - Updated with MCP Client instead of Zustand
+// src/components/Chat/ChatInterface.tsx - Updated with Event-Driven Polling
 'use client'
 
 import Image from 'next/image'
@@ -86,10 +86,7 @@ export function ChatInterface() {
   // Get the conversation manager instance
   const conversationManager = MCPConversationManager.getInstance()
 
-  // Polling interval for updates
-  const POLL_INTERVAL = 2000 // 2 seconds
-
-  // Fetch current session
+  // EVENT-DRIVEN: Fetch current session data
   const fetchCurrentSession = useCallback(async () => {
     if (!currentSessionId) {
       setCurrentSession(null)
@@ -116,9 +113,9 @@ export function ChatInterface() {
     } catch (error) {
       console.error('Failed to fetch current session:', error)
     }
-  }, [currentSessionId])
+  }, [currentSessionId, mcpClient])
 
-  // Fetch all sessions
+  // EVENT-DRIVEN: Fetch all sessions
   const fetchSessions = useCallback(async () => {
     try {
       const result = await mcpClient.callTool('get_sessions', {})
@@ -128,45 +125,66 @@ export function ChatInterface() {
     } catch (error) {
       console.error('Failed to fetch sessions:', error)
     }
-  }, [])
+  }, [mcpClient])
 
-  // Initialize and set up polling
+  // EVENT-DRIVEN: Register data refresh callbacks
+  useEffect(() => {
+    console.log('🔄 ChatInterface: Setting up event-driven data refresh')
+    
+    // Register for current session updates
+    const unsubscribeSessionData = mcpClient.registerDataRefreshCallback('session-data', fetchCurrentSession)
+    const unsubscribeCurrentSession = mcpClient.registerDataRefreshCallback('current-session', fetchCurrentSession)
+    
+    // Register for sessions list updates
+    const unsubscribeSessionsList = mcpClient.registerDataRefreshCallback('sessions-list', fetchSessions)
+    
+    // If we have a current session, register for session-specific updates
+    let unsubscribeSessionSpecific: (() => void) | null = null
+    if (currentSessionId) {
+      unsubscribeSessionSpecific = mcpClient.registerDataRefreshCallback(`session-${currentSessionId}`, fetchCurrentSession)
+    }
+    
+    return () => {
+      console.log('🔄 ChatInterface: Cleaning up event-driven callbacks')
+      unsubscribeSessionData()
+      unsubscribeCurrentSession()
+      unsubscribeSessionsList()
+      if (unsubscribeSessionSpecific) {
+        unsubscribeSessionSpecific()
+      }
+    }
+  }, [mcpClient, fetchCurrentSession, fetchSessions, currentSessionId])
+
+  // Initialize data on mount
   useEffect(() => {
     const initialize = async () => {
       setLoading(true)
-      await fetchSessions()
       
-      // Get current session ID from MCP
       try {
+        // Initial data fetch
+        await fetchSessions()
+        
+        // Get current session ID from MCP
         const result = await mcpClient.callTool('get_current_session_id', {})
         if (result.success && result.sessionId) {
           setCurrentSessionId(result.sessionId)
         }
       } catch (error) {
-        console.error('Failed to get current session ID:', error)
+        console.error('Failed to initialize ChatInterface:', error)
+      } finally {
+        setLoading(false)
       }
-      
-      setLoading(false)
     }
     
     initialize()
-  }, [fetchSessions])
+  }, [fetchSessions, mcpClient])
 
-  // Poll for current session updates
+  // Fetch current session when currentSessionId changes
   useEffect(() => {
-    if (!currentSessionId) return
-    
-    fetchCurrentSession()
-    const interval = setInterval(fetchCurrentSession, POLL_INTERVAL)
-    
-    return () => clearInterval(interval)
+    if (currentSessionId) {
+      fetchCurrentSession()
+    }
   }, [currentSessionId, fetchCurrentSession])
-
-  // Poll for sessions list updates
-  useEffect(() => {
-    const interval = setInterval(fetchSessions, POLL_INTERVAL * 2) // Poll less frequently
-    return () => clearInterval(interval)
-  }, [fetchSessions])
 
   // Load experiments on mount
   useEffect(() => {
@@ -268,7 +286,7 @@ export function ChatInterface() {
       setModeratorInput('')
       setConversationState('running')
       
-      // Update session status via MCP
+      // Update session status via MCP - this will trigger automatic refresh
       await mcpClient.resumeConversationViaMCP(currentSession.id)
       
     } catch (error) {
@@ -286,6 +304,7 @@ export function ChatInterface() {
       setError(null)
       
       conversationManager.pauseConversation(currentSession.id)
+      // This will trigger automatic refresh via event-driven system
       await mcpClient.pauseConversationViaMCP(currentSession.id)
       setConversationState('idle')
       setIsSessionPaused(true)
@@ -305,6 +324,7 @@ export function ChatInterface() {
       setError(null)
       
       conversationManager.resumeConversation(currentSession.id)
+      // This will trigger automatic refresh via event-driven system
       await mcpClient.resumeConversationViaMCP(currentSession.id)
       setConversationState('running')
       setIsSessionPaused(false)
@@ -324,6 +344,7 @@ export function ChatInterface() {
       setError(null)
       
       conversationManager.stopConversation(currentSession.id)
+      // This will trigger automatic refresh via event-driven system
       await mcpClient.stopConversationViaMCP(currentSession.id)
       setConversationState('idle')
       
@@ -339,6 +360,7 @@ export function ChatInterface() {
     if (isInterjecting) {
       // Send the interjection
       if (moderatorInput.trim()) {
+        // This will trigger automatic refresh via event-driven system
         await mcpClient.injectPromptViaMCP(currentSession.id, moderatorInput.trim())
         setModeratorInput('')
       }
@@ -404,6 +426,18 @@ export function ChatInterface() {
     if (!mcp.isInitialized) return 'text-gray-600 bg-gray-50 border-gray-200'
     if (mcp.isConnected) return 'text-green-600 bg-green-50 border-green-200'
     return 'text-red-600 bg-red-50 border-red-200'
+  }
+
+  // Show loading state while initializing
+  if (loading) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto mb-4" />
+          <p className="text-gray-600 dark:text-gray-400">Loading The Academy...</p>
+        </div>
+      </div>
+    )
   }
 
   // Render experiments interface if in experiment mode
@@ -1109,7 +1143,7 @@ export function ChatInterface() {
             </Card>
 
             {/* Live AI Analysis */}
-            <LiveSummary />
+            <LiveSummary sessionId={currentSession.id} />
           </div>
         </div>
       )}
@@ -1118,16 +1152,19 @@ export function ChatInterface() {
       <AddParticipant 
         isOpen={showAddParticipant} 
         onClose={() => setShowAddParticipant(false)} 
+        sessionId={currentSession.id}
       />
       
       <ExportModal
         isOpen={showExportModal}
         onClose={() => setShowExportModal(false)}
+        sessionId={currentSession.id}
       />
 
       <MCPModal
         isOpen={showMCPModal}
         onClose={() => setShowMCPModal(false)}
+        sessionId={currentSession.id}
       />
     </div>
   )

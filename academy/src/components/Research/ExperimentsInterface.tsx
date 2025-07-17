@@ -1,8 +1,9 @@
-// src/components/Research/ExperimentsInterface.tsx
+// src/components/Research/ExperimentsInterface.tsx - Updated with Event-Driven Polling
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useMCP } from '@/hooks/useMCP'
+import { MCPClient } from '@/lib/mcp/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -109,7 +110,9 @@ export function ExperimentsInterface({
   const [activeRun, setActiveRun] = useState<ExperimentRun | null>(null)
   const [experimentResults, setExperimentResults] = useState<ExperimentResults | null>(null)
   const [isLoadingStatus, setIsLoadingStatus] = useState(false)
-  const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null)
+  
+  // MCP client ref for event-driven updates
+  const mcpClient = useRef(MCPClient.getInstance())
   
   const {
     executeExperimentViaMCP,
@@ -122,59 +125,7 @@ export function ExperimentsInterface({
     updateExperimentViaMCP
   } = useMCP()
 
-  // Poll for experiment status when running
-  useEffect(() => {
-    if (!selectedExperiment || !activeRun || 
-        (activeRun.status !== 'running' && activeRun.status !== 'pending')) {
-      if (pollingInterval) {
-        clearInterval(pollingInterval)
-        setPollingInterval(null)
-      }
-      return
-    }
-
-    const pollStatus = async () => {
-      try {
-        const status = await getExperimentStatusViaMCP(selectedExperiment.id)
-        if (status.run) {
-          setActiveRun(status.run)
-          
-          // Stop polling if experiment completed or failed
-          if (status.run.status === 'completed' || status.run.status === 'failed') {
-            if (pollingInterval) {
-              clearInterval(pollingInterval)
-              setPollingInterval(null)
-            }
-            // Load results
-            await loadExperimentResults()
-          }
-        }
-      } catch (error) {
-        console.error('Failed to poll experiment status:', error)
-      }
-    }
-
-    // Initial poll
-    pollStatus()
-
-    // Set up interval
-    const interval = setInterval(pollStatus, 2000) // Poll every 2 seconds
-    setPollingInterval(interval)
-
-    return () => {
-      if (interval) {
-        clearInterval(interval)
-      }
-    }
-  }, [selectedExperiment, activeRun?.status])
-
-  // Load experiment status when selecting an experiment
-  useEffect(() => {
-    if (selectedExperiment) {
-      loadExperimentStatus()
-    }
-  }, [selectedExperiment?.id])
-
+  // EVENT-DRIVEN: Load experiment status function
   const loadExperimentStatus = async () => {
     if (!selectedExperiment) return
 
@@ -200,6 +151,70 @@ export function ExperimentsInterface({
     }
   }
 
+  // EVENT-DRIVEN: Register data refresh callbacks for experiment updates
+  useEffect(() => {
+    if (!selectedExperiment) return
+
+    console.log(`🧪 ExperimentsInterface: Setting up event-driven refresh for experiment ${selectedExperiment.id}`)
+
+    // Initial load
+    loadExperimentStatus()
+
+    // Register for experiment-specific updates via event-driven system
+    const unsubscribeExperimentSpecific = mcpClient.current.registerDataRefreshCallback(
+      `experiment-${selectedExperiment.id}`, 
+      loadExperimentStatus
+    )
+    
+    // Register for general experiments list updates
+    const unsubscribeExperimentsList = mcpClient.current.registerDataRefreshCallback(
+      'experiments-list', 
+      loadExperimentStatus
+    )
+
+    return () => {
+      console.log(`🧪 ExperimentsInterface: Cleaning up event-driven callbacks for experiment ${selectedExperiment.id}`)
+      unsubscribeExperimentSpecific()
+      unsubscribeExperimentsList()
+    }
+  }, [selectedExperiment?.id])
+
+  // EVENT-DRIVEN: Set up periodic status checking only for running experiments
+  useEffect(() => {
+    if (!selectedExperiment || !activeRun || 
+        (activeRun.status !== 'running' && activeRun.status !== 'pending')) {
+      return
+    }
+
+    console.log(`🧪 ExperimentsInterface: Setting up periodic status check for running experiment ${selectedExperiment.id}`)
+
+    // For running experiments, we still need periodic checks since experiment status
+    // updates happen externally and may not trigger MCP tool calls
+    const pollStatus = async () => {
+      try {
+        const status = await getExperimentStatusViaMCP(selectedExperiment.id)
+        if (status.run) {
+          setActiveRun(status.run)
+          
+          // Load results if experiment completed or failed
+          if (status.run.status === 'completed' || status.run.status === 'failed') {
+            await loadExperimentResults()
+          }
+        }
+      } catch (error) {
+        console.error('Failed to poll experiment status:', error)
+      }
+    }
+
+    // Poll more frequently for running experiments (every 3 seconds instead of 2)
+    const interval = setInterval(pollStatus, 3000)
+
+    return () => {
+      console.log(`🧪 ExperimentsInterface: Cleaning up periodic status check for experiment ${selectedExperiment.id}`)
+      clearInterval(interval)
+    }
+  }, [selectedExperiment?.id, activeRun?.status])
+
   const loadExperimentResults = async () => {
     if (!selectedExperiment) return
 
@@ -223,9 +238,10 @@ export function ExperimentsInterface({
     if (!selectedExperiment) return
 
     try {
+      // This will trigger automatic refresh via event-driven system
       const result = await executeExperimentViaMCP(selectedExperiment.id, selectedExperiment)
       if (result.success) {
-        // Initial status will be set by the polling mechanism
+        // Set initial status - event-driven system will update with real status
         setActiveRun({
           id: result.runId,
           configId: selectedExperiment.id,
@@ -251,6 +267,7 @@ export function ExperimentsInterface({
     if (!selectedExperiment || !activeRun) return
 
     try {
+      // This will trigger automatic refresh via event-driven system
       await pauseExperimentViaMCP(selectedExperiment.id)
       setActiveRun({ ...activeRun, status: 'paused', pausedAt: new Date() })
     } catch (error) {
@@ -263,6 +280,7 @@ export function ExperimentsInterface({
     if (!selectedExperiment || !activeRun) return
 
     try {
+      // This will trigger automatic refresh via event-driven system
       await resumeExperimentViaMCP(selectedExperiment.id)
       setActiveRun({ ...activeRun, status: 'running', resumedAt: new Date() })
     } catch (error) {
@@ -279,6 +297,7 @@ export function ExperimentsInterface({
     }
 
     try {
+      // This will trigger automatic refresh via event-driven system
       await stopExperimentViaMCP(selectedExperiment.id)
       setActiveRun({ ...activeRun, status: 'failed', completedAt: new Date() })
     } catch (error) {
@@ -295,6 +314,7 @@ export function ExperimentsInterface({
     }
 
     try {
+      // This will trigger automatic refresh via event-driven system
       await deleteExperimentViaMCP(selectedExperiment.id)
       // Clear selection and let parent component handle the update
       onSelectExperiment(null as any)
@@ -482,6 +502,12 @@ export function ExperimentsInterface({
                       <CardTitle className="text-lg flex items-center gap-2">
                         <Activity className="h-5 w-5" />
                         Experiment Run Status
+                        {activeRun?.status === 'running' && (
+                          <Badge variant="secondary" className="ml-2 text-xs">
+                            <RefreshCw className="h-3 w-3 mr-1" />
+                            Auto-updating
+                          </Badge>
+                        )}
                       </CardTitle>
                     </CardHeader>
                     <CardContent>

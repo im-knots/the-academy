@@ -1,4 +1,4 @@
-// src/lib/mcp/client.ts - Fixed with Proper Retry Logic and Error Tracking
+// src/lib/mcp/client.ts - Enhanced with Event-Driven Polling
 import { JSONRPCRequest, JSONRPCResponse, APIError, RetryConfig } from './types'
 import { ExperimentConfig } from '@/types/experiment'
 import { MCPConversationManager } from '../ai/mcp-conversation-manager'
@@ -8,6 +8,11 @@ export class MCPClient {
   private baseUrl: string
   private initialized = false
   private requestId = 1
+
+  // Event-driven data refresh system
+  private dataRefreshCallbacks: Map<string, (() => Promise<void>)[]> = new Map()
+  private lastRefreshTime: Map<string, number> = new Map()
+  private refreshThrottle = 100 // Prevent rapid successive refreshes
 
   // Retry configuration for network errors
   private defaultRetryConfig: RetryConfig = {
@@ -64,6 +69,128 @@ export class MCPClient {
       MCPClient.instance = new MCPClient(baseUrl)
     }
     return MCPClient.instance
+  }
+
+  // ========================================
+  // EVENT-DRIVEN DATA REFRESH SYSTEM
+  // ========================================
+
+  /**
+   * Register a callback to be triggered after MCP operations
+   * @param key - Unique identifier for the callback (e.g., 'session-data', 'sessions-list')
+   * @param callback - Function to call when data should be refreshed
+   * @returns Unsubscribe function
+   */
+  registerDataRefreshCallback(key: string, callback: () => Promise<void>): () => void {
+    console.log(`📡 MCP Client: Registering data refresh callback: ${key}`)
+    
+    if (!this.dataRefreshCallbacks.has(key)) {
+      this.dataRefreshCallbacks.set(key, [])
+    }
+    this.dataRefreshCallbacks.get(key)!.push(callback)
+    
+    // Return unsubscribe function
+    return () => {
+      const callbacks = this.dataRefreshCallbacks.get(key)
+      if (callbacks) {
+        const index = callbacks.indexOf(callback)
+        if (index > -1) {
+          callbacks.splice(index, 1)
+          console.log(`📡 MCP Client: Unregistered data refresh callback: ${key}`)
+        }
+      }
+    }
+  }
+
+  /**
+   * Trigger data refresh for specific keys with throttling
+   * @param keys - Array of callback keys to trigger
+   */
+  private async triggerDataRefresh(keys: string[]): Promise<void> {
+    for (const key of keys) {
+      const now = Date.now()
+      const lastRefresh = this.lastRefreshTime.get(key) || 0
+      
+      // Throttle rapid successive refreshes
+      if (now - lastRefresh < this.refreshThrottle) {
+        console.log(`⏳ MCP Client: Throttling refresh for ${key}`)
+        continue
+      }
+      
+      this.lastRefreshTime.set(key, now)
+      
+      const callbacks = this.dataRefreshCallbacks.get(key) || []
+      console.log(`🔄 MCP Client: Triggering ${callbacks.length} callbacks for ${key}`)
+      
+      // Execute callbacks in parallel but catch individual failures
+      await Promise.allSettled(
+        callbacks.map(async (callback) => {
+          try {
+            await callback()
+          } catch (error) {
+            console.error(`❌ Data refresh callback failed for ${key}:`, error)
+          }
+        })
+      )
+    }
+  }
+
+  /**
+   * Determine which data refresh keys should be triggered based on the tool/operation
+   * @param toolName - Name of the MCP tool that was called
+   * @param args - Arguments passed to the tool
+   * @returns Array of refresh keys to trigger
+   */
+  private getRefreshKeysForOperation(toolName: string, args: any = {}): string[] {
+    const keys: string[] = []
+    
+    // Session-related operations
+    if (['create_session', 'delete_session', 'update_session', 'import_session', 
+         'duplicate_session', 'switch_current_session'].includes(toolName)) {
+      keys.push('sessions-list', 'current-session')
+    }
+    
+    // Current session data operations
+    if (['get_session', 'send_message', 'add_participant', 'remove_participant',
+         'update_participant', 'start_conversation', 'pause_conversation',
+         'resume_conversation', 'stop_conversation', 'inject_prompt',
+         'update_message', 'delete_message', 'clear_messages'].includes(toolName)) {
+      keys.push('session-data')
+      
+      // If we have a sessionId, add session-specific key
+      if (args.sessionId) {
+        keys.push(`session-${args.sessionId}`)
+      }
+    }
+    
+    // Analysis operations
+    if (['save_analysis_snapshot', 'trigger_live_analysis', 'analyze_conversation',
+         'clear_analysis_history'].includes(toolName)) {
+      keys.push('analysis-data')
+      
+      if (args.sessionId) {
+        keys.push(`analysis-${args.sessionId}`)
+      }
+    }
+    
+    // Experiment operations
+    if (['create_experiment', 'update_experiment', 'delete_experiment',
+         'execute_experiment', 'pause_experiment', 'resume_experiment',
+         'stop_experiment'].includes(toolName)) {
+      keys.push('experiments-list')
+      
+      if (args.experimentId) {
+        keys.push(`experiment-${args.experimentId}`)
+      }
+    }
+    
+    // Error tracking operations
+    if (['log_api_error', 'clear_api_errors'].includes(toolName)) {
+      keys.push('api-errors')
+    }
+    
+    console.log(`🎯 MCP Client: Operation ${toolName} will trigger refresh for: ${keys.join(', ')}`)
+    return keys
   }
 
   private generateRequestId(): number {
@@ -407,6 +534,18 @@ export class MCPClient {
       }
       
       console.log(`✅ MCP tool ${name} completed:`, parsedResult.success ? '✓' : '✗')
+      
+      // EVENT-DRIVEN: Trigger data refresh after successful tool calls
+      if (parsedResult.success !== false) {
+        const refreshKeys = this.getRefreshKeysForOperation(name, args)
+        if (refreshKeys.length > 0) {
+          // Don't await - fire and forget to avoid blocking the response
+          this.triggerDataRefresh(refreshKeys).catch(error => {
+            console.warn('⚠️ Data refresh failed after tool call:', error)
+          })
+        }
+      }
+      
       return parsedResult
     } catch (error) {
       if (error instanceof Error && (error.message.includes('aborted') || error.name === 'AbortError')) {

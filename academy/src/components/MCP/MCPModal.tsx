@@ -1,4 +1,4 @@
-// src/components/MCP/MCPModal.tsx - Updated to use MCP Client instead of Zustand
+// src/components/MCP/MCPModal.tsx - Updated with Event-Driven Polling
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
@@ -53,14 +53,11 @@ export function MCPModal({ isOpen, onClose, sessionId }: MCPModalProps) {
   
   // MCP client ref
   const mcpClient = useRef(MCPClient.getInstance())
-  
-  // Polling interval ref
-  const pollingInterval = useRef<NodeJS.Timeout | null>(null)
 
   const mcp = useMCP()
   const sessionMCP = useSessionMCP()
 
-  // Fetch session data from MCP
+  // EVENT-DRIVEN: Fetch session data from MCP
   const fetchSessionData = async () => {
     if (!sessionId) {
       setCurrentSession(null)
@@ -78,23 +75,32 @@ export function MCPModal({ isOpen, onClose, sessionId }: MCPModalProps) {
     }
   }
 
-  // Initial load and polling setup
+  // EVENT-DRIVEN: Register data refresh callbacks
   useEffect(() => {
     if (!isOpen) return
+
+    console.log('🔧 MCPModal: Setting up event-driven data refresh')
 
     // Initial fetch
     setIsLoadingSession(true)
     fetchSessionData().finally(() => setIsLoadingSession(false))
 
-    // Set up polling for updates (every 2 seconds)
-    pollingInterval.current = setInterval(() => {
-      fetchSessionData()
-    }, 2000)
+    // Register for session data updates via event-driven system
+    const unsubscribeSessionData = mcpClient.current.registerDataRefreshCallback('session-data', fetchSessionData)
+    const unsubscribeCurrentSession = mcpClient.current.registerDataRefreshCallback('current-session', fetchSessionData)
+    
+    // If we have a sessionId, register for session-specific updates
+    let unsubscribeSessionSpecific: (() => void) | null = null
+    if (sessionId) {
+      unsubscribeSessionSpecific = mcpClient.current.registerDataRefreshCallback(`session-${sessionId}`, fetchSessionData)
+    }
 
     return () => {
-      if (pollingInterval.current) {
-        clearInterval(pollingInterval.current)
-        pollingInterval.current = null
+      console.log('🔧 MCPModal: Cleaning up event-driven callbacks')
+      unsubscribeSessionData()
+      unsubscribeCurrentSession()
+      if (unsubscribeSessionSpecific) {
+        unsubscribeSessionSpecific()
       }
     }
   }, [sessionId, isOpen])
@@ -155,6 +161,7 @@ export function MCPModal({ isOpen, onClose, sessionId }: MCPModalProps) {
         }
       }
 
+      // This will trigger automatic refresh via event-driven system
       const result = await mcp.callTool(selectedTool, args)
       setToolResult(result)
     } catch (error) {

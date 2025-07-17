@@ -1,4 +1,4 @@
-// src/components/Export/ExportModal.tsx - Updated to use MCP Client instead of Zustand
+// src/components/Export/ExportModal.tsx - Updated with Event-Driven Polling
 'use client'
 
 import { useState, useEffect, useMemo, useRef } from 'react'
@@ -45,10 +45,7 @@ export function ExportModal({ isOpen, onClose, sessionId }: ExportModalProps) {
   const [analysisTimeline, setAnalysisTimeline] = useState<any[]>([])
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
 
-  // Polling interval ref
-  const pollingInterval = useRef<NodeJS.Timeout | null>(null)
-
-  // Fetch session data from MCP
+  // EVENT-DRIVEN: Fetch session data from MCP
   const fetchSessionData = async () => {
     if (!sessionId) return
 
@@ -83,7 +80,7 @@ export function ExportModal({ isOpen, onClose, sessionId }: ExportModalProps) {
     }
   }
 
-  // Fetch analysis data
+  // EVENT-DRIVEN: Fetch analysis data
   const loadAnalysisData = async () => {
     if (!sessionId || !isOpen) return
 
@@ -101,21 +98,26 @@ export function ExportModal({ isOpen, onClose, sessionId }: ExportModalProps) {
     }
   }
 
-  // Initial data load and polling setup
+  // EVENT-DRIVEN: Register data refresh callbacks and subscribe to analysis events
   useEffect(() => {
     if (!isOpen || !sessionId) return
 
-    console.log(`📊 ExportModal: Setting up data fetching for session ${sessionId}`)
+    console.log(`📊 ExportModal: Setting up event-driven data refresh for session ${sessionId}`)
 
-    // Initial fetch
+    // Initial data fetch
     fetchSessionData()
     loadAnalysisData()
 
-    // Set up polling for updates (every 2 seconds)
-    pollingInterval.current = setInterval(() => {
-      fetchSessionData()
-      loadAnalysisData()
-    }, 2000)
+    // Register for session data updates via event-driven system
+    const unsubscribeSessionData = mcpClient.current.registerDataRefreshCallback('session-data', fetchSessionData)
+    const unsubscribeSessionSpecific = mcpClient.current.registerDataRefreshCallback(`session-${sessionId}`, fetchSessionData)
+    
+    // Register for API error updates
+    const unsubscribeApiErrors = mcpClient.current.registerDataRefreshCallback('api-errors', fetchSessionData)
+    
+    // Register for analysis updates
+    const unsubscribeAnalysisData = mcpClient.current.registerDataRefreshCallback('analysis-data', loadAnalysisData)
+    const unsubscribeAnalysisSpecific = mcpClient.current.registerDataRefreshCallback(`analysis-${sessionId}`, loadAnalysisData)
 
     // Subscribe to MCP analysis events for real-time updates
     const unsubscribeSaved = mcpAnalysisHandler.subscribe('analysis_snapshot_saved', (data) => {
@@ -142,11 +144,16 @@ export function ExportModal({ isOpen, onClose, sessionId }: ExportModalProps) {
     })
 
     return () => {
-      console.log(`📊 ExportModal: Cleaning up polling and subscriptions`)
-      if (pollingInterval.current) {
-        clearInterval(pollingInterval.current)
-        pollingInterval.current = null
-      }
+      console.log(`📊 ExportModal: Cleaning up event-driven callbacks and subscriptions`)
+      
+      // Unsubscribe from event-driven callbacks
+      unsubscribeSessionData()
+      unsubscribeSessionSpecific()
+      unsubscribeApiErrors()
+      unsubscribeAnalysisData()
+      unsubscribeAnalysisSpecific()
+      
+      // Unsubscribe from analysis events
       unsubscribeSaved()
       unsubscribeUpdated()
       unsubscribeCleared()
