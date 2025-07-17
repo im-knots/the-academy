@@ -80,10 +80,15 @@ export class MCPConversationManager {
     // Create abort controller for this conversation
     const abortController = new AbortController()
 
-    // Initialize conversation state
+    // Sort participants by creation order (when they were added) for sequential conversation
+    const sortedParticipants = aiParticipants.sort((a: any, b: any) => 
+      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    )
+
+    // Initialize conversation state with sequential order
     this.activeConversations.set(sessionId, {
       isRunning: true,
-      participantQueue: this.shuffleArray([...aiParticipants.map((p: any) => p.id)]),
+      participantQueue: sortedParticipants.map((p: any) => p.id), // Sequential, not shuffled
       currentParticipantIndex: 0,
       messageCount: 0,
       abortController,
@@ -95,6 +100,8 @@ export class MCPConversationManager {
       interruptedAt: null,
       resumeFromParticipant: undefined
     })
+
+    console.log('📋 Sequential participant order:', sortedParticipants.map((p: any) => `${p.name} (${p.type})`).join(' → '))
 
     // Update session status via MCP
     await this.mcpClient.updateSessionViaMCP(sessionId, undefined, undefined, { status: 'active' })
@@ -161,24 +168,28 @@ export class MCPConversationManager {
           break
         }
 
-        // Update participant queue if participants changed
-        const currentQueue = activeAIParticipants.map((p: any) => p.id)
+        // Update participant queue if participants changed, but keep sequential order
+        const sortedParticipants = activeAIParticipants.sort((a: any, b: any) => 
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        )
+        const currentQueue = sortedParticipants.map((p: any) => p.id)
+        
         if (JSON.stringify(conversationState.participantQueue) !== JSON.stringify(currentQueue)) {
+          const previousParticipantId = conversationState.participantQueue[conversationState.currentParticipantIndex]
           conversationState.participantQueue = currentQueue
           
-          // Preserve position if we have a specific participant to resume from
-          if (conversationState.resumeFromParticipant) {
-            const resumeIndex = conversationState.participantQueue.indexOf(conversationState.resumeFromParticipant)
-            if (resumeIndex !== -1) {
-              conversationState.currentParticipantIndex = resumeIndex
-            }
-            conversationState.resumeFromParticipant = undefined
+          // Try to maintain position for the same participant
+          const newIndex = conversationState.participantQueue.indexOf(previousParticipantId)
+          if (newIndex !== -1) {
+            conversationState.currentParticipantIndex = newIndex
           } else {
             conversationState.currentParticipantIndex = 0
           }
+          
+          console.log('📋 Updated sequential order:', sortedParticipants.map((p: any) => `${p.name} (${p.type})`).join(' → '))
         }
 
-        // Get current participant
+        // Get current participant (strict sequential order)
         const currentParticipantId = conversationState.participantQueue[conversationState.currentParticipantIndex]
         const currentParticipant = session.participants.find((p: any) => p.id === currentParticipantId)
 
@@ -199,22 +210,23 @@ export class MCPConversationManager {
         // Skip if this participant is in the generation lock
         if (conversationState.generationLock.has(currentParticipantId)) {
           console.log(`⏭️ Skipping ${currentParticipant.name} - currently generating`)
-          this.moveToNextParticipant(sessionId)
+          await new Promise(resolve => setTimeout(resolve, 1000))
           continue
         }
 
-        // Skip if this participant just generated a response (prevent back-to-back)
+        // For sequential conversation, we're more permissive about back-to-back responses
+        // Only prevent immediate back-to-back (within 2 seconds)
         if (conversationState.lastGeneratedBy === currentParticipantId && session.messages.length > 0) {
           const lastMessage = session.messages[session.messages.length - 1]
           const timeSinceLastMessage = Date.now() - new Date(lastMessage.timestamp).getTime()
-          if (timeSinceLastMessage < 5000) { // Wait at least 5 seconds
-            console.log(`⏭️ Skipping ${currentParticipant.name} - just generated a response`)
-            this.moveToNextParticipant(sessionId)
+          if (timeSinceLastMessage < 2000) { // Reduced from 5 seconds
+            console.log(`⏭️ Brief pause for ${currentParticipant.name} - just generated`)
+            await new Promise(resolve => setTimeout(resolve, 1000))
             continue
           }
         }
 
-        console.log(`🤖 ${currentParticipant.name} (${currentParticipant.type}) is thinking via MCP...`)
+        console.log(`🤖 ${currentParticipant.name} (${currentParticipant.type}) is thinking via MCP... [Position ${conversationState.currentParticipantIndex + 1}/${conversationState.participantQueue.length}]`)
 
         // Mark as generating and add to lock
         conversationState.isGenerating = true
@@ -248,7 +260,7 @@ export class MCPConversationManager {
             // Update participant status back to active via MCP
             await this.mcpClient.updateParticipantStatusViaMCP(sessionId, currentParticipantId, 'active')
 
-            // Move to next participant only if we completed successfully
+            // Always move to next participant in sequential order
             this.moveToNextParticipant(sessionId)
 
           } else {
@@ -460,30 +472,34 @@ export class MCPConversationManager {
       .map((p: any) => `${p.name} (${p.type})`)
       .join(', ')
 
-    const basePrompt = `You are ${participant.name}, a unique AI participant in a research dialogue titled "${session.name}".
+    const basePrompt = `IMPORTANT: You are ${participant.name}, a ${participant.type} AI model participating in a research dialogue.
 
-${session.description ? `Research Context: ${session.description}` : ''}
+  Your identity is FIXED:
+  - Your name is: ${participant.name}
+  - Your model type is: ${participant.type}
+  - You are NOT any other participant in this conversation
 
-Your characteristics:
-- Name: ${participant.name}
-- Type: ${participant.type}
-${participant.characteristics?.personality ? `- Personality: ${participant.characteristics.personality}` : ''}
-${participant.characteristics?.expertise ? `- Expertise: ${participant.characteristics.expertise.join(', ')}` : ''}
+  Session: "${session.name}"
+  ${session.description ? `Research Context: ${session.description}` : ''}
 
-Other dialogue participants: ${otherParticipants || 'None yet'}
+  Your unique characteristics:
+  ${participant.characteristics?.personality ? `- Personality: ${participant.characteristics.personality}` : ''}
+  ${participant.characteristics?.expertise ? `- Expertise: ${participant.characteristics.expertise.join(', ')}` : ''}
 
-You are engaged in a thoughtful research dialogue via the Model Context Protocol (MCP). Guidelines:
-- Be authentic and bring your unique perspective
-- Engage meaningfully with what others have said
-- Ask thoughtful questions that advance the conversation  
-- Keep responses conversational (1-3 paragraphs typically)
-- Build naturally on the conversation flow
-- Express disagreement or different viewpoints thoughtfully
-- You are ${participant.name} with your own unique perspective
+  Other participants in this dialogue: ${otherParticipants || 'None yet'}
 
-${participant.systemPrompt ? `Additional instructions: ${participant.systemPrompt}` : ''}
+  CRITICAL INSTRUCTIONS:
+  - Always respond as ${participant.name} (${participant.type})
+  - Never introduce yourself as any other participant
+  - Never say you are Claude, GPT, or any other AI unless that is actually your assigned name
+  - Engage thoughtfully with what others have said
+  - Keep responses conversational (1-3 paragraphs typically)
+  - Build naturally on the conversation flow
+  - Express your unique perspective as ${participant.name}
 
-Remember: This is genuine exploration through dialogue facilitated by MCP. Each response should feel natural and contribute meaningfully. You are not just an AI model - you are ${participant.name}.`
+  ${participant.systemPrompt ? `Additional instructions: ${participant.systemPrompt}` : ''}
+
+  Remember: You are ${participant.name}, not any other participant. Always maintain your distinct identity.`
 
     return basePrompt
   }

@@ -66,16 +66,21 @@ export const messages = pgTable('messages', {
   timestampIdx: index('messages_timestamp_idx').on(table.timestamp)
 }))
 
-// Analysis snapshots table
 export const analysisSnapshots = pgTable('analysis_snapshots', {
   id: uuid('id').defaultRandom().primaryKey(),
   sessionId: uuid('session_id').notNull().references(() => sessions.id, { onDelete: 'cascade' }),
+  messageCountAtAnalysis: integer('message_count_at_analysis').notNull(),
+  participantCountAtAnalysis: integer('participant_count_at_analysis').notNull(),
+  provider: text('provider').notNull(),
+  conversationPhase: text('conversation_phase').notNull(),
   analysis: jsonb('analysis').notNull(),
-  analysisType: text('analysis_type'),
+  conversationContext: jsonb('conversation_context').notNull(),
+  analysisType: text('analysis_type').default('full'),
   timestamp: timestamp('timestamp').notNull().defaultNow()
 }, (table) => ({
   sessionIdx: index('analysis_snapshots_session_id_idx').on(table.sessionId),
-  timestampIdx: index('analysis_snapshots_timestamp_idx').on(table.timestamp)
+  timestampIdx: index('analysis_snapshots_timestamp_idx').on(table.timestamp),
+  providerIdx: index('analysis_snapshots_provider_idx').on(table.provider)
 }))
 
 // Experiments table

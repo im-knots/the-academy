@@ -4258,6 +4258,12 @@ export class MCPServer {
         throw new Error('Session ID and analysis data are required')
       }
 
+      console.log('🔧 MCP Server: Saving analysis snapshot with args:', { 
+        sessionId, 
+        analysisType, 
+        analysisKeys: Object.keys(analysis)
+      })
+
       const session = await db.query.sessions.findFirst({
         where: eq(sessions.id, sessionId)
       })
@@ -4266,12 +4272,56 @@ export class MCPServer {
         throw new Error(`Session ${sessionId} not found`)
       }
 
-      // Save analysis snapshot
+      // Extract fields from the analysis object to match the schema
+      const {
+        messageCountAtAnalysis,
+        participantCountAtAnalysis,
+        provider,
+        conversationPhase,
+        analysis: analysisData,
+        conversationContext,
+        ...otherFields
+      } = analysis
+
+      // Validate required fields with better logging
+      console.log('🔍 MCP Server: Validating fields:', {
+        messageCountAtAnalysis,
+        participantCountAtAnalysis,
+        provider,
+        conversationPhase,
+        hasAnalysisData: !!analysisData,
+        hasConversationContext: !!conversationContext,
+        analysisDataKeys: analysisData ? Object.keys(analysisData) : [],
+        conversationContextKeys: conversationContext ? Object.keys(conversationContext) : []
+      })
+
+      if (messageCountAtAnalysis === undefined || participantCountAtAnalysis === undefined || !provider || !conversationPhase || !analysisData || !conversationContext) {
+        console.error('❌ MCP Server: Missing required fields:', {
+          messageCountAtAnalysis,
+          participantCountAtAnalysis,
+          provider,
+          conversationPhase,
+          hasAnalysisData: !!analysisData,
+          hasConversationContext: !!conversationContext
+        })
+        throw new Error('Missing required analysis fields: messageCountAtAnalysis, participantCountAtAnalysis, provider, conversationPhase, analysis, conversationContext')
+      }
+
+      console.log('✅ MCP Server: All required fields present, inserting into database...')
+
+      // Save analysis snapshot with the correct structure
       const [snapshot] = await db.insert(analysisSnapshots).values({
         sessionId,
-        analysis,
+        messageCountAtAnalysis: Number(messageCountAtAnalysis),
+        participantCountAtAnalysis: Number(participantCountAtAnalysis),
+        provider,
+        conversationPhase,
+        analysis: analysisData,
+        conversationContext,
         analysisType
       }).returning()
+
+      console.log('✅ MCP Server: Analysis snapshot saved successfully:', snapshot.id)
 
       return {
         success: true,
@@ -4281,7 +4331,7 @@ export class MCPServer {
         message: 'Analysis snapshot saved successfully'
       }
     } catch (error) {
-      console.error('Save analysis snapshot failed:', error)
+      console.error('❌ MCP Server: Save analysis snapshot failed:', error)
       throw new Error(`Failed to save analysis snapshot: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }

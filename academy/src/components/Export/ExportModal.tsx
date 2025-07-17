@@ -1,9 +1,8 @@
-// src/components/Export/ExportModal.tsx - Updated with Internal Pub/Sub Event System
+// src/components/Export/ExportModal.tsx - Updated to use MCP only
 'use client'
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { MCPClient } from '@/lib/mcp/client'
-import { mcpAnalysisHandler } from '@/lib/mcp/analysis-handler'
 import { ExportManager, ExportOptions } from '@/lib/utils/export'
 import { eventBus, EVENT_TYPES } from '@/lib/events/eventBus'
 import { Button } from '@/components/ui/Button'
@@ -19,7 +18,7 @@ import type { ChatSession, APIError } from '@/types/chat'
 interface ExportModalProps {
   isOpen: boolean
   onClose: () => void
-  sessionId?: string // Now passed as prop since we don't have global store
+  sessionId?: string
 }
 
 export function ExportModal({ isOpen, onClose, sessionId }: ExportModalProps) {
@@ -81,23 +80,42 @@ export function ExportModal({ isOpen, onClose, sessionId }: ExportModalProps) {
     }
   }, [sessionId])
 
-  // EVENT-DRIVEN: Fetch analysis data
+  // EVENT-DRIVEN: Fetch analysis data via MCP only
   const loadAnalysisData = useCallback(async () => {
-    if (!sessionId || !isOpen) return
+    if (!sessionId) return
 
     try {
-      const snapshots = mcpAnalysisHandler.getAnalysisHistory(sessionId)
-      const timeline = mcpAnalysisHandler.getAnalysisTimeline(sessionId)
+      console.log(`📊 ExportModal: Loading analysis data for session ${sessionId}`)
       
-      setAnalysisCount(snapshots.length)
-      setAnalysisTimeline(timeline)
+      // Get analysis history directly via MCP
+      const result = await mcpClient.current.getAnalysisHistoryViaMCP(sessionId)
+      
+      if (result.success && result.snapshots) {
+        const snapshots = result.snapshots.map((snapshot: any) => ({
+          ...snapshot,
+          timestamp: new Date(snapshot.timestamp),
+          // Ensure messageCountAtAnalysis is available for display
+          messageCount: snapshot.messageCountAtAnalysis || 0,
+          keyInsight: snapshot.analysis?.keyInsights?.[0] || 'Analysis snapshot'
+        }))
+        
+        setAnalysisCount(snapshots.length)
+        setAnalysisTimeline(snapshots)
+        console.log(`📊 ExportModal: Loaded ${snapshots.length} analysis snapshots`)
+        console.log('📊 ExportModal: Sample snapshot:', snapshots[0])
+      } else {
+        console.warn(`⚠️ ExportModal: No analysis snapshots found for session ${sessionId}`)
+        setAnalysisCount(0)
+        setAnalysisTimeline([])
+      }
+      
       setLastUpdate(new Date())
-      
-      console.log(`📊 ExportModal: Loaded ${snapshots.length} analysis snapshots and ${timeline.length} timeline entries`)
     } catch (error) {
-      console.error('Failed to load analysis data:', error)
+      console.error('❌ ExportModal: Failed to load analysis data:', error)
+      setAnalysisCount(0)
+      setAnalysisTimeline([])
     }
-  }, [sessionId, isOpen])
+  }, [sessionId])
 
   // EVENT-DRIVEN: Handle session updates
   const handleSessionUpdated = useCallback(async (payload: any) => {
@@ -179,30 +197,6 @@ export function ExportModal({ isOpen, onClose, sessionId }: ExportModalProps) {
     const unsubscribeApiErrorLogged = eventBus.subscribe(EVENT_TYPES.API_ERROR_LOGGED, handleErrorEvent)
     const unsubscribeApiErrorsCleared = eventBus.subscribe(EVENT_TYPES.API_ERRORS_CLEARED, handleErrorEvent)
 
-    // Subscribe to MCP analysis events for real-time updates
-    const unsubscribeSaved = mcpAnalysisHandler.subscribe('analysis_snapshot_saved', (data) => {
-      if (data.sessionId === sessionId) {
-        console.log(`📊 ExportModal: Analysis snapshot saved event received. New count: ${data.totalSnapshots}`)
-        loadAnalysisData()
-      }
-    })
-
-    const unsubscribeUpdated = mcpAnalysisHandler.subscribe('analysis_history_updated', (data) => {
-      if (data.sessionId === sessionId) {
-        console.log(`📊 ExportModal: Analysis history updated event received. New count: ${data.count}`)
-        loadAnalysisData()
-      }
-    })
-
-    const unsubscribeCleared = mcpAnalysisHandler.subscribe('analysis_history_cleared', (data) => {
-      if (data.sessionId === sessionId) {
-        console.log(`📊 ExportModal: Analysis history cleared event received`)
-        setAnalysisCount(0)
-        setAnalysisTimeline([])
-        setLastUpdate(new Date())
-      }
-    })
-
     return () => {
       console.log(`📊 ExportModal: Cleaning up internal pub/sub event subscriptions`)
       
@@ -219,11 +213,6 @@ export function ExportModal({ isOpen, onClose, sessionId }: ExportModalProps) {
       unsubscribeAnalysisCleared()
       unsubscribeApiErrorLogged()
       unsubscribeApiErrorsCleared()
-      
-      // Unsubscribe from MCP analysis events
-      unsubscribeSaved()
-      unsubscribeUpdated()
-      unsubscribeCleared()
     }
   }, [
     sessionId, 
@@ -241,35 +230,16 @@ export function ExportModal({ isOpen, onClose, sessionId }: ExportModalProps) {
   const enhancedSession = useMemo(() => {
     if (!currentSession) return null
 
-    // Get fresh analysis data from MCP
-    const mcpAnalysisSnapshots = mcpAnalysisHandler.getAnalysisHistory(sessionId!)
-    
-    console.log(`📊 ExportModal: Creating enhanced session with ${mcpAnalysisSnapshots.length} MCP analysis snapshots and ${sessionErrors.length} errors`)
-
     return {
       ...currentSession,
-      analysisHistory: mcpAnalysisSnapshots, // Override with MCP data
-      errors: sessionErrors, // Add errors for export
+      analysisHistory: analysisTimeline, // Use the data we loaded via MCP
       metadata: {
         ...currentSession.metadata,
-        mcpAnalysisCount: mcpAnalysisSnapshots.length,
-        errorCount: sessionErrors.length,
-        lastMCPUpdate: lastUpdate,
-        exportEnhanced: true
+        analysisCount,
+        lastAnalysisUpdate: lastUpdate
       }
     }
-  }, [currentSession, analysisCount, lastUpdate, sessionErrors, sessionId])
-
-  // Generate analysis timeline with MCP data
-  const mcpAnalysisTimeline = useMemo(() => {
-    if (!currentSession || analysisTimeline.length === 0) {
-      console.log('📊 ExportModal: No MCP timeline data available')
-      return []
-    }
-    
-    console.log(`📊 ExportModal: Generated MCP timeline with ${analysisTimeline.length} entries`)
-    return analysisTimeline
-  }, [currentSession, analysisTimeline])
+  }, [currentSession, analysisTimeline, analysisCount, lastUpdate])
 
   // Debug effect to track changes
   useEffect(() => {
@@ -281,6 +251,9 @@ export function ExportModal({ isOpen, onClose, sessionId }: ExportModalProps) {
       console.log(`   - Session Errors: ${sessionErrors.length}`)
       console.log(`   - Last Update: ${lastUpdate}`)
       console.log(`   - Enhanced Session Analysis Count: ${enhancedSession?.analysisHistory?.length || 0}`)
+      if (analysisTimeline.length > 0) {
+        console.log(`   - Sample analysis entry:`, analysisTimeline[0])
+      }
     }
   }, [isOpen, currentSession, analysisCount, analysisTimeline.length, sessionErrors.length, lastUpdate, enhancedSession])
 
@@ -328,7 +301,7 @@ export function ExportModal({ isOpen, onClose, sessionId }: ExportModalProps) {
       // Get errors for export
       const errors = exportOptions.includeErrors ? sessionErrors : undefined
       
-      // Export with all data - this now returns the export data
+      // Export with all data
       ExportManager.exportSession(
         enhancedSession,
         exportOptions,
@@ -447,7 +420,7 @@ export function ExportModal({ isOpen, onClose, sessionId }: ExportModalProps) {
           </Button>
         </div>
 
-        {/* Content - Now flex-1 with proper overflow handling */}
+        {/* Content */}
         <div className="flex flex-1 min-h-0">
           {/* Options Panel */}
           <div className="w-1/2 p-6 border-r border-gray-200 dark:border-gray-700 overflow-y-auto">
@@ -530,42 +503,6 @@ export function ExportModal({ isOpen, onClose, sessionId }: ExportModalProps) {
                 </CardContent>
               </Card>
 
-              {/* Error Statistics */}
-              {sessionErrors.length > 0 && (
-                <Card className="bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-700">
-                  <CardContent className="p-4">
-                    <h3 className="font-medium text-orange-900 dark:text-orange-100 mb-3 flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4" />
-                      API Error Summary ({sessionErrors.length})
-                    </h3>
-                    <div className="space-y-2">
-                      {Object.entries(
-                        sessionErrors.reduce((acc, error) => {
-                          acc[error.provider] = (acc[error.provider] || 0) + 1
-                          return acc
-                        }, {} as Record<string, number>)
-                      ).map(([provider, count]) => (
-                        <div key={provider} className="text-xs bg-white/50 dark:bg-black/20 p-2 rounded">
-                          <div className="flex items-center justify-between">
-                            <span className="font-medium text-orange-800 dark:text-orange-200 capitalize">
-                              {provider} API
-                            </span>
-                            <span className="text-orange-600 dark:text-orange-400">
-                              {count} error{count !== 1 ? 's' : ''}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                      {sessionErrors.length > 0 && (
-                        <div className="text-xs text-orange-600 dark:text-orange-400 mt-2">
-                          Most recent: {new Date(sessionErrors[sessionErrors.length - 1].timestamp).toLocaleString()}
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
               {/* MCP Analysis Timeline Preview */}
               <Card className={`${analysisCount > 0 ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-700' : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-700'}`}>
                 <CardContent className="p-4">
@@ -580,35 +517,29 @@ export function ExportModal({ isOpen, onClose, sessionId }: ExportModalProps) {
                   </h3>
                   {analysisCount > 0 ? (
                     <div className="space-y-2">
-                      {mcpAnalysisTimeline.slice(0, 3).map((entry: any, index: number) => (
+                      {analysisTimeline.slice(0, 3).map((entry: any, index: number) => (
                         <div key={index} className="text-xs bg-white/50 dark:bg-black/20 p-2 rounded">
                           <div className="flex items-center justify-between mb-1">
                             <span className="font-medium text-indigo-800 dark:text-indigo-200">
                               {String(entry.provider || 'UNKNOWN').toUpperCase()} Analysis
                             </span>
                             <span className="text-indigo-600 dark:text-indigo-400">
-                              {Number(entry.messageCount || 0)} msgs
+                              {Number(entry.messageCountAtAnalysis || entry.messageCount || 0)} msgs
                             </span>
                           </div>
                           <p className="text-indigo-700 dark:text-indigo-300 truncate">
-                            {String(entry.keyInsight || 'Analysis snapshot')}
+                            {String(entry.keyInsight || entry.analysis?.keyInsights?.[0] || 'Analysis snapshot')}
                           </p>
                           <div className="text-xs text-indigo-600 dark:text-indigo-400 mt-1">
                             {entry.timestamp ? new Date(entry.timestamp).toLocaleTimeString() : 'Unknown time'}
                           </div>
                         </div>
                       ))}
-                      {mcpAnalysisTimeline.length > 3 && (
+                      {analysisTimeline.length > 3 && (
                         <p className="text-xs text-indigo-600 dark:text-indigo-400 text-center">
-                          +{mcpAnalysisTimeline.length - 3} more snapshots
+                          +{analysisTimeline.length - 3} more snapshots
                         </p>
                       )}
-                      <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded">
-                        <div className="flex items-center gap-2 text-xs text-green-800 dark:text-green-200">
-                          <Zap className="h-3 w-3" />
-                          <span>Real-time data via MCP protocol</span>
-                        </div>
-                      </div>
                     </div>
                   ) : (
                     <div className="text-center py-4">
@@ -624,7 +555,7 @@ export function ExportModal({ isOpen, onClose, sessionId }: ExportModalProps) {
                 </CardContent>
               </Card>
 
-              {/* Format Selection */}
+              {/* Export Options */}
               <div>
                 <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
                   Export Format
@@ -669,7 +600,7 @@ export function ExportModal({ isOpen, onClose, sessionId }: ExportModalProps) {
                 </div>
               </div>
 
-              {/* Export Options */}
+              {/* Options */}
               <div>
                 <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
                   Export Options
@@ -705,23 +636,6 @@ export function ExportModal({ isOpen, onClose, sessionId }: ExportModalProps) {
                       </p>
                       <p className="text-xs text-gray-600 dark:text-gray-400">
                         Full participant profiles and settings
-                      </p>
-                    </div>
-                  </label>
-
-                  <label className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={exportOptions.includeSystemPrompts}
-                      onChange={(e) => updateOption('includeSystemPrompts', e.target.checked)}
-                      className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                    />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        Include System Prompts
-                      </p>
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
-                        AI instruction prompts (sensitive data)
                       </p>
                     </div>
                   </label>
@@ -869,7 +783,7 @@ export function ExportModal({ isOpen, onClose, sessionId }: ExportModalProps) {
           </div>
         </div>
 
-        {/* Footer - Now flex-shrink-0 */}
+        {/* Footer */}
         <div className="border-t border-gray-200 dark:border-gray-700 p-6 bg-gray-50 dark:bg-gray-800/50 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">

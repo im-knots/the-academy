@@ -4,7 +4,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { MCPClient } from '@/lib/mcp/client'
 import { useMCP } from '@/hooks/useMCP'
-import { mcpAnalysisHandler } from '@/lib/mcp/analysis-handler'
 import { eventBus, EVENT_TYPES } from '@/lib/events/eventBus'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
@@ -20,7 +19,7 @@ import type { ChatSession } from '@/types/chat'
 
 interface LiveSummaryProps {
   className?: string
-  sessionId: string // Now required since we don't have global store
+  sessionId: string
 }
 
 interface AnalysisProvider {
@@ -48,7 +47,7 @@ interface SummaryData {
   lastUpdated: Date
   messageCount: number
   analysisProvider: string
-  messageWindow: number // Track which window size was used
+  messageWindow: number
 }
 
 const ANALYSIS_PROVIDERS: AnalysisProvider[] = [
@@ -66,7 +65,6 @@ const ANALYSIS_PROVIDERS: AnalysisProvider[] = [
   }
 ]
 
-// Preset window sizes with descriptions
 const WINDOW_PRESETS = [
   { size: 0, label: 'All', description: 'Analyze entire conversation' },
   { size: 10, label: '10', description: 'Recent context (10 messages)' },
@@ -93,14 +91,11 @@ export function LiveSummary({ className = '', sessionId }: LiveSummaryProps) {
   const [lastAnalyzedSessionId, setLastAnalyzedSessionId] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
-  
-  // MCP analysis tracking with real-time updates
   const [analysisCount, setAnalysisCount] = useState(0)
   
   const analysisIntervalRef = useRef<NodeJS.Timeout | null>(null)
-  const ANALYSIS_TRIGGER_INTERVAL = 3 // Analyze every 3 new messages
+  const ANALYSIS_TRIGGER_INTERVAL = 3
 
-  // EVENT-DRIVEN: Fetch session data function
   const fetchSessionData = useCallback(async () => {
     if (!sessionId) return
 
@@ -121,90 +116,81 @@ export function LiveSummary({ className = '', sessionId }: LiveSummaryProps) {
     }
   }, [sessionId])
 
-  // EVENT-DRIVEN: Handle session events via internal pub/sub
   const handleSessionEvent = useCallback(async (payload: any) => {
     console.log('📊 LiveSummary: Session event received:', payload.data)
     
-    // If this affects our session, refresh the data
     if (payload.data.sessionId === sessionId || payload.data.sessionId === undefined) {
       await fetchSessionData()
     }
   }, [sessionId, fetchSessionData])
 
-  // EVENT-DRIVEN: Handle message events that might trigger auto-analysis
   const handleMessageEvent = useCallback(async (payload: any) => {
     console.log('📊 LiveSummary: Message event received:', payload.data)
     
-    // If this message affects the current session, refresh and potentially trigger analysis
     if (payload.data.sessionId === sessionId) {
       await fetchSessionData()
-      
-      // Auto-analysis will be triggered by the session update effect
     }
   }, [sessionId, fetchSessionData])
 
-  // EVENT-DRIVEN: Handle participant events
   const handleParticipantEvent = useCallback(async (payload: any) => {
     console.log('📊 LiveSummary: Participant event received:', payload.data)
     
-    // If this affects our session, refresh the data
     if (payload.data.sessionId === sessionId) {
       await fetchSessionData()
     }
   }, [sessionId, fetchSessionData])
 
-  // EVENT-DRIVEN: Handle analysis events for real-time updates
   const handleAnalysisEvent = useCallback(async (payload: any) => {
     console.log('📊 LiveSummary: Analysis event received:', payload.data)
     
-    // If this affects our session, update the analysis count
     if (payload.data.sessionId === sessionId) {
-      // Refresh analysis count when analysis is saved/triggered/cleared
       await fetchAnalysisCount()
+      
+      if (payload.type === EVENT_TYPES.ANALYSIS_SAVED) {
+        setLastSaved(new Date())
+        setTimeout(() => setLastSaved(null), 3000)
+      }
     }
   }, [sessionId])
 
-  // Function to fetch analysis count
   const fetchAnalysisCount = useCallback(async () => {
     if (!sessionId) return
 
     try {
+      console.log(`📊 LiveSummary: Fetching analysis count for session ${sessionId}`)
+      
       const result = await mcpClient.current.getAnalysisHistoryViaMCP(sessionId)
+      
       if (result.success && result.snapshots) {
         setAnalysisCount(result.snapshots.length)
         console.log(`📊 LiveSummary: Analysis count updated = ${result.snapshots.length}`)
+      } else {
+        console.warn(`⚠️ LiveSummary: No analysis snapshots found for session ${sessionId}`)
+        setAnalysisCount(0)
       }
     } catch (error) {
-      console.error('Failed to fetch analysis count:', error)
+      console.error('❌ LiveSummary: Failed to fetch analysis count:', error)
+      setAnalysisCount(0)
     }
   }, [sessionId])
 
-  // EVENT-DRIVEN: Subscribe to all relevant events via internal pub/sub
   useEffect(() => {
     if (!sessionId) return
 
     console.log(`📊 LiveSummary: Setting up internal pub/sub event subscriptions for session ${sessionId}`)
 
-    // Initial data fetch
     fetchSessionData()
     fetchAnalysisCount()
 
-    // Session events
     const unsubscribeSessionCreated = eventBus.subscribe(EVENT_TYPES.SESSION_CREATED, handleSessionEvent)
     const unsubscribeSessionUpdated = eventBus.subscribe(EVENT_TYPES.SESSION_UPDATED, handleSessionEvent)
     const unsubscribeSessionSwitched = eventBus.subscribe(EVENT_TYPES.SESSION_SWITCHED, handleSessionEvent)
-    
-    // Message events
     const unsubscribeMessageSent = eventBus.subscribe(EVENT_TYPES.MESSAGE_SENT, handleMessageEvent)
     const unsubscribeMessageUpdated = eventBus.subscribe(EVENT_TYPES.MESSAGE_UPDATED, handleMessageEvent)
     const unsubscribeMessageDeleted = eventBus.subscribe(EVENT_TYPES.MESSAGE_DELETED, handleMessageEvent)
-    
-    // Participant events
     const unsubscribeParticipantAdded = eventBus.subscribe(EVENT_TYPES.PARTICIPANT_ADDED, handleParticipantEvent)
     const unsubscribeParticipantRemoved = eventBus.subscribe(EVENT_TYPES.PARTICIPANT_REMOVED, handleParticipantEvent)
     const unsubscribeParticipantUpdated = eventBus.subscribe(EVENT_TYPES.PARTICIPANT_UPDATED, handleParticipantEvent)
-    
-    // Analysis events
     const unsubscribeAnalysisSaved = eventBus.subscribe(EVENT_TYPES.ANALYSIS_SAVED, handleAnalysisEvent)
     const unsubscribeAnalysisTriggered = eventBus.subscribe(EVENT_TYPES.ANALYSIS_TRIGGERED, handleAnalysisEvent)
     const unsubscribeAnalysisCleared = eventBus.subscribe(EVENT_TYPES.ANALYSIS_CLEARED, handleAnalysisEvent)
@@ -234,49 +220,10 @@ export function LiveSummary({ className = '', sessionId }: LiveSummaryProps) {
     handleAnalysisEvent
   ])
 
-  // Subscribe to MCP analysis events for real-time updates (additional layer)
-  useEffect(() => {
-    if (!currentSession) return
-
-    console.log(`📊 LiveSummary: Setting up MCP analysis handler subscriptions for session ${currentSession.id}`)
-
-    // Subscribe to MCP analysis events
-    const unsubscribeSaved = mcpAnalysisHandler.subscribe('analysis_snapshot_saved', (data) => {
-      if (data.sessionId === currentSession.id) {
-        console.log(`📊 LiveSummary: MCP analysis snapshot saved event received. New count: ${data.totalSnapshots}`)
-        setAnalysisCount(data.totalSnapshots)
-        setLastSaved(new Date())
-        setTimeout(() => setLastSaved(null), 3000)
-      }
-    })
-
-    const unsubscribeUpdated = mcpAnalysisHandler.subscribe('analysis_history_updated', (data) => {
-      if (data.sessionId === currentSession.id) {
-        console.log(`📊 LiveSummary: MCP analysis history updated event received. New count: ${data.count}`)
-        setAnalysisCount(data.count)
-      }
-    })
-
-    const unsubscribeCleared = mcpAnalysisHandler.subscribe('analysis_history_cleared', (data) => {
-      if (data.sessionId === currentSession.id) {
-        console.log(`📊 LiveSummary: MCP analysis history cleared event received`)
-        setAnalysisCount(0)
-      }
-    })
-
-    return () => {
-      unsubscribeSaved()
-      unsubscribeUpdated()
-      unsubscribeCleared()
-    }
-  }, [currentSession?.id])
-
-  // Clear analysis and refresh when session changes
   useEffect(() => {
     if (currentSession?.id) {
       console.log(`📊 LiveSummary: Session changed to ${currentSession.id}, clearing analysis`)
       
-      // Only clear if we're actually switching to a different session
       if (lastAnalyzedSessionId && lastAnalyzedSessionId !== currentSession.id) {
         console.log(`📊 LiveSummary: Switching from session ${lastAnalyzedSessionId} to ${currentSession.id}`)
         setSummary(null)
@@ -286,41 +233,36 @@ export function LiveSummary({ className = '', sessionId }: LiveSummaryProps) {
       
       setLastAnalyzedSessionId(currentSession.id)
       
-      // Perform fresh analysis if we have enough messages and no current analysis
       if (currentSession.messages && currentSession.messages.length >= 4 && !summary) {
         console.log(`📊 LiveSummary: Performing fresh analysis for session ${currentSession.id}`)
-        // Small delay to ensure UI updates
         setTimeout(() => {
-          performAIAnalysis(true) // Auto-save initial analysis
+          performAIAnalysis(true)
         }, 500)
       }
     }
   }, [currentSession?.id])
 
-  // Auto-refresh logic - only for new messages in current session
   useEffect(() => {
     if (!currentSession || !mcp.isConnected) return
-    if (currentSession.id !== lastAnalyzedSessionId) return // Don't auto-analyze if session just changed
+    if (currentSession.id !== lastAnalyzedSessionId) return
 
     const messageCount = currentSession.messages?.length || 0
     
-    // Trigger analysis if we have enough messages and enough new messages since last analysis
     const shouldAnalyze = 
-      messageCount >= 4 && // Minimum messages for meaningful analysis
-      messageCount > lastAnalyzedMessageCount && // New messages available
-      (messageCount - lastAnalyzedMessageCount) >= ANALYSIS_TRIGGER_INTERVAL // Enough new messages
+      messageCount >= 4 && 
+      messageCount > lastAnalyzedMessageCount && 
+      (messageCount - lastAnalyzedMessageCount) >= ANALYSIS_TRIGGER_INTERVAL
 
     if (shouldAnalyze && !isAnalyzing) {
       console.log(`📊 LiveSummary: Auto-analysis triggered for ${messageCount - lastAnalyzedMessageCount} new messages`)
       
-      // Debounce rapid message additions
       if (analysisIntervalRef.current) {
         clearTimeout(analysisIntervalRef.current)
       }
       
       analysisIntervalRef.current = setTimeout(() => {
-        performAIAnalysis(true) // Auto-save
-      }, 3000) // Wait 3 seconds after last message
+        performAIAnalysis(true)
+      }, 3000)
     }
 
     return () => {
@@ -337,7 +279,6 @@ export function LiveSummary({ className = '', sessionId }: LiveSummaryProps) {
 
     console.log(`📊 LiveSummary: Building analysis prompt for session ${session.id} with ${session.messages?.length || 0} messages`)
 
-    // Apply message window filtering
     let messagesToAnalyze = session.messages || []
     if (messageWindow > 0 && messageWindow < messagesToAnalyze.length) {
       messagesToAnalyze = messagesToAnalyze.slice(-messageWindow)
@@ -425,10 +366,7 @@ Return only the JSON object, no additional text.`
       console.log(`🧠 LiveSummary: Performing AI analysis for session ${currentSession.id} with ${selectedProvider}`)
       console.log(`📊 LiveSummary: Analyzing ${currentSession.messages.length} messages from ${currentSession.participants?.length || 0} participants`)
       
-      // Build analysis prompt
       const analysisPrompt = buildAnalysisPrompt(currentSession)
-      
-      // Use MCP to call the selected AI provider directly
       const toolName = selectedProvider === 'claude' ? 'claude_chat' : 'openai_chat'
       
       const messages = [
@@ -453,10 +391,8 @@ Return only the JSON object, no additional text.`
       
       if (result.success && result.content) {
         try {
-          // Try to extract JSON from the response
           let jsonStr = result.content.trim()
           
-          // Handle cases where the AI wraps JSON in markdown
           if (jsonStr.startsWith('```json')) {
             jsonStr = jsonStr.replace(/```json\s*/, '').replace(/\s*```$/, '')
           } else if (jsonStr.startsWith('```')) {
@@ -465,7 +401,6 @@ Return only the JSON object, no additional text.`
           
           const analysisData = JSON.parse(jsonStr)
           
-          // Transform to our summary format
           const summaryData: SummaryData = {
             mainTopics: analysisData.mainTopics || [],
             keyInsights: analysisData.keyInsights || [],
@@ -488,7 +423,6 @@ Return only the JSON object, no additional text.`
           setLastAnalyzedSessionId(currentSession.id)
           console.log(`✅ LiveSummary: AI analysis completed for session ${currentSession.id} with ${selectedProvider}`)
 
-          // Auto-save if requested
           if (autoSave) {
             console.log(`💾 LiveSummary: Auto-saving analysis snapshot...`)
             await saveAnalysisSnapshot(summaryData)
@@ -521,23 +455,19 @@ Return only the JSON object, no additional text.`
       setIsSaving(true)
       console.log(`💾 LiveSummary: Saving analysis snapshot for session ${currentSession.id}`)
 
-      // Count moderator interventions
       const moderatorInterventions = (currentSession.messages || []).filter(
         msg => msg.participantType === 'moderator'
       ).length
 
-      // Get active participants
       const activeParticipants = (currentSession.participants || [])
         .filter(p => p.status === 'active' || p.status === 'thinking')
         .map(p => p.name)
 
-      // Prepare analysis data
       const analysisSnapshotData = {
         messageCountAtAnalysis: dataToSave.messageCount,
         participantCountAtAnalysis: currentSession.participants?.length || 0,
         provider: selectedProvider,
         conversationPhase: dataToSave.conversationPhase,
-        messageWindow: dataToSave.messageWindow,
         analysis: {
           mainTopics: dataToSave.mainTopics,
           keyInsights: dataToSave.keyInsights,
@@ -560,7 +490,6 @@ Return only the JSON object, no additional text.`
 
       console.log('📊 LiveSummary: Analysis data prepared:', analysisSnapshotData)
 
-      // Save via MCP - this will automatically emit events via internal pub/sub system
       const result = await mcpClient.current.saveAnalysisSnapshotViaMCP(
         currentSession.id,
         analysisSnapshotData,
@@ -568,15 +497,11 @@ Return only the JSON object, no additional text.`
       )
       
       if (result.success) {
-        console.log(`💾 LiveSummary: MCP analysis snapshot saved successfully`)
-        
-        // Also save to MCP handler for real-time updates
-        const snapshotId = await mcpAnalysisHandler.saveAnalysisSnapshot(currentSession.id, analysisSnapshotData)
-        console.log(`💾 LiveSummary: MCP handler snapshot saved: ${snapshotId}`)
-        
-        // Events will be automatically emitted by MCPClient, which will trigger our event handlers
+        console.log(`✅ LiveSummary: Analysis snapshot saved successfully via MCP: ${result.snapshotId}`)
         setLastSaved(new Date())
         setTimeout(() => setLastSaved(null), 3000)
+      } else {
+        throw new Error('MCP save failed')
       }
 
     } catch (error) {
@@ -705,7 +630,6 @@ Return only the JSON object, no additional text.`
             )}
           </CardTitle>
           <div className="flex items-center gap-2">
-            {/* Message Window Selection */}
             <div className="relative">
               <Button
                 variant="ghost"
@@ -749,7 +673,6 @@ Return only the JSON object, no additional text.`
               )}
             </div>
 
-            {/* Provider Selection */}
             <div className="relative">
               <Button
                 variant="ghost"
@@ -826,7 +749,6 @@ Return only the JSON object, no additional text.`
         <CardContent className="space-y-4 max-h-150 overflow-y-auto">
           {summary && (
             <>
-              {/* Message Window Info */}
               <div className="p-2 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-700 rounded-lg">
                 <div className="flex items-center gap-2 text-xs text-indigo-800 dark:text-indigo-200">
                   <Layers className="h-3 w-3" />
@@ -834,7 +756,6 @@ Return only the JSON object, no additional text.`
                 </div>
               </div>
 
-              {/* Last Saved Indicator */}
               {lastSaved && (
                 <div className="p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg">
                   <div className="flex items-center gap-2 text-xs text-green-800 dark:text-green-200">
@@ -844,7 +765,6 @@ Return only the JSON object, no additional text.`
                 </div>
               )}
 
-              {/* Main Topics */}
               {summary.mainTopics.length > 0 && (
                 <div>
                   <div className="flex items-center gap-2 mb-2">
@@ -861,7 +781,6 @@ Return only the JSON object, no additional text.`
                 </div>
               )}
 
-              {/* Current Direction */}
               <div>
                 <div className="flex items-center gap-2 mb-2">
                   <ArrowRight className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
@@ -872,7 +791,6 @@ Return only the JSON object, no additional text.`
                 </div>
               </div>
 
-              {/* Key Insights */}
               {summary.keyInsights.length > 0 && (
                 <div>
                   <div className="flex items-center gap-2 mb-2">
@@ -889,7 +807,6 @@ Return only the JSON object, no additional text.`
                 </div>
               )}
 
-              {/* Participant Dynamics */}
               {Object.keys(summary.participantDynamics).length > 0 && (
                 <div>
                   <div className="flex items-center gap-2 mb-2">
@@ -912,7 +829,6 @@ Return only the JSON object, no additional text.`
                 </div>
               )}
 
-              {/* Emergent Themes */}
               {summary.emergentThemes.length > 0 && (
                 <div>
                   <div className="flex items-center gap-2 mb-2">
@@ -929,7 +845,6 @@ Return only the JSON object, no additional text.`
                 </div>
               )}
 
-              {/* Tensions & Convergences */}
               <div className="grid grid-cols-2 gap-3">
                 {summary.tensions.length > 0 && (
                   <div>
@@ -964,7 +879,6 @@ Return only the JSON object, no additional text.`
                 )}
               </div>
 
-              {/* Conversation Phase & Depth */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
@@ -989,7 +903,6 @@ Return only the JSON object, no additional text.`
                 </div>
               </div>
 
-              {/* Last Updated */}
               <div className="pt-2 border-t border-indigo-200 dark:border-indigo-700">
                 <div className="flex items-center justify-between text-xs text-indigo-600 dark:text-indigo-400">
                   <div className="flex items-center gap-1">
