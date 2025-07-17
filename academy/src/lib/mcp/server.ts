@@ -3,6 +3,7 @@ import { JSONRPCRequest, JSONRPCResponse, JSONRPCError } from './types'
 import { mcpAnalysisHandler } from './analysis-handler'
 import { Participant, APIError, RetryConfig } from '@/types/chat'
 import { ExperimentConfig, ExperimentRun } from '@/types/experiment'
+import { ServerConversationManager } from '@/lib/ai/conversation-manager'
 import { db } from '@/lib/db/client'
 import { 
   sessions, 
@@ -21,6 +22,7 @@ export class MCPServer {
   private activeExperimentSessions = new Map<string, Set<string>>() 
   private experimentIntervals = new Map<string, NodeJS.Timeout>()
   private errors: APIError[] = [];
+  private conversationManager: ServerConversationManager
   private defaultRetryConfig: RetryConfig = {
     maxRetries: 3,
     baseDelay: 1000, // 1 second
