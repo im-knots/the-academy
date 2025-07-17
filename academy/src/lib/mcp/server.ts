@@ -1469,6 +1469,12 @@ export class MCPServer {
           break
 
         // Experiment tools
+        case 'get_experiments':
+          result = await this.toolGetExperiments(args)
+          break
+        case 'get_experiment':
+          result = await this.toolGetExperiment(args)
+          break
         case 'create_experiment':
           result = await this.toolCreateExperiment(args)
           break

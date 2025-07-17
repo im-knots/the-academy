@@ -10,27 +10,36 @@ import { Beaker, Plus, Clock, Users, Loader2 } from 'lucide-react'
 interface ExperimentConfig {
   id: string
   name: string
-  participants: Array<{
+  participants?: Array<{
     type: 'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama' | 'deepseek' | 'mistral' | 'cohere'
     name: string
     model?: string
   }>
-  startingPrompt: string
-  analysisContextSize: number
-  analysisProvider: 'claude' | 'gpt'
-  maxMessageCount: number
-  totalSessions: number
-  concurrentSessions: number
-  sessionNamePattern: string
-  errorRateThreshold: number
-  createdAt: Date
-  lastModified: Date
+  config?: {
+    participants?: Array<{
+      type: 'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama' | 'deepseek' | 'mistral' | 'cohere'
+      name: string
+      model?: string
+    }>
+    maxMessageCount?: number
+    totalSessions?: number
+  }
+  startingPrompt?: string
+  analysisContextSize?: number
+  analysisProvider?: 'claude' | 'gpt'
+  maxMessageCount?: number
+  totalSessions?: number
+  concurrentSessions?: number
+  sessionNamePattern?: string
+  errorRateThreshold?: number
+  createdAt: Date | string
+  lastModified?: Date | string
 }
 
 interface ExperimentsListProps {
   experiments: ExperimentConfig[]
   selectedExperiment: ExperimentConfig | null
-  onSelectExperiment: (experiment: ExperimentConfig) => void
+  onSelectExperiment: (experiment: ExperimentConfig | null) => void
   onNewExperiment: () => void
   onRefreshExperiments?: () => void // Optional callback to refresh experiments list
   isLoading?: boolean // Optional loading state
@@ -61,7 +70,7 @@ export function ExperimentsList({
     
     // If the currently selected experiment was deleted, clear selection
     if (selectedExperiment?.id === payload.data.experimentId) {
-      onSelectExperiment(null as any)
+      onSelectExperiment(null)
     }
     
     // Refresh experiments list
@@ -90,6 +99,31 @@ export function ExperimentsList({
       unsubscribeExperimentStatusChanged()
     }
   }, [handleExperimentEvent, handleExperimentDeleted])
+
+  // Helper function to safely get participant count
+  const getParticipantCount = (exp: ExperimentConfig): number => {
+    return exp.participants?.length || exp.config?.participants?.length || 0
+  }
+
+  // Helper function to safely get max message count
+  const getMaxMessageCount = (exp: ExperimentConfig): number => {
+    return exp.maxMessageCount || exp.config?.maxMessageCount || 0
+  }
+
+  // Helper function to safely get total sessions
+  const getTotalSessions = (exp: ExperimentConfig): number => {
+    return exp.totalSessions || exp.config?.totalSessions || 0
+  }
+
+  // Helper function to safely format date
+  const formatDate = (date: Date | string): string => {
+    try {
+      const dateObj = date instanceof Date ? date : new Date(date)
+      return dateObj.toLocaleDateString()
+    } catch (error) {
+      return 'Unknown date'
+    }
+  }
 
   return (
     <>
@@ -136,6 +170,9 @@ export function ExperimentsList({
           <div className="space-y-2">
             {experiments.map((exp) => {
               const isActive = selectedExperiment?.id === exp.id
+              const participantCount = getParticipantCount(exp)
+              const maxMessages = getMaxMessageCount(exp)
+              const totalSessions = getTotalSessions(exp)
               
               return (
                 <button
@@ -154,23 +191,27 @@ export function ExperimentsList({
                           ? 'text-blue-900 dark:text-blue-100' 
                           : 'text-gray-900 dark:text-gray-100'
                       }`}>
-                        {exp.name}
+                        {exp.name || 'Unnamed Experiment'}
                       </h3>
                       <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 mb-1">
                         <span className="flex items-center gap-1">
                           <Users className="h-3 w-3" />
-                          {exp.participants.length}
+                          {participantCount}
                         </span>
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {exp.maxMessageCount} msgs
-                        </span>
-                        <span>
-                          {exp.totalSessions} sessions
-                        </span>
+                        {maxMessages > 0 && (
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {maxMessages} msgs
+                          </span>
+                        )}
+                        {totalSessions > 0 && (
+                          <span>
+                            {totalSessions} sessions
+                          </span>
+                        )}
                       </div>
                       <div className="text-xs text-gray-400 dark:text-gray-500">
-                        Created {new Date(exp.createdAt).toLocaleDateString()}
+                        Created {formatDate(exp.createdAt)}
                       </div>
                     </div>
                     {isActive && (

@@ -55,17 +55,23 @@ CREATE TABLE messages (
 CREATE INDEX messages_session_id_idx ON messages(session_id);
 CREATE INDEX messages_timestamp_idx ON messages(timestamp);
 
--- Create analysis_snapshots table
+-- Create analysis_snapshots table (UPDATED with all required fields)
 CREATE TABLE analysis_snapshots (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    message_count_at_analysis INTEGER NOT NULL,
+    participant_count_at_analysis INTEGER NOT NULL,
+    provider TEXT NOT NULL,
+    conversation_phase TEXT NOT NULL,
     analysis JSONB NOT NULL,
-    analysis_type TEXT,
+    conversation_context JSONB NOT NULL,
+    analysis_type TEXT DEFAULT 'full',
     timestamp TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX analysis_snapshots_session_id_idx ON analysis_snapshots(session_id);
 CREATE INDEX analysis_snapshots_timestamp_idx ON analysis_snapshots(timestamp);
+CREATE INDEX analysis_snapshots_provider_idx ON analysis_snapshots(provider);
 
 -- Create experiments table
 CREATE TABLE experiments (

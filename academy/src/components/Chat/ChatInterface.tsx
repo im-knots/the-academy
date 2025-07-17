@@ -327,17 +327,33 @@ export function ChatInterface() {
   const handleCreateExperiment = async (config: ExperimentConfig) => {
     try {
       const result = await mcp.createExperimentViaMCP(config)
+      
       if (result.success) {
+        // FIX: Access experiment data from result.experiment, not result.config
+        const experimentData = result.experiment
+        
         // Reload experiments to get the new one
         await loadExperiments()
         
-        // Select the newly created experiment
+        // Select the newly created experiment with proper date conversion
         const newExperiment = {
-          ...result.config,
-          createdAt: new Date(result.config.createdAt),
-          lastModified: new Date(result.config.lastModified)
+          ...experimentData,
+          // Convert date strings to Date objects if they're strings
+          createdAt: experimentData.createdAt instanceof Date 
+            ? experimentData.createdAt 
+            : new Date(experimentData.createdAt),
+          lastModified: experimentData.lastModified instanceof Date 
+            ? experimentData.lastModified 
+            : new Date(experimentData.lastModified)
         }
+        
         setSelectedExperiment(newExperiment)
+        
+        // Optional: Add success notification here if you have a notification system
+        console.log(`✅ Experiment "${experimentData.name}" created successfully with ID: ${experimentData.id}`)
+        
+      } else {
+        throw new Error(result.message || 'Failed to create experiment')
       }
     } catch (error) {
       console.error('Failed to create experiment:', error)

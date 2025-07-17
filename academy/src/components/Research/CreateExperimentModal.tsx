@@ -98,6 +98,7 @@ const modelOptions = {
 }
 
 export function CreateExperimentModal({ isOpen, onClose, onSave }: CreateExperimentModalProps) {
+  // ALL HOOKS MUST GO HERE FIRST - before any conditional returns
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [showParticipantPicker, setShowParticipantPicker] = useState(false)
   const [selectedTypes, setSelectedTypes] = useState<Set<typeof participantTypes[0]['type']>>(new Set())
@@ -151,6 +152,35 @@ export function CreateExperimentModal({ isOpen, onClose, onSave }: CreateExperim
     setShowParticipantPicker(false)
   }, [])
 
+  const handleCreate = useCallback(() => {
+    if (!formData.name || !formData.startingPrompt || formData.participants?.length === 0) {
+      return
+    }
+    
+    const newExperiment: ExperimentConfig = {
+      id: `exp-${Date.now()}`,
+      ...formData as ExperimentConfig,
+      createdAt: new Date(),
+      lastModified: new Date()
+    }
+    
+    console.log('🧪 CreateExperimentModal: Creating new experiment, will emit EXPERIMENT_CREATED event')
+    
+    // Call the parent save handler
+    onSave(newExperiment)
+    
+    // EVENT-DRIVEN: Emit experiment created event via internal pub/sub
+    eventBus.emit(EVENT_TYPES.EXPERIMENT_CREATED, {
+      experimentId: newExperiment.id,
+      experimentData: newExperiment
+    })
+    
+    // Reset form and close modal
+    resetForm()
+    onClose()
+  }, [formData, onSave, onClose, resetForm])
+
+  // NOW we can do conditional rendering - after ALL hooks are called
   if (!isOpen) return null
 
   const handleToggleParticipantType = (type: typeof participantTypes[0]['type']) => {
@@ -253,34 +283,6 @@ export function CreateExperimentModal({ isOpen, onClose, onSave }: CreateExperim
       alert('Failed to save template. Please try again.')
     }
   }
-
-  const handleCreate = useCallback(() => {
-    if (!formData.name || !formData.startingPrompt || formData.participants?.length === 0) {
-      return
-    }
-    
-    const newExperiment: ExperimentConfig = {
-      id: `exp-${Date.now()}`,
-      ...formData as ExperimentConfig,
-      createdAt: new Date(),
-      lastModified: new Date()
-    }
-    
-    console.log('🧪 CreateExperimentModal: Creating new experiment, will emit EXPERIMENT_CREATED event')
-    
-    // Call the parent save handler
-    onSave(newExperiment)
-    
-    // EVENT-DRIVEN: Emit experiment created event via internal pub/sub
-    eventBus.emit(EVENT_TYPES.EXPERIMENT_CREATED, {
-      experimentId: newExperiment.id,
-      experimentData: newExperiment
-    })
-    
-    // Reset form and close modal
-    resetForm()
-    onClose()
-  }, [formData, onSave, onClose, resetForm])
 
   const tokenSteps = [500, 1000, 2000, 4000]
 
