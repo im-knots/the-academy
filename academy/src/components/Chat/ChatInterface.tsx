@@ -87,6 +87,24 @@ export function ChatInterface() {
   // Get the conversation manager instance
   const conversationManager = MCPConversationManager.getInstance()
 
+  // Handle session switching
+  const handleSessionChange = async (sessionId: string) => {
+    try {
+      // Only switch if it's actually a different session
+      if (sessionId === currentSessionId) {
+        return
+      }
+      
+      // Switch the session via MCP - this will trigger events automatically
+      await mcpClient.callTool('switch_current_session', { sessionId })
+      
+      // Update local state
+      setCurrentSessionId(sessionId)
+    } catch (error) {
+      console.error('Failed to switch session:', error)
+    }
+  }
+
   // EVENT-DRIVEN: Fetch current session data
   const fetchCurrentSession = useCallback(async () => {
     if (!currentSessionId) {
@@ -95,21 +113,34 @@ export function ChatInterface() {
     }
     
     try {
+      console.log('🔄 Fetching session:', currentSessionId)
       const result = await mcpClient.callTool('get_session', { sessionId: currentSessionId })
       if (result.success && result.session) {
+        console.log('🔄 Session fetched:', result.session)
+        console.log('🔄 Session status:', result.session.status)
+        console.log('🔄 Session participants:', result.session.participants?.length || 0)
+        console.log('🔄 Session messages:', result.session.messages?.length || 0)
         setCurrentSession(result.session)
         
         // Update conversation state based on session status
-        if (result.session.status === 'active') {
+        // A session should only be "running" if it has messages (conversation started)
+        const hasMessages = (result.session.messages?.length || 0) > 0
+        
+        if (result.session.status === 'active' && hasMessages) {
+          console.log('🔄 Setting conversation state to running (conversation started)')
           setConversationState('running')
           setIsSessionPaused(false)
         } else if (result.session.status === 'paused') {
+          console.log('🔄 Setting conversation state to idle (paused)')
           setConversationState('idle')
           setIsSessionPaused(true)
         } else {
+          console.log('🔄 Setting conversation state to idle (no messages or not active)')
           setConversationState('idle')
           setIsSessionPaused(false)
         }
+      } else {
+        console.log('🔄 Failed to fetch session or no session found')
       }
     } catch (error) {
       console.error('Failed to fetch current session:', error)
@@ -645,7 +676,10 @@ export function ChatInterface() {
           </div>
           
           {viewMode === 'chat' ? (
-            <SessionsSection />
+            <SessionsSection 
+              currentSessionId={currentSessionId}
+              onSessionChange={handleSessionChange}
+            />
           ) : (
             <div className="flex-1 overflow-hidden flex flex-col">
               <ExperimentsList
@@ -749,12 +783,21 @@ export function ChatInterface() {
           <div className="p-4">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-medium text-gray-900 dark:text-gray-100">Participants</h2>
+              {console.log('🔄 Participants section - currentSession:', currentSession?.id, 'conversationState:', conversationState)}
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setShowAddParticipant(true)}
+                onClick={() => {
+                  console.log('🔄 Add Participant button clicked!')
+                  console.log('🔄 currentSession:', currentSession?.id)
+                  console.log('🔄 conversationState:', conversationState)
+                  console.log('🔄 showAddParticipant before:', showAddParticipant)
+                  setShowAddParticipant(true)
+                  console.log('🔄 setShowAddParticipant(true) called')
+                }}
                 className="h-8 w-8 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600"
                 disabled={conversationState === 'running'}
+                title={`Add Participant (State: ${conversationState}, Session: ${currentSession?.id || 'none'})`}
               >
                 <Plus className="h-4 w-4" />
               </Button>
@@ -813,7 +856,10 @@ export function ChatInterface() {
 
         {/* Sessions Section */}
         <div className="flex-1 overflow-hidden flex flex-col">
-          <SessionsSection />
+          <SessionsSection 
+            currentSessionId={currentSessionId}
+            onSessionChange={handleSessionChange}
+          />
         </div>
 
         {/* Controls at Bottom */}
@@ -1234,23 +1280,28 @@ export function ChatInterface() {
       )}
 
       {/* Modals */}
-      <AddParticipant 
-        isOpen={showAddParticipant} 
-        onClose={() => setShowAddParticipant(false)} 
-        sessionId={currentSession.id}
-      />
-      
-      <ExportModal
-        isOpen={showExportModal}
-        onClose={() => setShowExportModal(false)}
-        sessionId={currentSession.id}
-      />
+      {currentSession && (
+        <>
+          {console.log('🔄 Rendering modals. showAddParticipant:', showAddParticipant, 'currentSession.id:', currentSession.id)}
+          <AddParticipant 
+            isOpen={showAddParticipant} 
+            onClose={() => setShowAddParticipant(false)} 
+            sessionId={currentSession.id}
+          />
+          
+          <ExportModal
+            isOpen={showExportModal}
+            onClose={() => setShowExportModal(false)}
+            sessionId={currentSession.id}
+          />
 
-      <MCPModal
-        isOpen={showMCPModal}
-        onClose={() => setShowMCPModal(false)}
-        sessionId={currentSession.id}
-      />
+          <MCPModal
+            isOpen={showMCPModal}
+            onClose={() => setShowMCPModal(false)}
+            sessionId={currentSession.id}
+          />
+        </>
+      )}
     </div>
   )
 }

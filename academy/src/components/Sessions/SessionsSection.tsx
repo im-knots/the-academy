@@ -250,7 +250,7 @@ export function SessionsSection({ currentSessionId, onSessionChange }: SessionsS
   // EVENT-DRIVEN: Fetch sessions function
   const fetchSessions = useCallback(async () => {
     try {
-      const result = await mcpClient.current.callTool('list_sessions', {})
+      const result = await mcpClient.current.callTool('get_sessions', {})
       if (result.success && result.sessions) {
         setSessions(result.sessions.map((s: any) => ({
           ...s,
