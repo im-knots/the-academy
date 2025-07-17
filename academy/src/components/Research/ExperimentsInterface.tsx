@@ -8,6 +8,7 @@ import { eventBus, EVENT_TYPES } from '@/lib/events/eventBus'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
+import { ExperimentConfig, ExperimentRun } from '@/types/experiment'
 import { CreateExperimentModal } from '@/components/Research/CreateExperimentModal'
 import { 
   TestTubeDiagonal, Plus, Play, Pause, Square, 
@@ -17,56 +18,6 @@ import {
   BarChart3, Settings2, Database, Edit2,
   Download, RefreshCw
 } from 'lucide-react'
-
-interface ExperimentConfig {
-  id: string
-  name: string
-  participants: Array<{
-    type: 'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama' | 'deepseek' | 'mistral' | 'cohere'
-    name: string
-    model?: string
-    temperature?: number
-    maxTokens?: number
-    personality?: string
-    expertise?: string
-    ollamaUrl?: string
-  }>
-  startingPrompt: string
-  analysisContextSize: number
-  analysisProvider: 'claude' | 'gpt'
-  maxMessageCount: number
-  totalSessions: number
-  concurrentSessions: number
-  sessionNamePattern: string
-  errorRateThreshold: number
-  createdAt: Date
-  lastModified: Date
-}
-
-interface ExperimentRun {
-  id: string
-  configId: string
-  status: 'pending' | 'running' | 'paused' | 'completed' | 'failed'
-  startedAt?: Date
-  completedAt?: Date
-  pausedAt?: Date
-  resumedAt?: Date
-  totalSessions: number
-  completedSessions: number
-  failedSessions: number
-  activeSessions: number
-  sessionIds: string[]
-  errorRate: number
-  errors: Array<{
-    type: string
-    message: string
-    sessionId?: string
-    count: number
-    lastOccurred: Date
-  }>
-  progress: number
-  estimatedTimeRemaining?: number
-}
 
 interface ExperimentResults {
   config: ExperimentConfig
@@ -635,10 +586,10 @@ export function ExperimentsInterface({
                       <div className="space-y-4">
                         <div>
                           <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Participants ({selectedExperiment.participants.length})
+                            Participants ({selectedExperiment.participants?.length || selectedExperiment.config?.participants?.length || 0})
                           </h4>
                           <div className="space-y-2">
-                            {selectedExperiment.participants.map((p, idx) => (
+                            {(selectedExperiment.participants || selectedExperiment.config?.participants || []).map((p, idx) => (
                               <div key={idx} className="flex items-center gap-2 text-sm">
                                 <Badge variant="outline" className="capitalize">
                                   {p.type}

@@ -612,7 +612,7 @@ export class MCPServer {
         }
       },
 
-      // PHASE 1: Session Management Tools (Complete)
+      // Session Management Tools
       {
         name: 'create_session',
         description: 'Create a new chat session',
@@ -768,7 +768,7 @@ export class MCPServer {
         }
       },
 
-      // PHASE 1: Message Management Tools
+      // Message Management Tools
       {
         name: 'send_message',
         description: 'Send a message to the current session',
@@ -785,7 +785,7 @@ export class MCPServer {
         }
       },
 
-      // PHASE 2: Participant Management Tools (Complete)
+      // Participant Management Tools (Complete)
       {
         name: 'add_participant',
         description: 'Add a participant to a session',
@@ -865,7 +865,7 @@ export class MCPServer {
         }
       },
 
-      // PHASE 4: Conversation Control Tools (Complete)
+      // Conversation Control Tools
       {
         name: 'start_conversation',
         description: 'Start a conversation in a session',
@@ -934,7 +934,7 @@ export class MCPServer {
         }
       },
 
-      // PHASE 3: Message Control Tools
+      // Message Control Tools
       {
         name: 'update_message',
         description: 'Update a message',
@@ -984,7 +984,7 @@ export class MCPServer {
         }
       },
 
-      // PHASE 5: Export Tools
+      // Export Tools
       {
         name: 'export_session',
         description: 'Export session data',
@@ -1024,7 +1024,7 @@ export class MCPServer {
         }
       },
 
-      // PHASE 6: Live Analysis Tools
+      // Live Analysis Tools
       {
         name: 'trigger_live_analysis',
         description: 'Trigger live analysis of a conversation',
@@ -1185,6 +1185,41 @@ export class MCPServer {
         }
       },
       {
+        name: 'create_experiment_run',
+        description: 'Create a new experiment run',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            experimentId: { type: 'string', description: 'Experiment ID' },
+            run: { type: 'object', description: 'Run configuration' }
+          },
+          required: ['experimentId', 'run']
+        }
+      },
+      {
+        name: 'update_experiment_run',
+        description: 'Update experiment run status and progress',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            experimentId: { type: 'string', description: 'Experiment ID' },
+            updates: { type: 'object', description: 'Updates to apply' }
+          },
+          required: ['experimentId', 'updates']
+        }
+      },
+      {
+        name: 'get_experiment_run',
+        description: 'Get experiment run details',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            experimentId: { type: 'string', description: 'Experiment ID' }
+          },
+          required: ['experimentId']
+        }
+      },
+      {
         name: 'update_experiment',
         description: 'Update an experiment configuration',
         inputSchema: {
@@ -1298,7 +1333,7 @@ export class MCPServer {
       let result: any
 
       switch (name) {
-        // AI Provider Tools (Updated with direct API calls)
+        // AI Provider Tools
         case 'claude_chat':
           result = await this.callClaudeAPIDirect(args)
           break
@@ -1332,7 +1367,7 @@ export class MCPServer {
         case 'clear_api_errors':
           result = await this.toolClearAPIErrors(args)
           break
-        // PHASE 1: Session Management Tools (Complete)
+        // Session Management Tools
         case 'create_session':
           result = await this.toolCreateSession(args)
           break
@@ -1370,12 +1405,12 @@ export class MCPServer {
           result = await this.toolCreateSessionFromTemplate(args)
           break
           
-        // PHASE 1: Message Management Tools
+        // Message Management Tools
         case 'send_message':
           result = await this.toolSendMessage(args)
           break
           
-        // PHASE 2: Participant Management Tools (Complete)
+        // Participant Management Tools
         case 'add_participant':
           result = await this.toolAddParticipant(args)
           break
@@ -1395,7 +1430,7 @@ export class MCPServer {
           result = await this.toolGetParticipantConfig(args)
           break
           
-        // PHASE 4: Conversation Control Tools (Complete)
+        // Conversation Control Tools
         case 'start_conversation':
           result = await this.toolStartConversation(args)
           break
@@ -1415,7 +1450,7 @@ export class MCPServer {
           result = await this.toolGetConversationStats(args)
           break
           
-        // PHASE 3: Message Control Tools
+        // Message Control Tools
         case 'update_message':
           result = await this.toolUpdateMessage(args)
           break
@@ -1429,7 +1464,7 @@ export class MCPServer {
           result = await this.toolInjectModeratorPrompt(args)
           break
           
-        // PHASE 5: Export Tools
+        // Export Tools
         case 'export_session':
           result = await this.toolExportSession(args)
           break
@@ -1440,7 +1475,7 @@ export class MCPServer {
           result = await this.toolGetExportPreview(args)
           break
           
-        // PHASE 6: Live Analysis Tools
+        // Live Analysis Tools
         case 'trigger_live_analysis':
           result = await this.toolTriggerLiveAnalysis(args)
           break
@@ -1477,6 +1512,15 @@ export class MCPServer {
           break
         case 'create_experiment':
           result = await this.toolCreateExperiment(args)
+          break
+        case 'create_experiment_run':
+          result = await this.toolCreateExperimentRun(args)
+          break
+        case 'update_experiment_run':
+          result = await this.toolUpdateExperimentRun(args)
+          break
+        case 'get_experiment_run':
+          result = await this.toolGetExperimentRun(args)
           break
         case 'update_experiment':
           result = await this.toolUpdateExperiment(args)
@@ -4511,10 +4555,18 @@ export class MCPServer {
         orderBy: [desc(experiments.createdAt)]
       });
 
+      const formattedExperiments = allExperiments.map(exp => ({
+        ...exp.config,  // Flatten config properties to top level
+        id: exp.id,
+        status: exp.status,
+        createdAt: exp.createdAt,
+        updatedAt: exp.updatedAt
+      }));
+
       return {
         success: true,
-        experiments: allExperiments,
-        count: allExperiments.length,
+        experiments: formattedExperiments,
+        count: formattedExperiments.length,
         message: 'Experiments retrieved successfully'
       };
     } catch (error) {

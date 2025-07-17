@@ -5,6 +5,7 @@ import { useState, useRef, useCallback } from 'react'
 import { eventBus, EVENT_TYPES } from '@/lib/events/eventBus'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
+import { ExperimentConfig, ExperimentRun } from '@/types/experiment'
 import { ParticipantAvatar } from '@/components/ui/ParticipantAvatar'
 import { 
   X, Plus, Upload, Save, Users, AlertCircle,
@@ -20,22 +21,6 @@ interface ParticipantConfig {
   personality: string
   expertise: string
   ollamaUrl?: string
-}
-
-interface ExperimentConfig {
-  id: string
-  name: string
-  participants: ParticipantConfig[]
-  startingPrompt: string
-  analysisContextSize: number
-  analysisProvider: 'claude' | 'gpt'
-  maxMessageCount: number
-  totalSessions: number
-  concurrentSessions: number
-  sessionNamePattern: string
-  errorRateThreshold: number
-  createdAt: Date
-  lastModified: Date
 }
 
 interface CreateExperimentModalProps {

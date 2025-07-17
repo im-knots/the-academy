@@ -5,36 +5,9 @@ import { useEffect, useCallback } from 'react'
 import { eventBus, EVENT_TYPES } from '@/lib/events/eventBus'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
+import { ExperimentConfig, ExperimentRun } from '@/types/experiment'
 import { Beaker, Plus, Clock, Users, Loader2 } from 'lucide-react'
 
-interface ExperimentConfig {
-  id: string
-  name: string
-  participants?: Array<{
-    type: 'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama' | 'deepseek' | 'mistral' | 'cohere'
-    name: string
-    model?: string
-  }>
-  config?: {
-    participants?: Array<{
-      type: 'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama' | 'deepseek' | 'mistral' | 'cohere'
-      name: string
-      model?: string
-    }>
-    maxMessageCount?: number
-    totalSessions?: number
-  }
-  startingPrompt?: string
-  analysisContextSize?: number
-  analysisProvider?: 'claude' | 'gpt'
-  maxMessageCount?: number
-  totalSessions?: number
-  concurrentSessions?: number
-  sessionNamePattern?: string
-  errorRateThreshold?: number
-  createdAt: Date | string
-  lastModified?: Date | string
-}
 
 interface ExperimentsListProps {
   experiments: ExperimentConfig[]
