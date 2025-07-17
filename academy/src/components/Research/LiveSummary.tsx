@@ -1,10 +1,11 @@
-// src/components/Research/LiveSummary.tsx - Updated with Event-Driven Polling
+// src/components/Research/LiveSummary.tsx - Updated with Internal Pub/Sub Event System
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { MCPClient } from '@/lib/mcp/client'
 import { useMCP } from '@/hooks/useMCP'
 import { mcpAnalysisHandler } from '@/lib/mcp/analysis-handler'
+import { eventBus, EVENT_TYPES } from '@/lib/events/eventBus'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -100,7 +101,7 @@ export function LiveSummary({ className = '', sessionId }: LiveSummaryProps) {
   const ANALYSIS_TRIGGER_INTERVAL = 3 // Analyze every 3 new messages
 
   // EVENT-DRIVEN: Fetch session data function
-  const fetchSessionData = async () => {
+  const fetchSessionData = useCallback(async () => {
     if (!sessionId) return
 
     try {
@@ -118,62 +119,126 @@ export function LiveSummary({ className = '', sessionId }: LiveSummaryProps) {
     } finally {
       setIsLoadingSession(false)
     }
-  }
+  }, [sessionId])
 
-  // EVENT-DRIVEN: Register data refresh callbacks for session updates
-  useEffect(() => {
-    if (!sessionId) return
-
-    console.log(`📊 LiveSummary: Setting up event-driven refresh for session ${sessionId}`)
-
-    // Initial fetch
-    fetchSessionData()
-
-    // Register for session data updates via event-driven system
-    const unsubscribeSessionData = mcpClient.current.registerDataRefreshCallback(
-      `session-${sessionId}`, 
-      fetchSessionData
-    )
+  // EVENT-DRIVEN: Handle session events via internal pub/sub
+  const handleSessionEvent = useCallback(async (payload: any) => {
+    console.log('📊 LiveSummary: Session event received:', payload.data)
     
-    // Also register for general session data updates
-    const unsubscribeSessionGeneral = mcpClient.current.registerDataRefreshCallback(
-      'session-data', 
-      fetchSessionData
-    )
+    // If this affects our session, refresh the data
+    if (payload.data.sessionId === sessionId || payload.data.sessionId === undefined) {
+      await fetchSessionData()
+    }
+  }, [sessionId, fetchSessionData])
 
-    return () => {
-      console.log(`📊 LiveSummary: Cleaning up event-driven callbacks for session ${sessionId}`)
-      unsubscribeSessionData()
-      unsubscribeSessionGeneral()
+  // EVENT-DRIVEN: Handle message events that might trigger auto-analysis
+  const handleMessageEvent = useCallback(async (payload: any) => {
+    console.log('📊 LiveSummary: Message event received:', payload.data)
+    
+    // If this message affects the current session, refresh and potentially trigger analysis
+    if (payload.data.sessionId === sessionId) {
+      await fetchSessionData()
+      
+      // Auto-analysis will be triggered by the session update effect
+    }
+  }, [sessionId, fetchSessionData])
+
+  // EVENT-DRIVEN: Handle participant events
+  const handleParticipantEvent = useCallback(async (payload: any) => {
+    console.log('📊 LiveSummary: Participant event received:', payload.data)
+    
+    // If this affects our session, refresh the data
+    if (payload.data.sessionId === sessionId) {
+      await fetchSessionData()
+    }
+  }, [sessionId, fetchSessionData])
+
+  // EVENT-DRIVEN: Handle analysis events for real-time updates
+  const handleAnalysisEvent = useCallback(async (payload: any) => {
+    console.log('📊 LiveSummary: Analysis event received:', payload.data)
+    
+    // If this affects our session, update the analysis count
+    if (payload.data.sessionId === sessionId) {
+      // Refresh analysis count when analysis is saved/triggered/cleared
+      await fetchAnalysisCount()
     }
   }, [sessionId])
 
-  // Subscribe to MCP analysis events for real-time updates
+  // Function to fetch analysis count
+  const fetchAnalysisCount = useCallback(async () => {
+    if (!sessionId) return
+
+    try {
+      const result = await mcpClient.current.getAnalysisHistoryViaMCP(sessionId)
+      if (result.success && result.snapshots) {
+        setAnalysisCount(result.snapshots.length)
+        console.log(`📊 LiveSummary: Analysis count updated = ${result.snapshots.length}`)
+      }
+    } catch (error) {
+      console.error('Failed to fetch analysis count:', error)
+    }
+  }, [sessionId])
+
+  // EVENT-DRIVEN: Subscribe to all relevant events via internal pub/sub
+  useEffect(() => {
+    if (!sessionId) return
+
+    console.log(`📊 LiveSummary: Setting up internal pub/sub event subscriptions for session ${sessionId}`)
+
+    // Initial data fetch
+    fetchSessionData()
+    fetchAnalysisCount()
+
+    // Session events
+    const unsubscribeSessionCreated = eventBus.subscribe(EVENT_TYPES.SESSION_CREATED, handleSessionEvent)
+    const unsubscribeSessionUpdated = eventBus.subscribe(EVENT_TYPES.SESSION_UPDATED, handleSessionEvent)
+    const unsubscribeSessionSwitched = eventBus.subscribe(EVENT_TYPES.SESSION_SWITCHED, handleSessionEvent)
+    
+    // Message events
+    const unsubscribeMessageSent = eventBus.subscribe(EVENT_TYPES.MESSAGE_SENT, handleMessageEvent)
+    const unsubscribeMessageUpdated = eventBus.subscribe(EVENT_TYPES.MESSAGE_UPDATED, handleMessageEvent)
+    const unsubscribeMessageDeleted = eventBus.subscribe(EVENT_TYPES.MESSAGE_DELETED, handleMessageEvent)
+    
+    // Participant events
+    const unsubscribeParticipantAdded = eventBus.subscribe(EVENT_TYPES.PARTICIPANT_ADDED, handleParticipantEvent)
+    const unsubscribeParticipantRemoved = eventBus.subscribe(EVENT_TYPES.PARTICIPANT_REMOVED, handleParticipantEvent)
+    const unsubscribeParticipantUpdated = eventBus.subscribe(EVENT_TYPES.PARTICIPANT_UPDATED, handleParticipantEvent)
+    
+    // Analysis events
+    const unsubscribeAnalysisSaved = eventBus.subscribe(EVENT_TYPES.ANALYSIS_SAVED, handleAnalysisEvent)
+    const unsubscribeAnalysisTriggered = eventBus.subscribe(EVENT_TYPES.ANALYSIS_TRIGGERED, handleAnalysisEvent)
+    const unsubscribeAnalysisCleared = eventBus.subscribe(EVENT_TYPES.ANALYSIS_CLEARED, handleAnalysisEvent)
+
+    return () => {
+      console.log(`📊 LiveSummary: Cleaning up internal pub/sub event subscriptions for session ${sessionId}`)
+      unsubscribeSessionCreated()
+      unsubscribeSessionUpdated()
+      unsubscribeSessionSwitched()
+      unsubscribeMessageSent()
+      unsubscribeMessageUpdated()
+      unsubscribeMessageDeleted()
+      unsubscribeParticipantAdded()
+      unsubscribeParticipantRemoved()
+      unsubscribeParticipantUpdated()
+      unsubscribeAnalysisSaved()
+      unsubscribeAnalysisTriggered()
+      unsubscribeAnalysisCleared()
+    }
+  }, [
+    sessionId, 
+    fetchSessionData, 
+    fetchAnalysisCount, 
+    handleSessionEvent, 
+    handleMessageEvent, 
+    handleParticipantEvent, 
+    handleAnalysisEvent
+  ])
+
+  // Subscribe to MCP analysis events for real-time updates (additional layer)
   useEffect(() => {
     if (!currentSession) return
 
-    console.log(`📊 LiveSummary: Setting up MCP subscriptions for session ${currentSession.id}`)
-
-    // Initial load of analysis count
-    const fetchAnalysisCount = async () => {
-      try {
-        const result = await mcpClient.current.getAnalysisHistoryViaMCP(currentSession.id)
-        if (result.success && result.snapshots) {
-          setAnalysisCount(result.snapshots.length)
-          console.log(`📊 LiveSummary: Initial analysis count = ${result.snapshots.length}`)
-        }
-      } catch (error) {
-        console.error('Failed to fetch analysis count:', error)
-      }
-    }
-
-    fetchAnalysisCount()
-
-    // EVENT-DRIVEN: Register for analysis data updates
-    const unsubscribeAnalysis = mcpClient.current.registerDataRefreshCallback(
-      `analysis-${currentSession.id}`,
-      fetchAnalysisCount
-    )
+    console.log(`📊 LiveSummary: Setting up MCP analysis handler subscriptions for session ${currentSession.id}`)
 
     // Subscribe to MCP analysis events
     const unsubscribeSaved = mcpAnalysisHandler.subscribe('analysis_snapshot_saved', (data) => {
@@ -200,7 +265,6 @@ export function LiveSummary({ className = '', sessionId }: LiveSummaryProps) {
     })
 
     return () => {
-      unsubscribeAnalysis()
       unsubscribeSaved()
       unsubscribeUpdated()
       unsubscribeCleared()
@@ -496,7 +560,7 @@ Return only the JSON object, no additional text.`
 
       console.log('📊 LiveSummary: Analysis data prepared:', analysisSnapshotData)
 
-      // Save via MCP - this will trigger automatic refresh via event-driven system
+      // Save via MCP - this will automatically emit events via internal pub/sub system
       const result = await mcpClient.current.saveAnalysisSnapshotViaMCP(
         currentSession.id,
         analysisSnapshotData,
@@ -510,8 +574,7 @@ Return only the JSON object, no additional text.`
         const snapshotId = await mcpAnalysisHandler.saveAnalysisSnapshot(currentSession.id, analysisSnapshotData)
         console.log(`💾 LiveSummary: MCP handler snapshot saved: ${snapshotId}`)
         
-        // Update analysis count - event-driven system will also update this
-        setAnalysisCount(prev => prev + 1)
+        // Events will be automatically emitted by MCPClient, which will trigger our event handlers
         setLastSaved(new Date())
         setTimeout(() => setLastSaved(null), 3000)
       }

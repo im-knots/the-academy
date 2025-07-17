@@ -1,8 +1,9 @@
-// src/components/Sessions/SessionsSection.tsx - Updated with Event-Driven Polling
+// src/components/Sessions/SessionsSection.tsx - Updated with Internal Pub/Sub Event System
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { MCPClient } from '@/lib/mcp/client'
+import { eventBus, EVENT_TYPES } from '@/lib/events/eventBus'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { 
@@ -247,7 +248,7 @@ export function SessionsSection({ currentSessionId, onSessionChange }: SessionsS
   const createMenuRef = useRef<HTMLDivElement>(null)
 
   // EVENT-DRIVEN: Fetch sessions function
-  const fetchSessions = async () => {
+  const fetchSessions = useCallback(async () => {
     try {
       const result = await mcpClient.current.callTool('list_sessions', {})
       if (result.success && result.sessions) {
@@ -262,33 +263,55 @@ export function SessionsSection({ currentSessionId, onSessionChange }: SessionsS
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [])
 
-  // EVENT-DRIVEN: Register data refresh callbacks for session updates
+  // EVENT-DRIVEN: Handle session events via internal pub/sub
+  const handleSessionEvent = useCallback(async (payload: any) => {
+    console.log('📋 SessionsSection: Session event received:', payload.data)
+    
+    // Refresh sessions list for any session-related event
+    await fetchSessions()
+  }, [fetchSessions])
+
+  // EVENT-DRIVEN: Handle session switch events
+  const handleSessionSwitchEvent = useCallback(async (payload: any) => {
+    console.log('📋 SessionsSection: Session switch event received:', payload.data)
+    
+    // If parent component needs to be notified of the switch
+    if (payload.data.sessionId && onSessionChange) {
+      onSessionChange(payload.data.sessionId)
+    }
+  }, [onSessionChange])
+
+  // EVENT-DRIVEN: Subscribe to all relevant events via internal pub/sub
   useEffect(() => {
-    console.log('📋 SessionsSection: Setting up event-driven refresh for sessions list')
+    console.log('📋 SessionsSection: Setting up internal pub/sub event subscriptions')
 
     // Initial fetch
     fetchSessions()
 
-    // Register for sessions list updates via event-driven system
-    const unsubscribeSessionsList = mcpClient.current.registerDataRefreshCallback(
-      'sessions-list', 
-      fetchSessions
-    )
+    // Session events
+    const unsubscribeSessionCreated = eventBus.subscribe(EVENT_TYPES.SESSION_CREATED, handleSessionEvent)
+    const unsubscribeSessionUpdated = eventBus.subscribe(EVENT_TYPES.SESSION_UPDATED, handleSessionEvent)
+    const unsubscribeSessionDeleted = eventBus.subscribe(EVENT_TYPES.SESSION_DELETED, handleSessionEvent)
+    const unsubscribeSessionDuplicated = eventBus.subscribe(EVENT_TYPES.SESSION_DUPLICATED, handleSessionEvent)
+    const unsubscribeSessionImported = eventBus.subscribe(EVENT_TYPES.SESSION_IMPORTED, handleSessionEvent)
+    const unsubscribeSessionsListChanged = eventBus.subscribe(EVENT_TYPES.SESSIONS_LIST_CHANGED, handleSessionEvent)
     
-    // Also register for current session updates (in case switching sessions)
-    const unsubscribeCurrentSession = mcpClient.current.registerDataRefreshCallback(
-      'current-session', 
-      fetchSessions
-    )
+    // Session switch events
+    const unsubscribeSessionSwitched = eventBus.subscribe(EVENT_TYPES.SESSION_SWITCHED, handleSessionSwitchEvent)
 
     return () => {
-      console.log('📋 SessionsSection: Cleaning up event-driven callbacks')
-      unsubscribeSessionsList()
-      unsubscribeCurrentSession()
+      console.log('📋 SessionsSection: Cleaning up internal pub/sub event subscriptions')
+      unsubscribeSessionCreated()
+      unsubscribeSessionUpdated()
+      unsubscribeSessionDeleted()
+      unsubscribeSessionDuplicated()
+      unsubscribeSessionImported()
+      unsubscribeSessionsListChanged()
+      unsubscribeSessionSwitched()
     }
-  }, [])
+  }, [fetchSessions, handleSessionEvent, handleSessionSwitchEvent])
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -307,7 +330,7 @@ export function SessionsSection({ currentSessionId, onSessionChange }: SessionsS
   const handleCreateFromTemplate = async (template: any) => {
     try {
       setIsCreating(true)
-      // This will trigger automatic refresh via event-driven system
+      // This will automatically emit events via internal pub/sub system
       const result = await mcpClient.current.createSessionViaMCP(
         template.name, 
         template.description,
@@ -323,7 +346,7 @@ export function SessionsSection({ currentSessionId, onSessionChange }: SessionsS
         
         // Store the template prompt in session metadata if needed
         if (template.prompt) {
-          // This will also trigger automatic refresh
+          // This will also automatically emit events
           await mcpClient.current.updateSessionViaMCP(
             result.sessionId,
             undefined,
@@ -344,7 +367,7 @@ export function SessionsSection({ currentSessionId, onSessionChange }: SessionsS
     try {
       setIsCreating(true)
       const sessionNumber = sessions.length + 1
-      // This will trigger automatic refresh via event-driven system
+      // This will automatically emit events via internal pub/sub system
       const result = await mcpClient.current.createSessionViaMCP(
         `Session ${sessionNumber}`,
         "New research dialogue",
@@ -384,7 +407,7 @@ export function SessionsSection({ currentSessionId, onSessionChange }: SessionsS
     if (editingSessionId && editingName.trim()) {
       try {
         setIsUpdating(true)
-        // This will trigger automatic refresh via event-driven system
+        // This will automatically emit events via internal pub/sub system
         await mcpClient.current.updateSessionViaMCP(
           editingSessionId,
           editingName.trim()
@@ -422,7 +445,7 @@ export function SessionsSection({ currentSessionId, onSessionChange }: SessionsS
   const confirmDeleteSession = async () => {
     if (deleteModal.sessionId) {
       try {
-        // This will trigger automatic refresh via event-driven system
+        // This will automatically emit events via internal pub/sub system
         await mcpClient.current.deleteSessionViaMCP(deleteModal.sessionId)
         
         // If deleting current session, notify parent
@@ -448,7 +471,7 @@ export function SessionsSection({ currentSessionId, onSessionChange }: SessionsS
     e.stopPropagation()
     try {
       setIsCreating(true)
-      // This will trigger automatic refresh via event-driven system
+      // This will automatically emit events via internal pub/sub system
       const result = await mcpClient.current.duplicateSessionViaMCP(
         session.id,
         `${session.name} (Copy)`,

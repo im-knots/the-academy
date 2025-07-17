@@ -1,4 +1,4 @@
-// src/hooks/useMCP.ts - Updated with Internal Pub/Sub Event System
+// src/hooks/useMCP.ts - Updated with Internal Pub/Sub Event System and useSessionMCP
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
@@ -1625,5 +1625,420 @@ export function useMCP(): MCPHook {
     syncStateWithClient,
     reconnect,
     disconnect
+  }
+}
+
+// ========================================
+// SESSION-SPECIFIC HOOK
+// ========================================
+
+interface SessionMCPHookState {
+  sessionId: string | null
+  sessionData: any | null
+  isLoadingSession: boolean
+  sessionError: string | null
+  lastSessionUpdate: Date | null
+}
+
+interface SessionMCPHookMethods {
+  // Session-specific operations
+  getSession: () => Promise<any>
+  refreshSession: () => Promise<void>
+  analyzeConversation: (analysisType?: string) => Promise<any>
+  
+  // Session-scoped message operations
+  sendMessage: (content: string, participantId: string, participantName: string, participantType: any) => Promise<any>
+  updateMessage: (messageId: string, updates: any) => Promise<any>
+  deleteMessage: (messageId: string) => Promise<any>
+  clearMessages: () => Promise<any>
+  
+  // Session-scoped participant operations
+  addParticipant: (name: string, type: any, provider?: string, model?: string, settings?: any, characteristics?: any) => Promise<any>
+  removeParticipant: (participantId: string) => Promise<any>
+  updateParticipant: (participantId: string, updates: any) => Promise<any>
+  updateParticipantStatus: (participantId: string, status: string) => Promise<any>
+  
+  // Session-scoped conversation control
+  startConversation: (initialPrompt?: string) => Promise<any>
+  pauseConversation: () => Promise<any>
+  resumeConversation: () => Promise<any>
+  stopConversation: () => Promise<any>
+  getConversationStatus: () => Promise<any>
+  getConversationStats: () => Promise<any>
+  injectPrompt: (prompt: string) => Promise<any>
+  injectModeratorPrompt: (prompt: string) => Promise<any>
+  
+  // Session-scoped analysis operations
+  triggerLiveAnalysis: (analysisType?: string) => Promise<any>
+  saveAnalysisSnapshot: (analysis: any, analysisType?: string) => Promise<any>
+  getAnalysisHistory: () => Promise<any>
+  clearAnalysisHistory: () => Promise<any>
+  
+  // Session-scoped export operations
+  exportSession: (format?: 'json' | 'csv', options?: any) => Promise<any>
+  exportAnalysisTimeline: (format?: 'json' | 'csv') => Promise<any>
+  getExportPreview: (format?: 'json' | 'csv') => Promise<any>
+}
+
+type SessionMCPHook = SessionMCPHookState & SessionMCPHookMethods
+
+export function useSessionMCP(sessionId?: string | null): SessionMCPHook {
+  const [state, setState] = useState<SessionMCPHookState>({
+    sessionId: sessionId || null,
+    sessionData: null,
+    isLoadingSession: false,
+    sessionError: null,
+    lastSessionUpdate: null
+  })
+
+  const clientRef = useRef<MCPClient | null>(null)
+  const globalMCP = useMCP() // Use the global MCP hook for connection status
+
+  // Update sessionId when prop changes
+  useEffect(() => {
+    setState(prev => ({ ...prev, sessionId: sessionId || null }))
+  }, [sessionId])
+
+  // Initialize client reference
+  useEffect(() => {
+    clientRef.current = MCPClient.getInstance()
+  }, [])
+
+  // ========================================
+  // SESSION DATA MANAGEMENT
+  // ========================================
+
+  const fetchSessionData = useCallback(async () => {
+    if (!sessionId || !clientRef.current) {
+      setState(prev => ({ ...prev, sessionData: null, isLoadingSession: false }))
+      return null
+    }
+
+    try {
+      setState(prev => ({ ...prev, isLoadingSession: true, sessionError: null }))
+      
+      const result = await clientRef.current.callTool('get_session', { sessionId })
+      
+      if (result.success && result.session) {
+        const sessionData = {
+          ...result.session,
+          createdAt: new Date(result.session.createdAt),
+          updatedAt: new Date(result.session.updatedAt)
+        }
+        
+        setState(prev => ({
+          ...prev,
+          sessionData,
+          isLoadingSession: false,
+          lastSessionUpdate: new Date()
+        }))
+        
+        console.log(`📄 useSessionMCP: Session data refreshed for ${sessionId}`)
+        return sessionData
+      } else {
+        throw new Error('Failed to fetch session data')
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch session'
+      setState(prev => ({
+        ...prev,
+        sessionData: null,
+        isLoadingSession: false,
+        sessionError: errorMessage,
+        lastSessionUpdate: new Date()
+      }))
+      console.error('❌ useSessionMCP: Failed to fetch session data:', error)
+      return null
+    }
+  }, [sessionId])
+
+  // ========================================
+  // EVENT SUBSCRIPTIONS
+  // ========================================
+
+  // Handle session-specific events
+  const handleSessionEvent = useCallback(async (payload: any) => {
+    if (payload.data.sessionId === sessionId) {
+      console.log(`📄 useSessionMCP: Session event received for ${sessionId}:`, payload.type)
+      await fetchSessionData()
+    }
+  }, [sessionId, fetchSessionData])
+
+  // Handle message events for this session
+  const handleMessageEvent = useCallback(async (payload: any) => {
+    if (payload.data.sessionId === sessionId) {
+      console.log(`💬 useSessionMCP: Message event received for ${sessionId}:`, payload.type)
+      await fetchSessionData()
+    }
+  }, [sessionId, fetchSessionData])
+
+  // Handle participant events for this session
+  const handleParticipantEvent = useCallback(async (payload: any) => {
+    if (payload.data.sessionId === sessionId) {
+      console.log(`👥 useSessionMCP: Participant event received for ${sessionId}:`, payload.type)
+      await fetchSessionData()
+    }
+  }, [sessionId, fetchSessionData])
+
+  // Handle conversation events for this session
+  const handleConversationEvent = useCallback(async (payload: any) => {
+    if (payload.data.sessionId === sessionId) {
+      console.log(`🗣️ useSessionMCP: Conversation event received for ${sessionId}:`, payload.type)
+      await fetchSessionData()
+    }
+  }, [sessionId, fetchSessionData])
+
+  // Handle analysis events for this session
+  const handleAnalysisEvent = useCallback(async (payload: any) => {
+    if (payload.data.sessionId === sessionId) {
+      console.log(`🔍 useSessionMCP: Analysis event received for ${sessionId}:`, payload.type)
+      await fetchSessionData()
+    }
+  }, [sessionId, fetchSessionData])
+
+  // Subscribe to relevant events
+  useEffect(() => {
+    if (!sessionId) return
+
+    console.log(`📡 useSessionMCP: Setting up event subscriptions for session ${sessionId}`)
+
+    // Initial data fetch
+    fetchSessionData()
+
+    // Session events
+    const unsubscribeSessionUpdated = eventBus.subscribe(EVENT_TYPES.SESSION_UPDATED, handleSessionEvent)
+    const unsubscribeSessionSwitched = eventBus.subscribe(EVENT_TYPES.SESSION_SWITCHED, handleSessionEvent)
+    
+    // Message events
+    const unsubscribeMessageSent = eventBus.subscribe(EVENT_TYPES.MESSAGE_SENT, handleMessageEvent)
+    const unsubscribeMessageUpdated = eventBus.subscribe(EVENT_TYPES.MESSAGE_UPDATED, handleMessageEvent)
+    const unsubscribeMessageDeleted = eventBus.subscribe(EVENT_TYPES.MESSAGE_DELETED, handleMessageEvent)
+    
+    // Participant events
+    const unsubscribeParticipantAdded = eventBus.subscribe(EVENT_TYPES.PARTICIPANT_ADDED, handleParticipantEvent)
+    const unsubscribeParticipantRemoved = eventBus.subscribe(EVENT_TYPES.PARTICIPANT_REMOVED, handleParticipantEvent)
+    const unsubscribeParticipantUpdated = eventBus.subscribe(EVENT_TYPES.PARTICIPANT_UPDATED, handleParticipantEvent)
+    
+    // Conversation events
+    const unsubscribeConversationStarted = eventBus.subscribe(EVENT_TYPES.CONVERSATION_STARTED, handleConversationEvent)
+    const unsubscribeConversationPaused = eventBus.subscribe(EVENT_TYPES.CONVERSATION_PAUSED, handleConversationEvent)
+    const unsubscribeConversationResumed = eventBus.subscribe(EVENT_TYPES.CONVERSATION_RESUMED, handleConversationEvent)
+    const unsubscribeConversationStopped = eventBus.subscribe(EVENT_TYPES.CONVERSATION_STOPPED, handleConversationEvent)
+    
+    // Analysis events
+    const unsubscribeAnalysisSaved = eventBus.subscribe(EVENT_TYPES.ANALYSIS_SAVED, handleAnalysisEvent)
+    const unsubscribeAnalysisTriggered = eventBus.subscribe(EVENT_TYPES.ANALYSIS_TRIGGERED, handleAnalysisEvent)
+    const unsubscribeAnalysisCleared = eventBus.subscribe(EVENT_TYPES.ANALYSIS_CLEARED, handleAnalysisEvent)
+
+    return () => {
+      console.log(`📡 useSessionMCP: Cleaning up event subscriptions for session ${sessionId}`)
+      unsubscribeSessionUpdated()
+      unsubscribeSessionSwitched()
+      unsubscribeMessageSent()
+      unsubscribeMessageUpdated()
+      unsubscribeMessageDeleted()
+      unsubscribeParticipantAdded()
+      unsubscribeParticipantRemoved()
+      unsubscribeParticipantUpdated()
+      unsubscribeConversationStarted()
+      unsubscribeConversationPaused()
+      unsubscribeConversationResumed()
+      unsubscribeConversationStopped()
+      unsubscribeAnalysisSaved()
+      unsubscribeAnalysisTriggered()
+      unsubscribeAnalysisCleared()
+    }
+  }, [
+    sessionId,
+    fetchSessionData,
+    handleSessionEvent,
+    handleMessageEvent,
+    handleParticipantEvent,
+    handleConversationEvent,
+    handleAnalysisEvent
+  ])
+
+  // ========================================
+  // SESSION-SCOPED METHODS
+  // ========================================
+
+  const getSession = useCallback(async () => {
+    if (!sessionId) throw new Error('No session ID provided')
+    return await fetchSessionData()
+  }, [sessionId, fetchSessionData])
+
+  const refreshSession = useCallback(async () => {
+    await fetchSessionData()
+  }, [fetchSessionData])
+
+  const analyzeConversation = useCallback(async (analysisType: string = 'full') => {
+    if (!sessionId || !clientRef.current) throw new Error('Session ID required')
+    return await globalMCP.analyzeConversationViaMCP(sessionId, analysisType)
+  }, [sessionId, globalMCP])
+
+  // Message operations
+  const sendMessage = useCallback(async (content: string, participantId: string, participantName: string, participantType: any) => {
+    if (!sessionId || !clientRef.current) throw new Error('Session ID required')
+    return await globalMCP.sendMessageViaMCP(sessionId, content, participantId, participantName, participantType)
+  }, [sessionId, globalMCP])
+
+  const updateMessage = useCallback(async (messageId: string, updates: any) => {
+    if (!sessionId || !clientRef.current) throw new Error('Session ID required')
+    return await globalMCP.updateMessageViaMCP(sessionId, messageId, updates)
+  }, [sessionId, globalMCP])
+
+  const deleteMessage = useCallback(async (messageId: string) => {
+    if (!sessionId || !clientRef.current) throw new Error('Session ID required')
+    return await globalMCP.deleteMessageViaMCP(sessionId, messageId)
+  }, [sessionId, globalMCP])
+
+  const clearMessages = useCallback(async () => {
+    if (!sessionId || !clientRef.current) throw new Error('Session ID required')
+    return await globalMCP.clearMessagesViaMCP(sessionId)
+  }, [sessionId, globalMCP])
+
+  // Participant operations
+  const addParticipant = useCallback(async (name: string, type: any, provider?: string, model?: string, settings?: any, characteristics?: any) => {
+    if (!sessionId || !clientRef.current) throw new Error('Session ID required')
+    return await globalMCP.addParticipantViaMCP(sessionId, name, type, provider, model, settings, characteristics)
+  }, [sessionId, globalMCP])
+
+  const removeParticipant = useCallback(async (participantId: string) => {
+    if (!sessionId || !clientRef.current) throw new Error('Session ID required')
+    return await globalMCP.removeParticipantViaMCP(sessionId, participantId)
+  }, [sessionId, globalMCP])
+
+  const updateParticipant = useCallback(async (participantId: string, updates: any) => {
+    if (!sessionId || !clientRef.current) throw new Error('Session ID required')
+    return await globalMCP.updateParticipantViaMCP(sessionId, participantId, updates)
+  }, [sessionId, globalMCP])
+
+  const updateParticipantStatus = useCallback(async (participantId: string, status: string) => {
+    if (!sessionId || !clientRef.current) throw new Error('Session ID required')
+    return await globalMCP.updateParticipantStatusViaMCP(sessionId, participantId, status)
+  }, [sessionId, globalMCP])
+
+  // Conversation control
+  const startConversation = useCallback(async (initialPrompt?: string) => {
+    if (!sessionId || !clientRef.current) throw new Error('Session ID required')
+    return await globalMCP.startConversationViaMCP(sessionId, initialPrompt)
+  }, [sessionId, globalMCP])
+
+  const pauseConversation = useCallback(async () => {
+    if (!sessionId || !clientRef.current) throw new Error('Session ID required')
+    return await globalMCP.pauseConversationViaMCP(sessionId)
+  }, [sessionId, globalMCP])
+
+  const resumeConversation = useCallback(async () => {
+    if (!sessionId || !clientRef.current) throw new Error('Session ID required')
+    return await globalMCP.resumeConversationViaMCP(sessionId)
+  }, [sessionId, globalMCP])
+
+  const stopConversation = useCallback(async () => {
+    if (!sessionId || !clientRef.current) throw new Error('Session ID required')
+    return await globalMCP.stopConversationViaMCP(sessionId)
+  }, [sessionId, globalMCP])
+
+  const getConversationStatus = useCallback(async () => {
+    if (!sessionId || !clientRef.current) throw new Error('Session ID required')
+    return await globalMCP.getConversationStatusViaMCP(sessionId)
+  }, [sessionId, globalMCP])
+
+  const getConversationStats = useCallback(async () => {
+    if (!sessionId || !clientRef.current) throw new Error('Session ID required')
+    return await globalMCP.getConversationStatsViaMCP(sessionId)
+  }, [sessionId, globalMCP])
+
+  const injectPrompt = useCallback(async (prompt: string) => {
+    if (!sessionId || !clientRef.current) throw new Error('Session ID required')
+    return await globalMCP.injectPromptViaMCP(sessionId, prompt)
+  }, [sessionId, globalMCP])
+
+  const injectModeratorPrompt = useCallback(async (prompt: string) => {
+    if (!sessionId || !clientRef.current) throw new Error('Session ID required')
+    return await globalMCP.injectModeratorPromptViaMCP(sessionId, prompt)
+  }, [sessionId, globalMCP])
+
+  // Analysis operations
+  const triggerLiveAnalysis = useCallback(async (analysisType?: string) => {
+    if (!sessionId || !clientRef.current) throw new Error('Session ID required')
+    return await globalMCP.triggerLiveAnalysisViaMCP(sessionId, analysisType)
+  }, [sessionId, globalMCP])
+
+  const saveAnalysisSnapshot = useCallback(async (analysis: any, analysisType?: string) => {
+    if (!sessionId || !clientRef.current) throw new Error('Session ID required')
+    return await globalMCP.saveAnalysisSnapshotViaMCP(sessionId, analysis, analysisType)
+  }, [sessionId, globalMCP])
+
+  const getAnalysisHistory = useCallback(async () => {
+    if (!sessionId || !clientRef.current) throw new Error('Session ID required')
+    return await globalMCP.getAnalysisHistoryViaMCP(sessionId)
+  }, [sessionId, globalMCP])
+
+  const clearAnalysisHistory = useCallback(async () => {
+    if (!sessionId || !clientRef.current) throw new Error('Session ID required')
+    return await globalMCP.clearAnalysisHistoryViaMCP(sessionId)
+  }, [sessionId, globalMCP])
+
+  // Export operations
+  const exportSession = useCallback(async (format: 'json' | 'csv' = 'json', options?: any) => {
+    if (!sessionId || !clientRef.current) throw new Error('Session ID required')
+    return await globalMCP.exportSessionViaMCP(sessionId, format, options)
+  }, [sessionId, globalMCP])
+
+  const exportAnalysisTimeline = useCallback(async (format: 'json' | 'csv' = 'json') => {
+    if (!sessionId || !clientRef.current) throw new Error('Session ID required')
+    return await globalMCP.exportAnalysisTimelineViaMCP(sessionId, format)
+  }, [sessionId, globalMCP])
+
+  const getExportPreview = useCallback(async (format: 'json' | 'csv' = 'json') => {
+    if (!sessionId || !clientRef.current) throw new Error('Session ID required')
+    return await globalMCP.getExportPreviewViaMCP(sessionId, format)
+  }, [sessionId, globalMCP])
+
+  // ========================================
+  // RETURN COMPLETE SESSION MCP INTERFACE
+  // ========================================
+
+  return {
+    ...state,
+    
+    // Session-specific operations
+    getSession,
+    refreshSession,
+    analyzeConversation,
+    
+    // Session-scoped message operations
+    sendMessage,
+    updateMessage,
+    deleteMessage,
+    clearMessages,
+    
+    // Session-scoped participant operations
+    addParticipant,
+    removeParticipant,
+    updateParticipant,
+    updateParticipantStatus,
+    
+    // Session-scoped conversation control
+    startConversation,
+    pauseConversation,
+    resumeConversation,
+    stopConversation,
+    getConversationStatus,
+    getConversationStats,
+    injectPrompt,
+    injectModeratorPrompt,
+    
+    // Session-scoped analysis operations
+    triggerLiveAnalysis,
+    saveAnalysisSnapshot,
+    getAnalysisHistory,
+    clearAnalysisHistory,
+    
+    // Session-scoped export operations
+    exportSession,
+    exportAnalysisTimeline,
+    getExportPreview
   }
 }
