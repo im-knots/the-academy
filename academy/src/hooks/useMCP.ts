@@ -1,8 +1,9 @@
-// src/hooks/useMCP.ts - Updated with Event-Driven System
+// src/hooks/useMCP.ts - Updated with Internal Pub/Sub Event System
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { MCPClient } from '@/lib/mcp/client'
+import { eventBus, EVENT_TYPES } from '@/lib/events/eventBus'
 
 interface MCPHookState {
   isConnected: boolean
@@ -29,11 +30,11 @@ interface MCPHookMethods {
   listPrompts: () => Promise<any[]>
   getPrompt: (name: string, args?: any) => Promise<any>
   
-  // Error tracking methods (NEW FEATURE)
+  // Error tracking methods
   getAPIErrors: (sessionId?: string) => Promise<any>
   clearAPIErrors: (sessionId?: string) => Promise<any>
   
-  // PHASE 1: Session Management Methods (Complete)
+  // Session Management Methods
   createSessionViaMCP: (name: string, description?: string, template?: string, participants?: any[]) => Promise<any>
   deleteSessionViaMCP: (sessionId: string) => Promise<any>
   updateSessionViaMCP: (sessionId: string, name?: string, description?: string, metadata?: any) => Promise<any>
@@ -42,11 +43,9 @@ interface MCPHookMethods {
   importSessionViaMCP: (sessionData: any, name?: string) => Promise<any>
   getSessionTemplates: () => Promise<any[]>
   createSessionFromTemplateViaMCP: (templateId: string, name: string, description?: string, customizations?: any) => Promise<any>
-  
-  // PHASE 1: Message Management Methods
   sendMessageViaMCP: (sessionId: string, content: string, participantId: string, participantName: string, participantType: any) => Promise<any>
   
-  // PHASE 2: Participant Management Methods (Complete)
+  // Participant Management Methods
   addParticipantViaMCP: (sessionId: string, name: string, type: any, provider?: string, model?: string, settings?: any, characteristics?: any) => Promise<any>
   removeParticipantViaMCP: (sessionId: string, participantId: string) => Promise<any>
   updateParticipantViaMCP: (sessionId: string, participantId: string, updates: any) => Promise<any>
@@ -54,7 +53,7 @@ interface MCPHookMethods {
   getAvailableModelsViaMCP: (provider?: string) => Promise<any>
   getParticipantConfigViaMCP: (sessionId: string, participantId: string) => Promise<any>
   
-  // PHASE 4: Conversation Control Methods (Complete)
+  // Conversation Control Methods
   startConversationViaMCP: (sessionId: string, initialPrompt?: string) => Promise<any>
   pauseConversationViaMCP: (sessionId: string) => Promise<any>
   resumeConversationViaMCP: (sessionId: string) => Promise<any>
@@ -63,22 +62,22 @@ interface MCPHookMethods {
   getConversationStatsViaMCP: (sessionId: string) => Promise<any>
   injectPromptViaMCP: (sessionId: string, prompt: string) => Promise<any>
   
-  // PHASE 3: Message Control Methods
-  updateMessageViaMCP: (sessionId: string, messageId: string, content: string) => Promise<any>
+  // Message Control Methods
+  updateMessageViaMCP: (sessionId: string, messageId: string, updates: any) => Promise<any>
   deleteMessageViaMCP: (sessionId: string, messageId: string) => Promise<any>
   clearMessagesViaMCP: (sessionId: string) => Promise<any>
   injectModeratorPromptViaMCP: (sessionId: string, prompt: string) => Promise<any>
   
-  // PHASE 5: Export Methods
+  // Export Methods
   exportSessionViaMCP: (sessionId: string, format?: 'json' | 'csv', options?: any) => Promise<any>
   exportAnalysisTimelineViaMCP: (sessionId: string, format?: 'json' | 'csv') => Promise<any>
   getExportPreviewViaMCP: (sessionId: string, format?: 'json' | 'csv') => Promise<any>
   
-  // PHASE 6: Live Analysis Methods
+  // Live Analysis Methods
   triggerLiveAnalysisViaMCP: (sessionId: string, analysisType?: string) => Promise<any>
-  setAnalysisProviderViaMCP: (provider: string) => Promise<any>
-  getAnalysisProvidersViaMCP: () => Promise<any[]>
-  autoAnalyzeConversationViaMCP: (sessionId: string, enabled: boolean) => Promise<any>
+  setAnalysisProviderViaMCP: (provider: string, settings?: any) => Promise<any>
+  getAnalysisProvidersViaMCP: () => Promise<any>
+  autoAnalyzeConversationViaMCP: (sessionId: string, enabled: boolean, interval?: number) => Promise<any>
   
   // Analysis Management Methods
   saveAnalysisSnapshotViaMCP: (sessionId: string, analysis: any, analysisType?: string) => Promise<any>
@@ -89,6 +88,24 @@ interface MCPHookMethods {
   // AI Provider Methods
   callClaudeViaMCP: (message: string, systemPrompt?: string, sessionId?: string, participantId?: string) => Promise<any>
   callOpenAIViaMCP: (message: string, systemPrompt?: string, model?: string, sessionId?: string, participantId?: string) => Promise<any>
+  callGrokViaMCP: (message: string, systemPrompt?: string, model?: string, sessionId?: string, participantId?: string) => Promise<any>
+  callGeminiViaMCP: (message: string, systemPrompt?: string, model?: string, sessionId?: string, participantId?: string) => Promise<any>
+  callOllamaViaMCP: (message: string, systemPrompt?: string, model?: string, ollamaUrl?: string, sessionId?: string, participantId?: string) => Promise<any>
+  callDeepseekViaMCP: (message: string, systemPrompt?: string, model?: string, sessionId?: string, participantId?: string) => Promise<any>
+  callMistralViaMCP: (message: string, systemPrompt?: string, model?: string, sessionId?: string, participantId?: string) => Promise<any>
+  
+  // Experiment Methods
+  createExperimentViaMCP: (config: any) => Promise<any>
+  getExperimentsViaMCP: () => Promise<any>
+  getExperimentViaMCP: (experimentId: string) => Promise<any>
+  updateExperimentViaMCP: (experimentId: string, updates: any) => Promise<any>
+  deleteExperimentViaMCP: (experimentId: string) => Promise<any>
+  executeExperimentViaMCP: (experimentId: string, experimentConfig: any) => Promise<any>
+  getExperimentStatusViaMCP: (experimentId: string) => Promise<any>
+  pauseExperimentViaMCP: (experimentId: string) => Promise<any>
+  resumeExperimentViaMCP: (experimentId: string) => Promise<any>
+  stopExperimentViaMCP: (experimentId: string) => Promise<any>
+  getExperimentResultsViaMCP: (experimentId: string) => Promise<any>
   
   // Debug Methods
   debugStoreViaMCP: () => Promise<any>
@@ -97,15 +114,6 @@ interface MCPHookMethods {
   syncStateWithClient: () => Promise<void>
   reconnect: () => Promise<void>
   disconnect: () => void
-
-  // Experiment methods
-  createExperimentViaMCP: (config: any) => Promise<any>
-  executeExperimentViaMCP: (experimentId: string, experimentConfig: any) => Promise<any>
-  getExperimentStatusViaMCP: (experimentId: string) => Promise<any>
-  pauseExperimentViaMCP: (experimentId: string) => Promise<any>
-  resumeExperimentViaMCP: (experimentId: string) => Promise<any>
-  stopExperimentViaMCP: (experimentId: string) => Promise<any>
-  getExperimentResultsViaMCP: (experimentId: string) => Promise<any>
 }
 
 type MCPHook = MCPHookState & MCPHookMethods
@@ -125,7 +133,78 @@ export function useMCP(): MCPHook {
   const clientRef = useRef<MCPClient | null>(null)
 
   // ========================================
-  // CORE CONNECTION MANAGEMENT (FIXED)
+  // EVENT-DRIVEN DATA REFRESH FUNCTIONS
+  // ========================================
+
+  const refreshResources = useCallback(async () => {
+    if (!clientRef.current) return
+    
+    try {
+      const resources = await clientRef.current.listResources()
+      setState(prev => ({ ...prev, resources, lastUpdate: new Date() }))
+      console.log(`📄 useMCP: Refreshed ${resources.length} resources`)
+    } catch (error) {
+      console.warn('⚠️ useMCP: Failed to refresh resources:', error)
+    }
+  }, [])
+
+  const refreshTools = useCallback(async () => {
+    if (!clientRef.current) return
+    
+    try {
+      const tools = await clientRef.current.listTools()
+      setState(prev => ({ ...prev, tools, lastUpdate: new Date() }))
+      console.log(`🔧 useMCP: Refreshed ${tools.length} tools`)
+    } catch (error) {
+      console.warn('⚠️ useMCP: Failed to refresh tools:', error)
+    }
+  }, [])
+
+  const refreshPrompts = useCallback(async () => {
+    if (!clientRef.current) return
+    
+    try {
+      const prompts = await clientRef.current.listPrompts()
+      setState(prev => ({ ...prev, prompts, lastUpdate: new Date() }))
+      console.log(`💭 useMCP: Refreshed ${prompts.length} prompts`)
+    } catch (error) {
+      console.warn('⚠️ useMCP: Failed to refresh prompts:', error)
+    }
+  }, [])
+
+  const handleGeneralDataRefresh = useCallback(async () => {
+    console.log('🔄 useMCP: Handling general data refresh')
+    await Promise.allSettled([
+      refreshResources(),
+      refreshTools(),
+      refreshPrompts()
+    ])
+  }, [refreshResources, refreshTools, refreshPrompts])
+
+  // ========================================
+  // EVENT SUBSCRIPTIONS SETUP
+  // ========================================
+
+  useEffect(() => {
+    console.log('📡 useMCP: Setting up event subscriptions')
+
+    // Subscribe to general data refresh events
+    const unsubscribeDataRefresh = eventBus.subscribe(EVENT_TYPES.DATA_REFRESHED, handleGeneralDataRefresh)
+
+    // Subscribe to specific events that might affect our cached data
+    const unsubscribeSessionCreated = eventBus.subscribe(EVENT_TYPES.SESSION_CREATED, handleGeneralDataRefresh)
+    const unsubscribeSessionDeleted = eventBus.subscribe(EVENT_TYPES.SESSION_DELETED, handleGeneralDataRefresh)
+
+    return () => {
+      console.log('📡 useMCP: Cleaning up event subscriptions')
+      unsubscribeDataRefresh()
+      unsubscribeSessionCreated()
+      unsubscribeSessionDeleted()
+    }
+  }, [handleGeneralDataRefresh])
+
+  // ========================================
+  // CORE CONNECTION MANAGEMENT
   // ========================================
 
   const syncStateWithClient = useCallback(async () => {
@@ -153,7 +232,7 @@ export function useMCP(): MCPHook {
         lastUpdate: new Date()
       }))
       
-      console.log('✅ useMCP: State synced - MCP is actually connected!')
+      console.log('✅ useMCP: State synced - MCP is connected!')
     } catch (error) {
       setState(prev => ({
         ...prev,
@@ -199,28 +278,10 @@ export function useMCP(): MCPHook {
         lastUpdate: new Date()
       }))
 
-      // Load data if connected
+      // Load initial data if connected
       if (actuallyConnected) {
         setTimeout(async () => {
-          try {
-            const [tools, resources, prompts] = await Promise.allSettled([
-              clientRef.current!.listTools(),
-              clientRef.current!.listResources(),
-              clientRef.current!.listPrompts()
-            ])
-            
-            setState(prev => ({
-              ...prev,
-              tools: tools.status === 'fulfilled' ? tools.value : [],
-              resources: resources.status === 'fulfilled' ? resources.value : [],
-              prompts: prompts.status === 'fulfilled' ? prompts.value : [],
-              lastUpdate: new Date()
-            }))
-            
-            console.log(`✅ useMCP: Loaded ${tools.status === 'fulfilled' ? tools.value.length : 0} tools, ${resources.status === 'fulfilled' ? resources.value.length : 0} resources`)
-          } catch (loadError) {
-            console.warn('⚠️ useMCP: Failed to load data (non-critical):', loadError)
-          }
+          await handleGeneralDataRefresh()
         }, 100)
       }
       
@@ -236,7 +297,7 @@ export function useMCP(): MCPHook {
       }))
       throw error
     }
-  }, [])
+  }, [handleGeneralDataRefresh])
 
   const reconnect = useCallback(async () => {
     console.log('🔄 useMCP: Reconnecting and syncing state...')
@@ -308,7 +369,7 @@ export function useMCP(): MCPHook {
     return await clientRef.current.readResource(uri)
   }, [])
 
-  const refreshResources = useCallback(async () => {
+  const refreshResourcesManual = useCallback(async () => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
     
     try {
@@ -334,7 +395,7 @@ export function useMCP(): MCPHook {
     if (!clientRef.current) throw new Error('MCP client not initialized')
     
     try {
-      // EVENT-DRIVEN: The MCP client will automatically trigger data refresh callbacks
+      // The MCP client will automatically emit events after successful operations
       const result = await clientRef.current.callTool(name, args)
       return result
     } catch (error) {
@@ -361,7 +422,7 @@ export function useMCP(): MCPHook {
   }, [])
 
   // ========================================
-  // ERROR TRACKING METHODS (NEW FEATURE)
+  // ERROR TRACKING METHODS
   // ========================================
 
   const getAPIErrors = useCallback(async (sessionId?: string) => {
@@ -403,7 +464,7 @@ export function useMCP(): MCPHook {
   }, [])
 
   // ========================================
-  // PHASE 1: SESSION MANAGEMENT METHODS (COMPLETE)
+  // SESSION MANAGEMENT METHODS
   // ========================================
 
   const createSessionViaMCP = useCallback(async (name: string, description?: string, template?: string, participants?: any[]) => {
@@ -412,7 +473,6 @@ export function useMCP(): MCPHook {
     console.log(`🆕 useMCP: Creating session via MCP: ${name}`)
     
     try {
-      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.createSessionViaMCP(name, description, template, participants)
       return result
     } catch (error) {
@@ -432,7 +492,6 @@ export function useMCP(): MCPHook {
     console.log(`🗑️ useMCP: Deleting session via MCP: ${sessionId}`)
     
     try {
-      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.deleteSessionViaMCP(sessionId)
       return result
     } catch (error) {
@@ -452,7 +511,6 @@ export function useMCP(): MCPHook {
     console.log(`✏️ useMCP: Updating session via MCP: ${sessionId}`)
     
     try {
-      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.updateSessionViaMCP(sessionId, name, description, metadata)
       return result
     } catch (error) {
@@ -472,7 +530,6 @@ export function useMCP(): MCPHook {
     console.log(`🔄 useMCP: Switching current session via MCP: ${sessionId}`)
     
     try {
-      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.switchCurrentSessionViaMCP(sessionId)
       return result
     } catch (error) {
@@ -492,7 +549,6 @@ export function useMCP(): MCPHook {
     console.log(`📋 useMCP: Duplicating session via MCP: ${sessionId}`)
     
     try {
-      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.duplicateSessionViaMCP(sessionId, newName, includeMessages)
       return result
     } catch (error) {
@@ -512,7 +568,6 @@ export function useMCP(): MCPHook {
     console.log(`📥 useMCP: Importing session via MCP`)
     
     try {
-      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.importSessionViaMCP(sessionData, name)
       return result
     } catch (error) {
@@ -549,7 +604,6 @@ export function useMCP(): MCPHook {
     console.log(`📋 useMCP: Creating session from template via MCP: ${templateId}`)
     
     try {
-      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.createSessionFromTemplateViaMCP(templateId, name, description, customizations)
       return result
     } catch (error) {
@@ -569,7 +623,6 @@ export function useMCP(): MCPHook {
     console.log(`💬 useMCP: Sending message via MCP to session: ${sessionId}`)
     
     try {
-      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.sendMessageViaMCP(sessionId, content, participantId, participantName, participantType)
       return result
     } catch (error) {
@@ -584,7 +637,7 @@ export function useMCP(): MCPHook {
   }, [])
 
   // ========================================
-  // PHASE 2: PARTICIPANT MANAGEMENT METHODS (COMPLETE)
+  // PARTICIPANT MANAGEMENT METHODS
   // ========================================
 
   const addParticipantViaMCP = useCallback(async (sessionId: string, name: string, type: any, provider?: string, model?: string, settings?: any, characteristics?: any) => {
@@ -593,7 +646,6 @@ export function useMCP(): MCPHook {
     console.log(`👤 useMCP: Adding participant via MCP to session: ${sessionId}`)
     
     try {
-      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.addParticipantViaMCP(sessionId, name, type, provider, model, settings, characteristics)
       return result
     } catch (error) {
@@ -613,7 +665,6 @@ export function useMCP(): MCPHook {
     console.log(`❌ useMCP: Removing participant via MCP from session: ${sessionId}`)
     
     try {
-      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.removeParticipantViaMCP(sessionId, participantId)
       return result
     } catch (error) {
@@ -633,7 +684,6 @@ export function useMCP(): MCPHook {
     console.log(`✏️ useMCP: Updating participant via MCP: ${participantId}`)
     
     try {
-      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.updateParticipantViaMCP(sessionId, participantId, updates)
       return result
     } catch (error) {
@@ -653,7 +703,6 @@ export function useMCP(): MCPHook {
     console.log(`🔄 useMCP: Updating participant status via MCP: ${participantId}`)
     
     try {
-      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.updateParticipantStatusViaMCP(sessionId, participantId, status)
       return result
     } catch (error) {
@@ -702,7 +751,7 @@ export function useMCP(): MCPHook {
   }, [])
 
   // ========================================
-  // PHASE 4: CONVERSATION CONTROL METHODS (COMPLETE)
+  // CONVERSATION CONTROL METHODS
   // ========================================
 
   const startConversationViaMCP = useCallback(async (sessionId: string, initialPrompt?: string) => {
@@ -711,7 +760,6 @@ export function useMCP(): MCPHook {
     console.log(`▶️ useMCP: Starting conversation via MCP: ${sessionId}`)
     
     try {
-      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.startConversationViaMCP(sessionId, initialPrompt)
       return result
     } catch (error) {
@@ -731,7 +779,6 @@ export function useMCP(): MCPHook {
     console.log(`⏸️ useMCP: Pausing conversation via MCP: ${sessionId}`)
     
     try {
-      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.pauseConversationViaMCP(sessionId)
       return result
     } catch (error) {
@@ -751,7 +798,6 @@ export function useMCP(): MCPHook {
     console.log(`▶️ useMCP: Resuming conversation via MCP: ${sessionId}`)
     
     try {
-      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.resumeConversationViaMCP(sessionId)
       return result
     } catch (error) {
@@ -771,7 +817,6 @@ export function useMCP(): MCPHook {
     console.log(`⏹️ useMCP: Stopping conversation via MCP: ${sessionId}`)
     
     try {
-      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.stopConversationViaMCP(sessionId)
       return result
     } catch (error) {
@@ -825,7 +870,6 @@ export function useMCP(): MCPHook {
     console.log(`💉 useMCP: Injecting prompt via MCP: ${sessionId}`)
     
     try {
-      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.injectPromptViaMCP(sessionId, prompt)
       return result
     } catch (error) {
@@ -840,17 +884,16 @@ export function useMCP(): MCPHook {
   }, [])
 
   // ========================================
-  // PHASE 3: MESSAGE CONTROL METHODS
+  // MESSAGE CONTROL METHODS
   // ========================================
 
-  const updateMessageViaMCP = useCallback(async (sessionId: string, messageId: string, content: string) => {
+  const updateMessageViaMCP = useCallback(async (sessionId: string, messageId: string, updates: any) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
     
     console.log(`✏️ useMCP: Updating message via MCP: ${messageId}`)
     
     try {
-      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
-      const result = await clientRef.current.updateMessageViaMCP(sessionId, messageId, content)
+      const result = await clientRef.current.updateMessageViaMCP(sessionId, messageId, updates)
       return result
     } catch (error) {
       console.error('Failed to update message via MCP:', error)
@@ -869,7 +912,6 @@ export function useMCP(): MCPHook {
     console.log(`🗑️ useMCP: Deleting message via MCP: ${messageId}`)
     
     try {
-      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.deleteMessageViaMCP(sessionId, messageId)
       return result
     } catch (error) {
@@ -889,7 +931,6 @@ export function useMCP(): MCPHook {
     console.log(`🧹 useMCP: Clearing messages via MCP: ${sessionId}`)
     
     try {
-      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.clearMessagesViaMCP(sessionId)
       return result
     } catch (error) {
@@ -909,7 +950,6 @@ export function useMCP(): MCPHook {
     console.log(`👤 useMCP: Injecting moderator prompt via MCP: ${sessionId}`)
     
     try {
-      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.injectModeratorPromptViaMCP(sessionId, prompt)
       return result
     } catch (error) {
@@ -924,7 +964,7 @@ export function useMCP(): MCPHook {
   }, [])
 
   // ========================================
-  // PHASE 5: EXPORT METHODS
+  // EXPORT METHODS
   // ========================================
 
   const exportSessionViaMCP = useCallback(async (sessionId: string, format: 'json' | 'csv' = 'json', options?: any) => {
@@ -983,7 +1023,7 @@ export function useMCP(): MCPHook {
   }, [])
 
   // ========================================
-  // PHASE 6: LIVE ANALYSIS METHODS
+  // LIVE ANALYSIS METHODS
   // ========================================
 
   const triggerLiveAnalysisViaMCP = useCallback(async (sessionId: string, analysisType?: string) => {
@@ -1005,13 +1045,13 @@ export function useMCP(): MCPHook {
     }
   }, [])
 
-  const setAnalysisProviderViaMCP = useCallback(async (provider: string) => {
+  const setAnalysisProviderViaMCP = useCallback(async (provider: string, settings?: any) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
     
     console.log(`🔧 useMCP: Setting analysis provider via MCP: ${provider}`)
     
     try {
-      const result = await clientRef.current.setAnalysisProviderViaMCP(provider)
+      const result = await clientRef.current.setAnalysisProviderViaMCP(provider, settings)
       return result
     } catch (error) {
       console.error('Failed to set analysis provider via MCP:', error)
@@ -1041,13 +1081,13 @@ export function useMCP(): MCPHook {
     }
   }, [])
 
-  const autoAnalyzeConversationViaMCP = useCallback(async (sessionId: string, enabled: boolean) => {
+  const autoAnalyzeConversationViaMCP = useCallback(async (sessionId: string, enabled: boolean, interval?: number) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
     
     console.log(`🤖 useMCP: Setting auto-analysis via MCP: ${sessionId} -> ${enabled}`)
     
     try {
-      const result = await clientRef.current.autoAnalyzeConversationViaMCP(sessionId, enabled)
+      const result = await clientRef.current.autoAnalyzeConversationViaMCP(sessionId, enabled, interval)
       return result
     } catch (error) {
       console.error('Failed to set auto-analysis via MCP:', error)
@@ -1068,7 +1108,6 @@ export function useMCP(): MCPHook {
     if (!clientRef.current) throw new Error('MCP client not initialized')
     
     try {
-      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.saveAnalysisSnapshotViaMCP(sessionId, analysis, analysisType)
       return result
     } catch (error) {
@@ -1103,7 +1142,6 @@ export function useMCP(): MCPHook {
     if (!clientRef.current) throw new Error('MCP client not initialized')
     
     try {
-      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.clearAnalysisHistoryViaMCP(sessionId)
       return result
     } catch (error) {
@@ -1121,7 +1159,6 @@ export function useMCP(): MCPHook {
     if (!clientRef.current) throw new Error('MCP client not initialized')
     
     try {
-      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.analyzeConversationViaMCP(sessionId, analysisType)
       return result
     } catch (error) {
@@ -1143,12 +1180,7 @@ export function useMCP(): MCPHook {
     if (!clientRef.current) throw new Error('MCP client not initialized')
     
     try {
-      const result = await clientRef.current.callClaudeViaMCP(
-        message, 
-        systemPrompt || undefined, 
-        sessionId || undefined, 
-        participantId || undefined
-      )
+      const result = await clientRef.current.callClaudeViaMCP(message, systemPrompt, sessionId, participantId)
       return result
     } catch (error) {
       console.error('Failed to call Claude via MCP:', error)
@@ -1165,13 +1197,7 @@ export function useMCP(): MCPHook {
     if (!clientRef.current) throw new Error('MCP client not initialized')
     
     try {
-      const result = await clientRef.current.callOpenAIViaMCP(
-        message, 
-        systemPrompt || undefined, 
-        model || undefined, 
-        sessionId || undefined, 
-        participantId || undefined
-      )
+      const result = await clientRef.current.callOpenAIViaMCP(message, systemPrompt, model, sessionId, participantId)
       return result
     } catch (error) {
       console.error('Failed to call OpenAI via MCP:', error)
@@ -1188,13 +1214,7 @@ export function useMCP(): MCPHook {
     if (!clientRef.current) throw new Error('MCP client not initialized')
     
     try {
-      const result = await clientRef.current.callGrokViaMCP(
-        message, 
-        systemPrompt || undefined, 
-        model || undefined,
-        sessionId || undefined, 
-        participantId || undefined
-      )
+      const result = await clientRef.current.callGrokViaMCP(message, systemPrompt, model, sessionId, participantId)
       return result
     } catch (error) {
       console.error('Failed to call Grok via MCP:', error)
@@ -1211,13 +1231,7 @@ export function useMCP(): MCPHook {
     if (!clientRef.current) throw new Error('MCP client not initialized')
     
     try {
-      const result = await clientRef.current.callGeminiViaMCP(
-        message, 
-        systemPrompt || undefined, 
-        model || undefined,
-        sessionId || undefined, 
-        participantId || undefined
-      )
+      const result = await clientRef.current.callGeminiViaMCP(message, systemPrompt, model, sessionId, participantId)
       return result
     } catch (error) {
       console.error('Failed to call Gemini via MCP:', error)
@@ -1234,14 +1248,7 @@ export function useMCP(): MCPHook {
     if (!clientRef.current) throw new Error('MCP client not initialized')
     
     try {
-      const result = await clientRef.current.callOllamaViaMCP(
-        message, 
-        systemPrompt || undefined, 
-        model || undefined,
-        ollamaUrl || undefined,
-        sessionId || undefined, 
-        participantId || undefined
-      )
+      const result = await clientRef.current.callOllamaViaMCP(message, systemPrompt, model, ollamaUrl, sessionId, participantId)
       return result
     } catch (error) {
       console.error('Failed to call Ollama via MCP:', error)
@@ -1258,19 +1265,13 @@ export function useMCP(): MCPHook {
     if (!clientRef.current) throw new Error('MCP client not initialized')
     
     try {
-      const result = await clientRef.current.callDeepseekViaMCP(
-        message, 
-        systemPrompt || undefined, 
-        model || undefined, 
-        sessionId || undefined, 
-        participantId || undefined
-      )
+      const result = await clientRef.current.callDeepseekViaMCP(message, systemPrompt, model, sessionId, participantId)
       return result
     } catch (error) {
       console.error('Failed to call Deepseek via MCP:', error)
       setState(prev => ({
         ...prev,
-        error: error instanceof Error ? error.message : 'Failed to call OpenAI',
+        error: error instanceof Error ? error.message : 'Failed to call Deepseek',
         lastUpdate: new Date()
       }))
       throw error
@@ -1281,19 +1282,13 @@ export function useMCP(): MCPHook {
     if (!clientRef.current) throw new Error('MCP client not initialized')
     
     try {
-      const result = await clientRef.current.callMistralViaMCP(
-        message, 
-        systemPrompt || undefined, 
-        model || undefined, 
-        sessionId || undefined, 
-        participantId || undefined
-      )
+      const result = await clientRef.current.callMistralViaMCP(message, systemPrompt, model, sessionId, participantId)
       return result
     } catch (error) {
       console.error('Failed to call Mistral via MCP:', error)
       setState(prev => ({
         ...prev,
-        error: error instanceof Error ? error.message : 'Failed to call OpenAI',
+        error: error instanceof Error ? error.message : 'Failed to call Mistral',
         lastUpdate: new Date()
       }))
       throw error
@@ -1310,7 +1305,6 @@ export function useMCP(): MCPHook {
     console.log(`🧪 useMCP: Creating experiment via MCP`)
     
     try {
-      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.createExperimentViaMCP(config)
       return result
     } catch (error) {
@@ -1364,7 +1358,6 @@ export function useMCP(): MCPHook {
     console.log(`✏️ useMCP: Updating experiment via MCP: ${experimentId}`)
     
     try {
-      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.updateExperimentViaMCP(experimentId, updates)
       return result
     } catch (error) {
@@ -1384,7 +1377,6 @@ export function useMCP(): MCPHook {
     console.log(`🗑️ useMCP: Deleting experiment via MCP: ${experimentId}`)
     
     try {
-      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.deleteExperimentViaMCP(experimentId)
       return result
     } catch (error) {
@@ -1404,7 +1396,6 @@ export function useMCP(): MCPHook {
     console.log(`🚀 useMCP: Executing experiment via MCP: ${experimentId}`)
     
     try {
-      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.executeExperimentViaMCP(experimentId, experimentConfig)
       return result
     } catch (error) {
@@ -1441,7 +1432,6 @@ export function useMCP(): MCPHook {
     console.log(`⏸️ useMCP: Pausing experiment via MCP: ${experimentId}`)
     
     try {
-      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.pauseExperimentViaMCP(experimentId)
       return result
     } catch (error) {
@@ -1461,7 +1451,6 @@ export function useMCP(): MCPHook {
     console.log(`▶️ useMCP: Resuming experiment via MCP: ${experimentId}`)
     
     try {
-      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.resumeExperimentViaMCP(experimentId)
       return result
     } catch (error) {
@@ -1481,7 +1470,6 @@ export function useMCP(): MCPHook {
     console.log(`⏹️ useMCP: Stopping experiment via MCP: ${experimentId}`)
     
     try {
-      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.stopExperimentViaMCP(experimentId)
       return result
     } catch (error) {
@@ -1543,7 +1531,7 @@ export function useMCP(): MCPHook {
     // Resource methods
     listResources,
     readResource,
-    refreshResources,
+    refreshResources: refreshResourcesManual,
     
     // Tool methods
     listTools,
@@ -1553,11 +1541,11 @@ export function useMCP(): MCPHook {
     listPrompts,
     getPrompt,
 
-    // Error tracking methods (NEW FEATURE)
+    // Error tracking methods
     getAPIErrors,
     clearAPIErrors,
     
-    // PHASE 1: Session Management Methods
+    // Session Management Methods
     createSessionViaMCP,
     deleteSessionViaMCP,
     updateSessionViaMCP,
@@ -1568,7 +1556,7 @@ export function useMCP(): MCPHook {
     createSessionFromTemplateViaMCP,
     sendMessageViaMCP,
     
-    // PHASE 2: Participant Management Methods
+    // Participant Management Methods
     addParticipantViaMCP,
     removeParticipantViaMCP,
     updateParticipantViaMCP,
@@ -1576,7 +1564,7 @@ export function useMCP(): MCPHook {
     getAvailableModelsViaMCP,
     getParticipantConfigViaMCP,
     
-    // PHASE 4: Conversation Control Methods
+    // Conversation Control Methods
     startConversationViaMCP,
     pauseConversationViaMCP,
     resumeConversationViaMCP,
@@ -1585,18 +1573,18 @@ export function useMCP(): MCPHook {
     getConversationStatsViaMCP,
     injectPromptViaMCP,
     
-    // PHASE 3: Message Control Methods
+    // Message Control Methods
     updateMessageViaMCP,
     deleteMessageViaMCP,
     clearMessagesViaMCP,
     injectModeratorPromptViaMCP,
     
-    // PHASE 5: Export Methods
+    // Export Methods
     exportSessionViaMCP,
     exportAnalysisTimelineViaMCP,
     getExportPreviewViaMCP,
     
-    // PHASE 6: Live Analysis Methods
+    // Live Analysis Methods
     triggerLiveAnalysisViaMCP,
     setAnalysisProviderViaMCP,
     getAnalysisProvidersViaMCP,
@@ -1617,6 +1605,7 @@ export function useMCP(): MCPHook {
     callDeepseekViaMCP,
     callMistralViaMCP,
 
+    // Experiment Methods
     createExperimentViaMCP,
     getExperimentsViaMCP,
     getExperimentViaMCP,
@@ -1636,161 +1625,5 @@ export function useMCP(): MCPHook {
     syncStateWithClient,
     reconnect,
     disconnect
-  }
-}
-
-// ========================================
-// ADDITIONAL HOOK: SESSION-SPECIFIC MCP OPERATIONS
-// ========================================
-
-export function useSessionMCP() {
-  const mcp = useMCP()
-  const mcpClientRef = useRef(MCPClient.getInstance())
-  const [currentSession, setCurrentSession] = useState<any>(null)
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
-
-  // EVENT-DRIVEN: Fetch current session function
-  const fetchCurrentSession = useCallback(async () => {
-    try {
-      const result = await mcp.callTool('get_current_session_id', {})
-      if (result.success && result.sessionId) {
-        setCurrentSessionId(result.sessionId)
-        
-        const sessionResult = await mcp.callTool('get_session', { sessionId: result.sessionId })
-        if (sessionResult.success && sessionResult.session) {
-          setCurrentSession(sessionResult.session)
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch current session:', error)
-    }
-  }, [mcp])
-
-  // EVENT-DRIVEN: Register data refresh callbacks for session updates
-  useEffect(() => {
-    console.log('🎯 useSessionMCP: Setting up event-driven refresh')
-
-    // Initial fetch
-    fetchCurrentSession()
-
-    // Register for current session updates via event-driven system
-    const unsubscribeCurrentSession = mcpClientRef.current.registerDataRefreshCallback(
-      'current-session', 
-      fetchCurrentSession
-    )
-    
-    // Also register for session data updates
-    const unsubscribeSessionData = mcpClientRef.current.registerDataRefreshCallback(
-      'session-data', 
-      fetchCurrentSession
-    )
-
-    return () => {
-      console.log('🎯 useSessionMCP: Cleaning up event-driven callbacks')
-      unsubscribeCurrentSession()
-      unsubscribeSessionData()
-    }
-  }, [fetchCurrentSession])
-
-  // Session-specific convenience methods
-  const analyzeConversation = useCallback(async (analysisType: string = 'full') => {
-    if (!currentSession) {
-      throw new Error('No current session available')
-    }
-    return await mcp.analyzeConversationViaMCP(currentSession.id, analysisType)
-  }, [mcp, currentSession])
-
-  const saveAnalysisSnapshot = useCallback(async (analysis: any, analysisType?: string) => {
-    if (!currentSession) {
-      throw new Error('No current session available')
-    }
-    return await mcp.saveAnalysisSnapshotViaMCP(currentSession.id, analysis, analysisType)
-  }, [mcp, currentSession])
-
-  const getAnalysisHistory = useCallback(async () => {
-    if (!currentSession) {
-      throw new Error('No current session available')
-    }
-    return await mcp.getAnalysisHistoryViaMCP(currentSession.id)
-  }, [mcp, currentSession])
-
-  const clearAnalysisHistory = useCallback(async () => {
-    if (!currentSession) {
-      throw new Error('No current session available')
-    }
-    return await mcp.clearAnalysisHistoryViaMCP(currentSession.id)
-  }, [mcp, currentSession])
-
-  const startConversation = useCallback(async (initialPrompt?: string) => {
-    if (!currentSession) {
-      throw new Error('No current session available')
-    }
-    return await mcp.startConversationViaMCP(currentSession.id, initialPrompt)
-  }, [mcp, currentSession])
-
-  const pauseConversation = useCallback(async () => {
-    if (!currentSession) {
-      throw new Error('No current session available')
-    }
-    return await mcp.pauseConversationViaMCP(currentSession.id)
-  }, [mcp, currentSession])
-
-  const resumeConversation = useCallback(async () => {
-    if (!currentSession) {
-      throw new Error('No current session available')
-    }
-    return await mcp.resumeConversationViaMCP(currentSession.id)
-  }, [mcp, currentSession])
-
-  const stopConversation = useCallback(async () => {
-    if (!currentSession) {
-      throw new Error('No current session available')
-    }
-    return await mcp.stopConversationViaMCP(currentSession.id)
-  }, [mcp, currentSession])
-
-  const addParticipant = useCallback(async (name: string, type: any, provider?: string, model?: string, settings?: any, characteristics?: any) => {
-    if (!currentSession) {
-      throw new Error('No current session available')
-    }
-    return await mcp.addParticipantViaMCP(currentSession.id, name, type, provider, model, settings, characteristics)
-  }, [mcp, currentSession])
-
-  const exportSession = useCallback(async (format: 'json' | 'csv' = 'json', options?: any) => {
-    if (!currentSession) {
-      throw new Error('No current session available')
-    }
-    return await mcp.exportSessionViaMCP(currentSession.id, format, options)
-  }, [mcp, currentSession])
-
-  // Error tracking methods for current session (NEW FEATURE)
-  const getSessionErrors = useCallback(async () => {
-    if (!currentSession) {
-      throw new Error('No current session available')
-    }
-    return await mcp.getAPIErrors(currentSession.id)
-  }, [mcp, currentSession])
-
-  const clearSessionErrors = useCallback(async () => {
-    if (!currentSession) {
-      throw new Error('No current session available')
-    }
-    return await mcp.clearAPIErrors(currentSession.id)
-  }, [mcp, currentSession])
-
-  return {
-    analyzeConversation,
-    saveAnalysisSnapshot,
-    getAnalysisHistory,
-    clearAnalysisHistory,
-    startConversation,
-    pauseConversation,
-    resumeConversation,
-    stopConversation,
-    addParticipant,
-    exportSession,
-    getSessionErrors,
-    clearSessionErrors,
-    currentSession
   }
 }

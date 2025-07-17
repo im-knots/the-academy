@@ -1,6 +1,7 @@
-// src/hooks/useTemplatePrompt.ts - Updated with Event-Driven Polling
+// src/hooks/useTemplatePrompt.ts - Updated with Internal Pub/Sub Event System
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { MCPClient } from '@/lib/mcp/client'
+import { eventBus, EVENT_TYPES } from '@/lib/events/eventBus'
 
 const TEMPLATE_PROMPTS: Record<string, string> = {
   consciousness: 'Let\'s explore the fundamental question: What does it mean to be conscious? I\'d like to hear your perspectives on the nature of awareness, subjective experience, and what it might mean for an AI to have consciousness.',
@@ -15,7 +16,7 @@ export function useTemplatePrompt() {
   const [suggestedPrompt, setSuggestedPrompt] = useState<string>('')
   const mcpClientRef = useRef(MCPClient.getInstance())
 
-  // EVENT-DRIVEN: Fetch current session function
+  // EVENT-DRIVEN: Fetch current session function (stable - no external dependencies)
   const fetchCurrentSession = useCallback(async () => {
     try {
       // Get current session ID
@@ -38,38 +39,29 @@ export function useTemplatePrompt() {
       console.error('Failed to fetch current session for template prompt:', error)
       setCurrentSession(null)
     }
-  }, [])
+  }, []) // Empty dependency array - stable function
 
-  // EVENT-DRIVEN: Register data refresh callbacks for session updates
+  // EVENT-DRIVEN: Subscribe to relevant events
   useEffect(() => {
-    console.log('🎯 useTemplatePrompt: Setting up event-driven refresh')
+    console.log('🎯 useTemplatePrompt: Setting up event subscriptions')
 
     // Initial fetch
     fetchCurrentSession()
 
-    // Register for current session updates via event-driven system
-    const unsubscribeCurrentSession = mcpClientRef.current.registerDataRefreshCallback(
-      'current-session', 
-      fetchCurrentSession
-    )
-    
-    // Also register for session data updates (in case session content changes)
-    const unsubscribeSessionData = mcpClientRef.current.registerDataRefreshCallback(
-      'session-data', 
-      fetchCurrentSession
-    )
-    
-    // Register for sessions list updates (switching sessions)
-    const unsubscribeSessionsList = mcpClientRef.current.registerDataRefreshCallback(
-      'sessions-list', 
-      fetchCurrentSession
-    )
+    // Subscribe to session-related events via the new event bus
+    const unsubscribeSessionSwitched = eventBus.subscribe(EVENT_TYPES.SESSION_SWITCHED, fetchCurrentSession)
+    const unsubscribeSessionUpdated = eventBus.subscribe(EVENT_TYPES.SESSION_UPDATED, fetchCurrentSession)
+    const unsubscribeSessionCreated = eventBus.subscribe(EVENT_TYPES.SESSION_CREATED, fetchCurrentSession)
+    const unsubscribeSessionImported = eventBus.subscribe(EVENT_TYPES.SESSION_IMPORTED, fetchCurrentSession)
+    const unsubscribeSessionsListChanged = eventBus.subscribe(EVENT_TYPES.SESSIONS_LIST_CHANGED, fetchCurrentSession)
 
     return () => {
-      console.log('🎯 useTemplatePrompt: Cleaning up event-driven callbacks')
-      unsubscribeCurrentSession()
-      unsubscribeSessionData()
-      unsubscribeSessionsList()
+      console.log('🎯 useTemplatePrompt: Cleaning up event subscriptions')
+      unsubscribeSessionSwitched()
+      unsubscribeSessionUpdated()
+      unsubscribeSessionCreated()
+      unsubscribeSessionImported()
+      unsubscribeSessionsListChanged()
     }
   }, [fetchCurrentSession])
 

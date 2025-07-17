@@ -1,18 +1,14 @@
-// src/lib/mcp/client.ts - Enhanced with Event-Driven Polling
+// src/lib/mcp/client.ts - Updated with Internal Pub/Sub Event System
 import { JSONRPCRequest, JSONRPCResponse, APIError, RetryConfig } from './types'
 import { ExperimentConfig } from '@/types/experiment'
 import { MCPConversationManager } from '../ai/mcp-conversation-manager'
+import { eventBus, eventEmitter, EVENT_TYPES } from '../events/eventBus'
 
 export class MCPClient {
   private static instance: MCPClient
   private baseUrl: string
   private initialized = false
   private requestId = 1
-
-  // Event-driven data refresh system
-  private dataRefreshCallbacks: Map<string, (() => Promise<void>)[]> = new Map()
-  private lastRefreshTime: Map<string, number> = new Map()
-  private refreshThrottle = 100 // Prevent rapid successive refreshes
 
   // Retry configuration for network errors
   private defaultRetryConfig: RetryConfig = {
@@ -69,128 +65,6 @@ export class MCPClient {
       MCPClient.instance = new MCPClient(baseUrl)
     }
     return MCPClient.instance
-  }
-
-  // ========================================
-  // EVENT-DRIVEN DATA REFRESH SYSTEM
-  // ========================================
-
-  /**
-   * Register a callback to be triggered after MCP operations
-   * @param key - Unique identifier for the callback (e.g., 'session-data', 'sessions-list')
-   * @param callback - Function to call when data should be refreshed
-   * @returns Unsubscribe function
-   */
-  registerDataRefreshCallback(key: string, callback: () => Promise<void>): () => void {
-    console.log(`📡 MCP Client: Registering data refresh callback: ${key}`)
-    
-    if (!this.dataRefreshCallbacks.has(key)) {
-      this.dataRefreshCallbacks.set(key, [])
-    }
-    this.dataRefreshCallbacks.get(key)!.push(callback)
-    
-    // Return unsubscribe function
-    return () => {
-      const callbacks = this.dataRefreshCallbacks.get(key)
-      if (callbacks) {
-        const index = callbacks.indexOf(callback)
-        if (index > -1) {
-          callbacks.splice(index, 1)
-          console.log(`📡 MCP Client: Unregistered data refresh callback: ${key}`)
-        }
-      }
-    }
-  }
-
-  /**
-   * Trigger data refresh for specific keys with throttling
-   * @param keys - Array of callback keys to trigger
-   */
-  private async triggerDataRefresh(keys: string[]): Promise<void> {
-    for (const key of keys) {
-      const now = Date.now()
-      const lastRefresh = this.lastRefreshTime.get(key) || 0
-      
-      // Throttle rapid successive refreshes
-      if (now - lastRefresh < this.refreshThrottle) {
-        console.log(`⏳ MCP Client: Throttling refresh for ${key}`)
-        continue
-      }
-      
-      this.lastRefreshTime.set(key, now)
-      
-      const callbacks = this.dataRefreshCallbacks.get(key) || []
-      console.log(`🔄 MCP Client: Triggering ${callbacks.length} callbacks for ${key}`)
-      
-      // Execute callbacks in parallel but catch individual failures
-      await Promise.allSettled(
-        callbacks.map(async (callback) => {
-          try {
-            await callback()
-          } catch (error) {
-            console.error(`❌ Data refresh callback failed for ${key}:`, error)
-          }
-        })
-      )
-    }
-  }
-
-  /**
-   * Determine which data refresh keys should be triggered based on the tool/operation
-   * @param toolName - Name of the MCP tool that was called
-   * @param args - Arguments passed to the tool
-   * @returns Array of refresh keys to trigger
-   */
-  private getRefreshKeysForOperation(toolName: string, args: any = {}): string[] {
-    const keys: string[] = []
-    
-    // Session-related operations
-    if (['create_session', 'delete_session', 'update_session', 'import_session', 
-         'duplicate_session', 'switch_current_session'].includes(toolName)) {
-      keys.push('sessions-list', 'current-session')
-    }
-    
-    // Current session data operations
-    if (['get_session', 'send_message', 'add_participant', 'remove_participant',
-         'update_participant', 'start_conversation', 'pause_conversation',
-         'resume_conversation', 'stop_conversation', 'inject_prompt',
-         'update_message', 'delete_message', 'clear_messages'].includes(toolName)) {
-      keys.push('session-data')
-      
-      // If we have a sessionId, add session-specific key
-      if (args.sessionId) {
-        keys.push(`session-${args.sessionId}`)
-      }
-    }
-    
-    // Analysis operations
-    if (['save_analysis_snapshot', 'trigger_live_analysis', 'analyze_conversation',
-         'clear_analysis_history'].includes(toolName)) {
-      keys.push('analysis-data')
-      
-      if (args.sessionId) {
-        keys.push(`analysis-${args.sessionId}`)
-      }
-    }
-    
-    // Experiment operations
-    if (['create_experiment', 'update_experiment', 'delete_experiment',
-         'execute_experiment', 'pause_experiment', 'resume_experiment',
-         'stop_experiment'].includes(toolName)) {
-      keys.push('experiments-list')
-      
-      if (args.experimentId) {
-        keys.push(`experiment-${args.experimentId}`)
-      }
-    }
-    
-    // Error tracking operations
-    if (['log_api_error', 'clear_api_errors'].includes(toolName)) {
-      keys.push('api-errors')
-    }
-    
-    console.log(`🎯 MCP Client: Operation ${toolName} will trigger refresh for: ${keys.join(', ')}`)
-    return keys
   }
 
   private generateRequestId(): number {
@@ -535,15 +409,9 @@ export class MCPClient {
       
       console.log(`✅ MCP tool ${name} completed:`, parsedResult.success ? '✓' : '✗')
       
-      // EVENT-DRIVEN: Trigger data refresh after successful tool calls
+      // EVENT-DRIVEN: Emit events after successful tool calls
       if (parsedResult.success !== false) {
-        const refreshKeys = this.getRefreshKeysForOperation(name, args)
-        if (refreshKeys.length > 0) {
-          // Don't await - fire and forget to avoid blocking the response
-          this.triggerDataRefresh(refreshKeys).catch(error => {
-            console.warn('⚠️ Data refresh failed after tool call:', error)
-          })
-        }
+        await this.emitEventsForOperation(name, args, parsedResult)
       }
       
       return parsedResult
@@ -561,6 +429,129 @@ export class MCPClient {
       }
       
       throw error
+    }
+  }
+
+  /**
+   * Emit appropriate events based on the MCP operation that was performed
+   * This replaces the old callback system with proper pub/sub events
+   */
+  private async emitEventsForOperation(toolName: string, args: any, result: any): Promise<void> {
+    try {
+      // Session operations
+      if (toolName === 'create_session' && result.sessionId) {
+        await eventEmitter.sessionCreated(result)
+        await eventEmitter.sessionsListChanged()
+      }
+      
+      if (toolName === 'delete_session' && args.sessionId) {
+        await eventEmitter.sessionDeleted(args.sessionId)
+        await eventEmitter.sessionsListChanged()
+      }
+      
+      if (toolName === 'update_session' && args.sessionId) {
+        await eventEmitter.sessionUpdated(result)
+        await eventEmitter.sessionsListChanged()
+      }
+      
+      if (toolName === 'switch_current_session' && args.sessionId) {
+        await eventEmitter.sessionSwitched(args.sessionId)
+      }
+      
+      if (toolName === 'duplicate_session' && result.newSessionId) {
+        await eventEmitter.sessionDuplicated(args.sessionId, result)
+        await eventEmitter.sessionsListChanged()
+      }
+      
+      if (toolName === 'import_session' && result.sessionId) {
+        await eventEmitter.sessionImported(result)
+        await eventEmitter.sessionsListChanged()
+      }
+      
+      // Message operations
+      if (toolName === 'send_message' && args.sessionId) {
+        await eventEmitter.messageSent(args.sessionId, result)
+      }
+      
+      if (toolName === 'update_message' && args.sessionId) {
+        await eventEmitter.messageUpdated(args.sessionId, result)
+      }
+      
+      if (toolName === 'delete_message' && args.sessionId) {
+        await eventEmitter.messageDeleted(args.sessionId, args.messageId)
+      }
+      
+      // Participant operations
+      if (toolName === 'add_participant' && args.sessionId) {
+        await eventEmitter.participantAdded(args.sessionId, result)
+      }
+      
+      if (toolName === 'remove_participant' && args.sessionId) {
+        await eventEmitter.participantRemoved(args.sessionId, args.participantId)
+      }
+      
+      if (toolName === 'update_participant' && args.sessionId) {
+        await eventEmitter.participantUpdated(args.sessionId, result)
+      }
+      
+      // Conversation operations
+      if (toolName === 'start_conversation' && args.sessionId) {
+        await eventEmitter.conversationStarted(args.sessionId)
+      }
+      
+      if (toolName === 'pause_conversation' && args.sessionId) {
+        await eventEmitter.conversationPaused(args.sessionId)
+      }
+      
+      if (toolName === 'resume_conversation' && args.sessionId) {
+        await eventEmitter.conversationResumed(args.sessionId)
+      }
+      
+      if (toolName === 'stop_conversation' && args.sessionId) {
+        await eventEmitter.conversationStopped(args.sessionId)
+      }
+      
+      // Analysis operations
+      if (toolName === 'save_analysis_snapshot' && args.sessionId) {
+        await eventEmitter.analysisSaved(args.sessionId, result)
+      }
+      
+      if (toolName === 'trigger_live_analysis' && args.sessionId) {
+        await eventEmitter.analysisTriggered(args.sessionId, args.analysisType || 'full')
+      }
+      
+      if (toolName === 'clear_analysis_history' && args.sessionId) {
+        await eventEmitter.analysisCleared(args.sessionId)
+      }
+      
+      // Experiment operations
+      if (toolName === 'create_experiment') {
+        await eventEmitter.experimentCreated(result)
+      }
+      
+      if (toolName === 'update_experiment' && args.experimentId) {
+        await eventEmitter.experimentUpdated(result)
+      }
+      
+      if (toolName === 'delete_experiment' && args.experimentId) {
+        await eventEmitter.experimentDeleted(args.experimentId)
+      }
+      
+      if (toolName === 'execute_experiment' && args.experimentId) {
+        await eventEmitter.experimentExecuted(args.experimentId, result)
+      }
+      
+      // Error operations
+      if (toolName === 'log_api_error') {
+        await eventEmitter.apiErrorLogged(args.error)
+      }
+      
+      if (toolName === 'clear_api_errors') {
+        await eventEmitter.apiErrorsCleared(args.sessionId)
+      }
+      
+    } catch (error) {
+      console.warn('⚠️ Failed to emit events for operation:', toolName, error)
     }
   }
 
@@ -1424,10 +1415,108 @@ export class MCPClient {
     }
   }
 
-  async executeExperimentViaMCP(
-    experimentId: string,
-    experimentConfig: ExperimentConfig
-  ): Promise<{ success: boolean; experimentId: string; runId?: string; message: string }> {
+  async getExperimentsViaMCP(): Promise<any> {
+    const result = await this.callTool('get_experiments', {})
+    
+    if (result.success) {
+      console.log(`✅ Retrieved ${result.experiments?.length || 0} experiments via MCP`)
+      return result
+    } else {
+      throw new Error('Failed to get experiments via MCP')
+    }
+  }
+
+  async getExperimentViaMCP(experimentId: string): Promise<any> {
+    const result = await this.callTool('get_experiment', { experimentId })
+    
+    if (!result.success) {
+      throw new Error(`Experiment ${experimentId} not found`)
+    }
+    
+    console.log(`✅ Retrieved experiment via MCP: ${experimentId}`)
+    return result
+  }
+
+  async updateExperimentViaMCP(experimentId: string, updates: any): Promise<any> {
+    const result = await this.callTool('update_experiment', {
+      experimentId,
+      updates
+    })
+    
+    if (result.success) {
+      console.log(`✅ Experiment updated via MCP: ${experimentId}`)
+      return result
+    } else {
+      throw new Error('Failed to update experiment via MCP')
+    }
+  }
+
+  async deleteExperimentViaMCP(experimentId: string): Promise<any> {
+    const result = await this.callTool('delete_experiment', { experimentId })
+    
+    if (result.success) {
+      console.log(`✅ Experiment deleted via MCP: ${experimentId}`)
+      return result
+    } else {
+      throw new Error('Failed to delete experiment via MCP')
+    }
+  }
+
+  async getExperimentStatusViaMCP(experimentId: string): Promise<any> {
+    const result = await this.callTool('get_experiment_status', { experimentId })
+    
+    if (result.success) {
+      return result
+    } else {
+      throw new Error('Failed to get experiment status via MCP')
+    }
+  }
+
+  async pauseExperimentViaMCP(experimentId: string): Promise<any> {
+    const result = await this.callTool('pause_experiment', { experimentId })
+    
+    if (result.success) {
+      console.log(`✅ Experiment paused via MCP: ${experimentId}`)
+      return result
+    } else {
+      throw new Error('Failed to pause experiment via MCP')
+    }
+  }
+
+  async resumeExperimentViaMCP(experimentId: string): Promise<any> {
+    const result = await this.callTool('resume_experiment', { experimentId })
+    
+    if (result.success) {
+      console.log(`✅ Experiment resumed via MCP: ${experimentId}`)
+      return result
+    } else {
+      throw new Error('Failed to resume experiment via MCP')
+    }
+  }
+
+  async stopExperimentViaMCP(experimentId: string): Promise<any> {
+    const result = await this.callTool('stop_experiment', { experimentId })
+    
+    if (result.success) {
+      console.log(`✅ Experiment stopped via MCP: ${experimentId}`)
+      return result
+    } else {
+      throw new Error('Failed to stop experiment via MCP')
+    }
+  }
+
+  async getExperimentResultsViaMCP(experimentId: string): Promise<any> {
+    const result = await this.callTool('get_experiment_results', { experimentId })
+    
+    if (result.success) {
+      console.log(`✅ Experiment results retrieved via MCP: ${experimentId}`)
+      return result
+    } else {
+      throw new Error('Failed to get experiment results via MCP')
+    }
+  }
+
+  async executeExperimentViaMCP(experimentId: string, experimentConfig: ExperimentConfig): Promise<{ success: boolean; experimentId: string; runId?: string; message: string }> {
     if (!experimentId) {
       throw new Error('Experiment ID is required')
     }
@@ -1738,107 +1827,6 @@ export class MCPClient {
     }
     
     return batches
-  }
-
-  async getExperimentsViaMCP(): Promise<any> {
-    const result = await this.callTool('get_experiments', {})
-    
-    if (result.success) {
-      console.log(`✅ Retrieved ${result.experiments?.length || 0} experiments via MCP`)
-      return result
-    } else {
-      throw new Error('Failed to get experiments via MCP')
-    }
-  }
-
-  async getExperimentViaMCP(experimentId: string): Promise<any> {
-    const result = await this.callTool('get_experiment', { experimentId })
-    
-    if (!result.success) {
-      throw new Error(`Experiment ${experimentId} not found`)
-    }
-    
-    console.log(`✅ Retrieved experiment via MCP: ${experimentId}`)
-    return result
-  }
-
-  async updateExperimentViaMCP(experimentId: string, updates: any): Promise<any> {
-    const result = await this.callTool('update_experiment', {
-      experimentId,
-      updates
-    })
-    
-    if (result.success) {
-      console.log(`✅ Experiment updated via MCP: ${experimentId}`)
-      return result
-    } else {
-      throw new Error('Failed to update experiment via MCP')
-    }
-  }
-
-  async deleteExperimentViaMCP(experimentId: string): Promise<any> {
-    const result = await this.callTool('delete_experiment', { experimentId })
-    
-    if (result.success) {
-      console.log(`✅ Experiment deleted via MCP: ${experimentId}`)
-      return result
-    } else {
-      throw new Error('Failed to delete experiment via MCP')
-    }
-  }
-
-  async getExperimentStatusViaMCP(experimentId: string): Promise<any> {
-    const result = await this.callTool('get_experiment_status', { experimentId })
-    
-    if (result.success) {
-      return result
-    } else {
-      throw new Error('Failed to get experiment status via MCP')
-    }
-  }
-
-  async pauseExperimentViaMCP(experimentId: string): Promise<any> {
-    const result = await this.callTool('pause_experiment', { experimentId })
-    
-    if (result.success) {
-      console.log(`✅ Experiment paused via MCP: ${experimentId}`)
-      return result
-    } else {
-      throw new Error('Failed to pause experiment via MCP')
-    }
-  }
-
-  async resumeExperimentViaMCP(experimentId: string): Promise<any> {
-    const result = await this.callTool('resume_experiment', { experimentId })
-    
-    if (result.success) {
-      console.log(`✅ Experiment resumed via MCP: ${experimentId}`)
-      return result
-    } else {
-      throw new Error('Failed to resume experiment via MCP')
-    }
-  }
-
-  async stopExperimentViaMCP(experimentId: string): Promise<any> {
-    const result = await this.callTool('stop_experiment', { experimentId })
-    
-    if (result.success) {
-      console.log(`✅ Experiment stopped via MCP: ${experimentId}`)
-      return result
-    } else {
-      throw new Error('Failed to stop experiment via MCP')
-    }
-  }
-
-  async getExperimentResultsViaMCP(experimentId: string): Promise<any> {
-    const result = await this.callTool('get_experiment_results', { experimentId })
-    
-    if (result.success) {
-      console.log(`✅ Experiment results retrieved via MCP: ${experimentId}`)
-      return result
-    } else {
-      throw new Error('Failed to get experiment results via MCP')
-    }
   }
 
   // Debug Methods
