@@ -1,7 +1,8 @@
-// src/components/Research/CreateExperimentModal.tsx
+// src/components/Research/CreateExperimentModal.tsx - Updated with Internal Pub/Sub Event System
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
+import { eventBus, EVENT_TYPES } from '@/lib/events/eventBus'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { ParticipantAvatar } from '@/components/ui/ParticipantAvatar'
@@ -116,20 +117,39 @@ export function CreateExperimentModal({ isOpen, onClose, onSave }: CreateExperim
   })
 
   // Auto-generate session name pattern whenever name changes
-  const generateSessionNamePattern = (name: string) => {
+  const generateSessionNamePattern = useCallback((name: string) => {
     if (!name) return ''
     const sanitizedName = name.toLowerCase().replace(/\s+/g, '_')
     return `${sanitizedName}-<date>-<n>`
-  }
+  }, [])
 
   // Update session name pattern when name changes
-  const handleNameChange = (name: string) => {
+  const handleNameChange = useCallback((name: string) => {
     setFormData(prev => ({
       ...prev,
       name,
       sessionNamePattern: generateSessionNamePattern(name)
     }))
-  }
+  }, [generateSessionNamePattern])
+
+  // Reset form to initial state
+  const resetForm = useCallback(() => {
+    setFormData({
+      name: '',
+      participants: [],
+      startingPrompt: '',
+      analysisContextSize: 10,
+      analysisProvider: 'claude',
+      maxMessageCount: 50,
+      totalSessions: 25,
+      concurrentSessions: 3,
+      sessionNamePattern: '',
+      errorRateThreshold: 0.1
+    })
+    setSelectedTypes(new Set())
+    setExpandedParticipants(new Set())
+    setShowParticipantPicker(false)
+  }, [])
 
   if (!isOpen) return null
 
@@ -211,24 +231,30 @@ export function CreateExperimentModal({ isOpen, onClose, onSave }: CreateExperim
         setFormData(updatedData)
       } catch (error) {
         console.error('Failed to parse template file:', error)
+        alert('Failed to parse template file. Please check the file format.')
       }
     }
     reader.readAsText(file)
   }
 
   const handleSaveTemplate = () => {
-    const dataStr = JSON.stringify(formData, null, 2)
-    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr)
-    
-    const exportFileDefaultName = `experiment-template-${Date.now()}.json`
-    
-    const linkElement = document.createElement('a')
-    linkElement.setAttribute('href', dataUri)
-    linkElement.setAttribute('download', exportFileDefaultName)
-    linkElement.click()
+    try {
+      const dataStr = JSON.stringify(formData, null, 2)
+      const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr)
+      
+      const exportFileDefaultName = `experiment-template-${Date.now()}.json`
+      
+      const linkElement = document.createElement('a')
+      linkElement.setAttribute('href', dataUri)
+      linkElement.setAttribute('download', exportFileDefaultName)
+      linkElement.click()
+    } catch (error) {
+      console.error('Failed to save template:', error)
+      alert('Failed to save template. Please try again.')
+    }
   }
 
-  const handleCreate = () => {
+  const handleCreate = useCallback(() => {
     if (!formData.name || !formData.startingPrompt || formData.participants?.length === 0) {
       return
     }
@@ -240,26 +266,21 @@ export function CreateExperimentModal({ isOpen, onClose, onSave }: CreateExperim
       lastModified: new Date()
     }
     
+    console.log('🧪 CreateExperimentModal: Creating new experiment, will emit EXPERIMENT_CREATED event')
+    
+    // Call the parent save handler
     onSave(newExperiment)
     
-    // Reset form
-    setFormData({
-      name: '',
-      participants: [],
-      startingPrompt: '',
-      analysisContextSize: 10,
-      analysisProvider: 'claude',
-      maxMessageCount: 50,
-      totalSessions: 25,
-      concurrentSessions: 3,
-      sessionNamePattern: '',
-      errorRateThreshold: 0.1
+    // EVENT-DRIVEN: Emit experiment created event via internal pub/sub
+    eventBus.emit(EVENT_TYPES.EXPERIMENT_CREATED, {
+      experimentId: newExperiment.id,
+      experimentData: newExperiment
     })
-    setSelectedTypes(new Set())
-    setExpandedParticipants(new Set())
     
+    // Reset form and close modal
+    resetForm()
     onClose()
-  }
+  }, [formData, onSave, onClose, resetForm])
 
   const tokenSteps = [500, 1000, 2000, 4000]
 

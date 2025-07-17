@@ -1,8 +1,9 @@
-// src/components/Participants/AddParticipant.tsx - Updated to use MCP Client instead of Zustand
+// src/components/Participants/AddParticipant.tsx - Updated with Internal Pub/Sub Event System
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { MCPClient } from '@/lib/mcp/client'
+import { eventBus, EVENT_TYPES } from '@/lib/events/eventBus'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
@@ -14,7 +15,6 @@ interface AddParticipantProps {
   isOpen: boolean
   onClose: () => void
   sessionId: string // Now required since we don't have global store
-  onParticipantAdded?: () => void // Callback to refresh parent component
 }
 
 const typeNames: Record<string, string> = {
@@ -28,7 +28,7 @@ const typeNames: Record<string, string> = {
   cohere: 'Cohere'
 }
 
-export function AddParticipant({ isOpen, onClose, sessionId, onParticipantAdded }: AddParticipantProps) {
+export function AddParticipant({ isOpen, onClose, sessionId }: AddParticipantProps) {
   const mcpClient = useRef(MCPClient.getInstance())
   const [currentSession, setCurrentSession] = useState<ChatSession | null>(null)
   const [isLoadingSession, setIsLoadingSession] = useState(true)
@@ -180,26 +180,77 @@ export function AddParticipant({ isOpen, onClose, sessionId, onParticipantAdded 
     }
   ]
 
-  // Fetch session data
+  // EVENT-DRIVEN: Fetch session data from MCP
+  const fetchSessionData = useCallback(async () => {
+    if (!sessionId) {
+      setCurrentSession(null)
+      return
+    }
+
+    try {
+      const result = await mcpClient.current.callTool('get_session', { sessionId })
+      if (result.success && result.session) {
+        setCurrentSession(result.session)
+      }
+    } catch (error) {
+      console.error('Failed to fetch session data:', error)
+      setCurrentSession(null)
+    }
+  }, [sessionId])
+
+  // EVENT-DRIVEN: Handle session updates
+  const handleSessionUpdated = useCallback(async (payload: any) => {
+    console.log('👥 AddParticipant: Session updated event received:', payload.data)
+    
+    // If this is our session, refresh the data
+    if (payload.data.sessionId === sessionId) {
+      await fetchSessionData()
+    }
+  }, [sessionId, fetchSessionData])
+
+  // EVENT-DRIVEN: Handle participant events
+  const handleParticipantEvent = useCallback(async (payload: any) => {
+    console.log('👥 AddParticipant: Participant event received:', payload.data)
+    
+    // If this affects our session, refresh the data
+    if (payload.data.sessionId === sessionId) {
+      await fetchSessionData()
+    }
+  }, [sessionId, fetchSessionData])
+
+  // EVENT-DRIVEN: Subscribe to relevant events via internal pub/sub
   useEffect(() => {
     if (!isOpen) return
 
-    const fetchSession = async () => {
-      try {
-        setIsLoadingSession(true)
-        const result = await mcpClient.current.callTool('get_session', { sessionId })
-        if (result.success && result.session) {
-          setCurrentSession(result.session)
-        }
-      } catch (error) {
-        console.error('Failed to fetch session:', error)
-      } finally {
-        setIsLoadingSession(false)
-      }
-    }
+    console.log('👥 AddParticipant: Setting up internal pub/sub event subscriptions')
 
-    fetchSession()
-  }, [isOpen, sessionId])
+    // Initial data fetch
+    setIsLoadingSession(true)
+    fetchSessionData().finally(() => setIsLoadingSession(false))
+
+    // Session events
+    const unsubscribeSessionUpdated = eventBus.subscribe(EVENT_TYPES.SESSION_UPDATED, handleSessionUpdated)
+    const unsubscribeSessionSwitched = eventBus.subscribe(EVENT_TYPES.SESSION_SWITCHED, handleSessionUpdated)
+    
+    // Participant events
+    const unsubscribeParticipantAdded = eventBus.subscribe(EVENT_TYPES.PARTICIPANT_ADDED, handleParticipantEvent)
+    const unsubscribeParticipantRemoved = eventBus.subscribe(EVENT_TYPES.PARTICIPANT_REMOVED, handleParticipantEvent)
+    const unsubscribeParticipantUpdated = eventBus.subscribe(EVENT_TYPES.PARTICIPANT_UPDATED, handleParticipantEvent)
+
+    return () => {
+      console.log('👥 AddParticipant: Cleaning up internal pub/sub event subscriptions')
+      unsubscribeSessionUpdated()
+      unsubscribeSessionSwitched()
+      unsubscribeParticipantAdded()
+      unsubscribeParticipantRemoved()
+      unsubscribeParticipantUpdated()
+    }
+  }, [
+    isOpen, 
+    fetchSessionData,
+    handleSessionUpdated,
+    handleParticipantEvent
+  ])
 
   const handleAdd = async () => {
     if (!selectedType || !sessionId) return
@@ -210,7 +261,7 @@ export function AddParticipant({ isOpen, onClose, sessionId, onParticipantAdded 
     try {
       setIsAddingParticipant(true)
 
-      // Call MCP to add participant
+      // Call MCP to add participant - this will emit events automatically via internal pub/sub
       const result = await mcpClient.current.addParticipantViaMCP(
         sessionId,
         participantName,
@@ -232,6 +283,8 @@ export function AddParticipant({ isOpen, onClose, sessionId, onParticipantAdded 
       )
 
       if (result.success) {
+        console.log('👥 AddParticipant: Participant added successfully via MCP, events will propagate automatically')
+        
         // Reset form
         setSelectedType(null)
         setName('')
@@ -244,11 +297,7 @@ export function AddParticipant({ isOpen, onClose, sessionId, onParticipantAdded 
           ollamaUrl: 'http://localhost:11434'
         })
         
-        // Notify parent to refresh
-        if (onParticipantAdded) {
-          onParticipantAdded()
-        }
-        
+        // Close modal - parent components will update automatically via internal pub/sub events
         onClose()
       } else {
         throw new Error(result.error || 'Failed to add participant')

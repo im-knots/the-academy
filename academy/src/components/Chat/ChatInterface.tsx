@@ -1,4 +1,4 @@
-// src/components/Chat/ChatInterface.tsx - Updated with Event-Driven Polling
+// src/components/Chat/ChatInterface.tsx - Updated with Internal Pub/Sub Event System
 'use client'
 
 import Image from 'next/image'
@@ -7,6 +7,7 @@ import { useTemplatePrompt } from '@/hooks/useTemplatePrompt'
 import { useMCP } from '@/hooks/useMCP'
 import { MCPConversationManager } from '@/lib/ai/mcp-conversation-manager'
 import { MCPClient } from '@/lib/mcp/client'
+import { eventBus, EVENT_TYPES } from '@/lib/events/eventBus'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -127,33 +128,117 @@ export function ChatInterface() {
     }
   }, [mcpClient])
 
-  // EVENT-DRIVEN: Register data refresh callbacks
-  useEffect(() => {
-    console.log('🔄 ChatInterface: Setting up event-driven data refresh')
+  // EVENT-DRIVEN: Handle session-specific updates
+  const handleSessionUpdated = useCallback(async (payload: any) => {
+    console.log('🔄 ChatInterface: Session updated event received:', payload.data)
     
-    // Register for current session updates
-    const unsubscribeSessionData = mcpClient.registerDataRefreshCallback('session-data', fetchCurrentSession)
-    const unsubscribeCurrentSession = mcpClient.registerDataRefreshCallback('current-session', fetchCurrentSession)
-    
-    // Register for sessions list updates
-    const unsubscribeSessionsList = mcpClient.registerDataRefreshCallback('sessions-list', fetchSessions)
-    
-    // If we have a current session, register for session-specific updates
-    let unsubscribeSessionSpecific: (() => void) | null = null
-    if (currentSessionId) {
-      unsubscribeSessionSpecific = mcpClient.registerDataRefreshCallback(`session-${currentSessionId}`, fetchCurrentSession)
+    // If this is the current session, refresh it
+    if (payload.data.sessionId === currentSessionId) {
+      await fetchCurrentSession()
     }
+    
+    // Also refresh sessions list to keep it in sync
+    await fetchSessions()
+  }, [currentSessionId, fetchCurrentSession, fetchSessions])
+
+  // EVENT-DRIVEN: Handle session switching
+  const handleSessionSwitched = useCallback(async (payload: any) => {
+    console.log('🔄 ChatInterface: Session switched event received:', payload.data)
+    
+    const newSessionId = payload.data.sessionId
+    if (newSessionId !== currentSessionId) {
+      setCurrentSessionId(newSessionId)
+      // fetchCurrentSession will be called automatically when currentSessionId changes
+    }
+  }, [currentSessionId])
+
+  // EVENT-DRIVEN: Handle messages
+  const handleMessageEvent = useCallback(async (payload: any) => {
+    console.log('🔄 ChatInterface: Message event received:', payload.data)
+    
+    // If this message affects the current session, refresh it
+    if (payload.data.sessionId === currentSessionId) {
+      await fetchCurrentSession()
+    }
+  }, [currentSessionId, fetchCurrentSession])
+
+  // EVENT-DRIVEN: Handle participant events
+  const handleParticipantEvent = useCallback(async (payload: any) => {
+    console.log('🔄 ChatInterface: Participant event received:', payload.data)
+    
+    // If this participant event affects the current session, refresh it
+    if (payload.data.sessionId === currentSessionId) {
+      await fetchCurrentSession()
+    }
+  }, [currentSessionId, fetchCurrentSession])
+
+  // EVENT-DRIVEN: Handle conversation state changes
+  const handleConversationEvent = useCallback(async (payload: any) => {
+    console.log('🔄 ChatInterface: Conversation event received:', payload.data)
+    
+    // If this conversation event affects the current session, refresh it
+    if (payload.data.sessionId === currentSessionId) {
+      await fetchCurrentSession()
+    }
+  }, [currentSessionId, fetchCurrentSession])
+
+  // EVENT-DRIVEN: Subscribe to relevant events via internal pub/sub
+  useEffect(() => {
+    console.log('🔄 ChatInterface: Setting up internal pub/sub event subscriptions')
+    
+    // Session events
+    const unsubscribeSessionCreated = eventBus.subscribe(EVENT_TYPES.SESSION_CREATED, fetchSessions)
+    const unsubscribeSessionUpdated = eventBus.subscribe(EVENT_TYPES.SESSION_UPDATED, handleSessionUpdated)
+    const unsubscribeSessionDeleted = eventBus.subscribe(EVENT_TYPES.SESSION_DELETED, fetchSessions)
+    const unsubscribeSessionSwitched = eventBus.subscribe(EVENT_TYPES.SESSION_SWITCHED, handleSessionSwitched)
+    const unsubscribeSessionDuplicated = eventBus.subscribe(EVENT_TYPES.SESSION_DUPLICATED, fetchSessions)
+    const unsubscribeSessionImported = eventBus.subscribe(EVENT_TYPES.SESSION_IMPORTED, fetchSessions)
+    const unsubscribeSessionsListChanged = eventBus.subscribe(EVENT_TYPES.SESSIONS_LIST_CHANGED, fetchSessions)
+    
+    // Message events
+    const unsubscribeMessageSent = eventBus.subscribe(EVENT_TYPES.MESSAGE_SENT, handleMessageEvent)
+    const unsubscribeMessageUpdated = eventBus.subscribe(EVENT_TYPES.MESSAGE_UPDATED, handleMessageEvent)
+    const unsubscribeMessageDeleted = eventBus.subscribe(EVENT_TYPES.MESSAGE_DELETED, handleMessageEvent)
+    
+    // Participant events
+    const unsubscribeParticipantAdded = eventBus.subscribe(EVENT_TYPES.PARTICIPANT_ADDED, handleParticipantEvent)
+    const unsubscribeParticipantRemoved = eventBus.subscribe(EVENT_TYPES.PARTICIPANT_REMOVED, handleParticipantEvent)
+    const unsubscribeParticipantUpdated = eventBus.subscribe(EVENT_TYPES.PARTICIPANT_UPDATED, handleParticipantEvent)
+    
+    // Conversation events
+    const unsubscribeConversationStarted = eventBus.subscribe(EVENT_TYPES.CONVERSATION_STARTED, handleConversationEvent)
+    const unsubscribeConversationPaused = eventBus.subscribe(EVENT_TYPES.CONVERSATION_PAUSED, handleConversationEvent)
+    const unsubscribeConversationResumed = eventBus.subscribe(EVENT_TYPES.CONVERSATION_RESUMED, handleConversationEvent)
+    const unsubscribeConversationStopped = eventBus.subscribe(EVENT_TYPES.CONVERSATION_STOPPED, handleConversationEvent)
     
     return () => {
-      console.log('🔄 ChatInterface: Cleaning up event-driven callbacks')
-      unsubscribeSessionData()
-      unsubscribeCurrentSession()
-      unsubscribeSessionsList()
-      if (unsubscribeSessionSpecific) {
-        unsubscribeSessionSpecific()
-      }
+      console.log('🔄 ChatInterface: Cleaning up internal pub/sub event subscriptions')
+      unsubscribeSessionCreated()
+      unsubscribeSessionUpdated()
+      unsubscribeSessionDeleted()
+      unsubscribeSessionSwitched()
+      unsubscribeSessionDuplicated()
+      unsubscribeSessionImported()
+      unsubscribeSessionsListChanged()
+      unsubscribeMessageSent()
+      unsubscribeMessageUpdated()
+      unsubscribeMessageDeleted()
+      unsubscribeParticipantAdded()
+      unsubscribeParticipantRemoved()
+      unsubscribeParticipantUpdated()
+      unsubscribeConversationStarted()
+      unsubscribeConversationPaused()
+      unsubscribeConversationResumed()
+      unsubscribeConversationStopped()
     }
-  }, [mcpClient, fetchCurrentSession, fetchSessions, currentSessionId])
+  }, [
+    fetchSessions, 
+    handleSessionUpdated, 
+    handleSessionSwitched, 
+    handleMessageEvent, 
+    handleParticipantEvent, 
+    handleConversationEvent
+  ])
 
   // Initialize data on mount
   useEffect(() => {
@@ -286,7 +371,7 @@ export function ChatInterface() {
       setModeratorInput('')
       setConversationState('running')
       
-      // Update session status via MCP - this will trigger automatic refresh
+      // Update session status via MCP - this will emit events automatically
       await mcpClient.resumeConversationViaMCP(currentSession.id)
       
     } catch (error) {
@@ -304,7 +389,7 @@ export function ChatInterface() {
       setError(null)
       
       conversationManager.pauseConversation(currentSession.id)
-      // This will trigger automatic refresh via event-driven system
+      // This will emit events automatically via internal pub/sub
       await mcpClient.pauseConversationViaMCP(currentSession.id)
       setConversationState('idle')
       setIsSessionPaused(true)
@@ -324,7 +409,7 @@ export function ChatInterface() {
       setError(null)
       
       conversationManager.resumeConversation(currentSession.id)
-      // This will trigger automatic refresh via event-driven system
+      // This will emit events automatically via internal pub/sub
       await mcpClient.resumeConversationViaMCP(currentSession.id)
       setConversationState('running')
       setIsSessionPaused(false)
@@ -344,7 +429,7 @@ export function ChatInterface() {
       setError(null)
       
       conversationManager.stopConversation(currentSession.id)
-      // This will trigger automatic refresh via event-driven system
+      // This will emit events automatically via internal pub/sub
       await mcpClient.stopConversationViaMCP(currentSession.id)
       setConversationState('idle')
       
@@ -360,7 +445,7 @@ export function ChatInterface() {
     if (isInterjecting) {
       // Send the interjection
       if (moderatorInput.trim()) {
-        // This will trigger automatic refresh via event-driven system
+        // This will emit events automatically via internal pub/sub
         await mcpClient.injectPromptViaMCP(currentSession.id, moderatorInput.trim())
         setModeratorInput('')
       }

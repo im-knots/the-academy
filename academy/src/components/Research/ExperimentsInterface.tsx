@@ -1,9 +1,10 @@
-// src/components/Research/ExperimentsInterface.tsx - Updated with Event-Driven Polling
+// src/components/Research/ExperimentsInterface.tsx - Updated with Internal Pub/Sub Event System
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useMCP } from '@/hooks/useMCP'
 import { MCPClient } from '@/lib/mcp/client'
+import { eventBus, EVENT_TYPES } from '@/lib/events/eventBus'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -111,7 +112,7 @@ export function ExperimentsInterface({
   const [experimentResults, setExperimentResults] = useState<ExperimentResults | null>(null)
   const [isLoadingStatus, setIsLoadingStatus] = useState(false)
   
-  // MCP client ref for event-driven updates
+  // MCP client ref for API calls
   const mcpClient = useRef(MCPClient.getInstance())
   
   const {
@@ -126,7 +127,7 @@ export function ExperimentsInterface({
   } = useMCP()
 
   // EVENT-DRIVEN: Load experiment status function
-  const loadExperimentStatus = async () => {
+  const loadExperimentStatus = useCallback(async () => {
     if (!selectedExperiment) return
 
     setIsLoadingStatus(true)
@@ -149,35 +150,55 @@ export function ExperimentsInterface({
     } finally {
       setIsLoadingStatus(false)
     }
-  }
+  }, [selectedExperiment])
 
-  // EVENT-DRIVEN: Register data refresh callbacks for experiment updates
+  // EVENT-DRIVEN: Load experiment results
+  const loadExperimentResults = useCallback(async () => {
+    if (!selectedExperiment) return
+
+    try {
+      const results = await getExperimentResultsViaMCP(selectedExperiment.id)
+      setExperimentResults(results.results)
+    } catch (error) {
+      console.error('Failed to load experiment results:', error)
+    }
+  }, [selectedExperiment])
+
+  // EVENT-DRIVEN: Handle experiment events
+  const handleExperimentEvent = useCallback(async (payload: any) => {
+    console.log('🧪 ExperimentsInterface: Experiment event received:', payload.data)
+    
+    // If this affects our selected experiment, refresh the status
+    if (payload.data.experimentId === selectedExperiment?.id) {
+      await loadExperimentStatus()
+    }
+  }, [selectedExperiment?.id, loadExperimentStatus])
+
+  // EVENT-DRIVEN: Subscribe to relevant events via internal pub/sub
   useEffect(() => {
     if (!selectedExperiment) return
 
-    console.log(`🧪 ExperimentsInterface: Setting up event-driven refresh for experiment ${selectedExperiment.id}`)
+    console.log(`🧪 ExperimentsInterface: Setting up internal pub/sub event subscriptions for experiment ${selectedExperiment.id}`)
 
     // Initial load
     loadExperimentStatus()
 
-    // Register for experiment-specific updates via event-driven system
-    const unsubscribeExperimentSpecific = mcpClient.current.registerDataRefreshCallback(
-      `experiment-${selectedExperiment.id}`, 
-      loadExperimentStatus
-    )
-    
-    // Register for general experiments list updates
-    const unsubscribeExperimentsList = mcpClient.current.registerDataRefreshCallback(
-      'experiments-list', 
-      loadExperimentStatus
-    )
+    // Experiment events
+    const unsubscribeExperimentCreated = eventBus.subscribe(EVENT_TYPES.EXPERIMENT_CREATED, handleExperimentEvent)
+    const unsubscribeExperimentUpdated = eventBus.subscribe(EVENT_TYPES.EXPERIMENT_UPDATED, handleExperimentEvent)
+    const unsubscribeExperimentDeleted = eventBus.subscribe(EVENT_TYPES.EXPERIMENT_DELETED, handleExperimentEvent)
+    const unsubscribeExperimentExecuted = eventBus.subscribe(EVENT_TYPES.EXPERIMENT_EXECUTED, handleExperimentEvent)
+    const unsubscribeExperimentStatusChanged = eventBus.subscribe(EVENT_TYPES.EXPERIMENT_STATUS_CHANGED, handleExperimentEvent)
 
     return () => {
-      console.log(`🧪 ExperimentsInterface: Cleaning up event-driven callbacks for experiment ${selectedExperiment.id}`)
-      unsubscribeExperimentSpecific()
-      unsubscribeExperimentsList()
+      console.log(`🧪 ExperimentsInterface: Cleaning up internal pub/sub event subscriptions for experiment ${selectedExperiment.id}`)
+      unsubscribeExperimentCreated()
+      unsubscribeExperimentUpdated()
+      unsubscribeExperimentDeleted()
+      unsubscribeExperimentExecuted()
+      unsubscribeExperimentStatusChanged()
     }
-  }, [selectedExperiment?.id])
+  }, [selectedExperiment?.id, loadExperimentStatus, handleExperimentEvent])
 
   // EVENT-DRIVEN: Set up periodic status checking only for running experiments
   useEffect(() => {
@@ -213,18 +234,7 @@ export function ExperimentsInterface({
       console.log(`🧪 ExperimentsInterface: Cleaning up periodic status check for experiment ${selectedExperiment.id}`)
       clearInterval(interval)
     }
-  }, [selectedExperiment?.id, activeRun?.status])
-
-  const loadExperimentResults = async () => {
-    if (!selectedExperiment) return
-
-    try {
-      const results = await getExperimentResultsViaMCP(selectedExperiment.id)
-      setExperimentResults(results.results)
-    } catch (error) {
-      console.error('Failed to load experiment results:', error)
-    }
-  }
+  }, [selectedExperiment?.id, activeRun?.status, getExperimentStatusViaMCP, loadExperimentResults])
 
   const handleNewExperiment = () => {
     if (onNewExperiment) {
@@ -238,7 +248,9 @@ export function ExperimentsInterface({
     if (!selectedExperiment) return
 
     try {
-      // This will trigger automatic refresh via event-driven system
+      console.log('🧪 ExperimentsInterface: Starting experiment, will emit events automatically via internal pub/sub')
+      
+      // This will emit events automatically via internal pub/sub
       const result = await executeExperimentViaMCP(selectedExperiment.id, selectedExperiment)
       if (result.success) {
         // Set initial status - event-driven system will update with real status
@@ -267,7 +279,9 @@ export function ExperimentsInterface({
     if (!selectedExperiment || !activeRun) return
 
     try {
-      // This will trigger automatic refresh via event-driven system
+      console.log('🧪 ExperimentsInterface: Pausing experiment, will emit events automatically via internal pub/sub')
+      
+      // This will emit events automatically via internal pub/sub
       await pauseExperimentViaMCP(selectedExperiment.id)
       setActiveRun({ ...activeRun, status: 'paused', pausedAt: new Date() })
     } catch (error) {
@@ -280,7 +294,9 @@ export function ExperimentsInterface({
     if (!selectedExperiment || !activeRun) return
 
     try {
-      // This will trigger automatic refresh via event-driven system
+      console.log('🧪 ExperimentsInterface: Resuming experiment, will emit events automatically via internal pub/sub')
+      
+      // This will emit events automatically via internal pub/sub
       await resumeExperimentViaMCP(selectedExperiment.id)
       setActiveRun({ ...activeRun, status: 'running', resumedAt: new Date() })
     } catch (error) {
@@ -297,7 +313,9 @@ export function ExperimentsInterface({
     }
 
     try {
-      // This will trigger automatic refresh via event-driven system
+      console.log('🧪 ExperimentsInterface: Stopping experiment, will emit events automatically via internal pub/sub')
+      
+      // This will emit events automatically via internal pub/sub
       await stopExperimentViaMCP(selectedExperiment.id)
       setActiveRun({ ...activeRun, status: 'failed', completedAt: new Date() })
     } catch (error) {
@@ -314,9 +332,11 @@ export function ExperimentsInterface({
     }
 
     try {
-      // This will trigger automatic refresh via event-driven system
+      console.log('🧪 ExperimentsInterface: Deleting experiment, will emit events automatically via internal pub/sub')
+      
+      // This will emit events automatically via internal pub/sub
       await deleteExperimentViaMCP(selectedExperiment.id)
-      // Clear selection and let parent component handle the update
+      // Clear selection and let parent component handle the update via events
       onSelectExperiment(null as any)
     } catch (error) {
       console.error('Failed to delete experiment:', error)
@@ -327,22 +347,27 @@ export function ExperimentsInterface({
   const handleExportResults = () => {
     if (!experimentResults) return
 
-    const exportData = {
-      experiment: selectedExperiment,
-      run: activeRun,
-      results: experimentResults,
-      exportedAt: new Date().toISOString()
-    }
+    try {
+      const exportData = {
+        experiment: selectedExperiment,
+        run: activeRun,
+        results: experimentResults,
+        exportedAt: new Date().toISOString()
+      }
 
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `experiment-${selectedExperiment?.name.replace(/\s+/g, '-').toLowerCase()}-results.json`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `experiment-${selectedExperiment?.name.replace(/\s+/g, '-').toLowerCase()}-results.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Failed to export results:', error)
+      alert('Failed to export results. Please try again.')
+    }
   }
 
   const getStatusIcon = (status: string) => {

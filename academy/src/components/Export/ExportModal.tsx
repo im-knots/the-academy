@@ -1,10 +1,11 @@
-// src/components/Export/ExportModal.tsx - Updated with Event-Driven Polling
+// src/components/Export/ExportModal.tsx - Updated with Internal Pub/Sub Event System
 'use client'
 
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { MCPClient } from '@/lib/mcp/client'
 import { mcpAnalysisHandler } from '@/lib/mcp/analysis-handler'
 import { ExportManager, ExportOptions } from '@/lib/utils/export'
+import { eventBus, EVENT_TYPES } from '@/lib/events/eventBus'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
@@ -46,7 +47,7 @@ export function ExportModal({ isOpen, onClose, sessionId }: ExportModalProps) {
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
 
   // EVENT-DRIVEN: Fetch session data from MCP
-  const fetchSessionData = async () => {
+  const fetchSessionData = useCallback(async () => {
     if (!sessionId) return
 
     try {
@@ -78,10 +79,10 @@ export function ExportModal({ isOpen, onClose, sessionId }: ExportModalProps) {
       console.error('Failed to fetch session data:', error)
       setIsLoading(false)
     }
-  }
+  }, [sessionId])
 
   // EVENT-DRIVEN: Fetch analysis data
-  const loadAnalysisData = async () => {
+  const loadAnalysisData = useCallback(async () => {
     if (!sessionId || !isOpen) return
 
     try {
@@ -96,28 +97,87 @@ export function ExportModal({ isOpen, onClose, sessionId }: ExportModalProps) {
     } catch (error) {
       console.error('Failed to load analysis data:', error)
     }
-  }
+  }, [sessionId, isOpen])
 
-  // EVENT-DRIVEN: Register data refresh callbacks and subscribe to analysis events
+  // EVENT-DRIVEN: Handle session updates
+  const handleSessionUpdated = useCallback(async (payload: any) => {
+    console.log('📊 ExportModal: Session updated event received:', payload.data)
+    
+    // If this is our session, refresh the data
+    if (payload.data.sessionId === sessionId) {
+      await fetchSessionData()
+    }
+  }, [sessionId, fetchSessionData])
+
+  // EVENT-DRIVEN: Handle message events
+  const handleMessageEvent = useCallback(async (payload: any) => {
+    console.log('📊 ExportModal: Message event received:', payload.data)
+    
+    // If this affects our session, refresh the data
+    if (payload.data.sessionId === sessionId) {
+      await fetchSessionData()
+    }
+  }, [sessionId, fetchSessionData])
+
+  // EVENT-DRIVEN: Handle participant events
+  const handleParticipantEvent = useCallback(async (payload: any) => {
+    console.log('📊 ExportModal: Participant event received:', payload.data)
+    
+    // If this affects our session, refresh the data
+    if (payload.data.sessionId === sessionId) {
+      await fetchSessionData()
+    }
+  }, [sessionId, fetchSessionData])
+
+  // EVENT-DRIVEN: Handle analysis events
+  const handleAnalysisEvent = useCallback(async (payload: any) => {
+    console.log('📊 ExportModal: Analysis event received:', payload.data)
+    
+    // If this affects our session, refresh analysis data
+    if (payload.data.sessionId === sessionId) {
+      await loadAnalysisData()
+    }
+  }, [sessionId, loadAnalysisData])
+
+  // EVENT-DRIVEN: Handle error events
+  const handleErrorEvent = useCallback(async (payload: any) => {
+    console.log('📊 ExportModal: Error event received:', payload.data)
+    
+    // Refresh session data to get updated error info
+    await fetchSessionData()
+  }, [fetchSessionData])
+
+  // EVENT-DRIVEN: Subscribe to relevant events via internal pub/sub
   useEffect(() => {
     if (!isOpen || !sessionId) return
 
-    console.log(`📊 ExportModal: Setting up event-driven data refresh for session ${sessionId}`)
+    console.log(`📊 ExportModal: Setting up internal pub/sub event subscriptions for session ${sessionId}`)
 
     // Initial data fetch
     fetchSessionData()
     loadAnalysisData()
 
-    // Register for session data updates via event-driven system
-    const unsubscribeSessionData = mcpClient.current.registerDataRefreshCallback('session-data', fetchSessionData)
-    const unsubscribeSessionSpecific = mcpClient.current.registerDataRefreshCallback(`session-${sessionId}`, fetchSessionData)
+    // Session events
+    const unsubscribeSessionUpdated = eventBus.subscribe(EVENT_TYPES.SESSION_UPDATED, handleSessionUpdated)
     
-    // Register for API error updates
-    const unsubscribeApiErrors = mcpClient.current.registerDataRefreshCallback('api-errors', fetchSessionData)
+    // Message events
+    const unsubscribeMessageSent = eventBus.subscribe(EVENT_TYPES.MESSAGE_SENT, handleMessageEvent)
+    const unsubscribeMessageUpdated = eventBus.subscribe(EVENT_TYPES.MESSAGE_UPDATED, handleMessageEvent)
+    const unsubscribeMessageDeleted = eventBus.subscribe(EVENT_TYPES.MESSAGE_DELETED, handleMessageEvent)
     
-    // Register for analysis updates
-    const unsubscribeAnalysisData = mcpClient.current.registerDataRefreshCallback('analysis-data', loadAnalysisData)
-    const unsubscribeAnalysisSpecific = mcpClient.current.registerDataRefreshCallback(`analysis-${sessionId}`, loadAnalysisData)
+    // Participant events
+    const unsubscribeParticipantAdded = eventBus.subscribe(EVENT_TYPES.PARTICIPANT_ADDED, handleParticipantEvent)
+    const unsubscribeParticipantRemoved = eventBus.subscribe(EVENT_TYPES.PARTICIPANT_REMOVED, handleParticipantEvent)
+    const unsubscribeParticipantUpdated = eventBus.subscribe(EVENT_TYPES.PARTICIPANT_UPDATED, handleParticipantEvent)
+    
+    // Analysis events
+    const unsubscribeAnalysisSaved = eventBus.subscribe(EVENT_TYPES.ANALYSIS_SAVED, handleAnalysisEvent)
+    const unsubscribeAnalysisTriggered = eventBus.subscribe(EVENT_TYPES.ANALYSIS_TRIGGERED, handleAnalysisEvent)
+    const unsubscribeAnalysisCleared = eventBus.subscribe(EVENT_TYPES.ANALYSIS_CLEARED, handleAnalysisEvent)
+    
+    // Error events
+    const unsubscribeApiErrorLogged = eventBus.subscribe(EVENT_TYPES.API_ERROR_LOGGED, handleErrorEvent)
+    const unsubscribeApiErrorsCleared = eventBus.subscribe(EVENT_TYPES.API_ERRORS_CLEARED, handleErrorEvent)
 
     // Subscribe to MCP analysis events for real-time updates
     const unsubscribeSaved = mcpAnalysisHandler.subscribe('analysis_snapshot_saved', (data) => {
@@ -144,21 +204,38 @@ export function ExportModal({ isOpen, onClose, sessionId }: ExportModalProps) {
     })
 
     return () => {
-      console.log(`📊 ExportModal: Cleaning up event-driven callbacks and subscriptions`)
+      console.log(`📊 ExportModal: Cleaning up internal pub/sub event subscriptions`)
       
-      // Unsubscribe from event-driven callbacks
-      unsubscribeSessionData()
-      unsubscribeSessionSpecific()
-      unsubscribeApiErrors()
-      unsubscribeAnalysisData()
-      unsubscribeAnalysisSpecific()
+      // Unsubscribe from internal pub/sub events
+      unsubscribeSessionUpdated()
+      unsubscribeMessageSent()
+      unsubscribeMessageUpdated()
+      unsubscribeMessageDeleted()
+      unsubscribeParticipantAdded()
+      unsubscribeParticipantRemoved()
+      unsubscribeParticipantUpdated()
+      unsubscribeAnalysisSaved()
+      unsubscribeAnalysisTriggered()
+      unsubscribeAnalysisCleared()
+      unsubscribeApiErrorLogged()
+      unsubscribeApiErrorsCleared()
       
-      // Unsubscribe from analysis events
+      // Unsubscribe from MCP analysis events
       unsubscribeSaved()
       unsubscribeUpdated()
       unsubscribeCleared()
     }
-  }, [sessionId, isOpen])
+  }, [
+    sessionId, 
+    isOpen, 
+    fetchSessionData, 
+    loadAnalysisData,
+    handleSessionUpdated,
+    handleMessageEvent,
+    handleParticipantEvent,
+    handleAnalysisEvent,
+    handleErrorEvent
+  ])
 
   // Create enhanced session object with MCP analysis data and errors for export
   const enhancedSession = useMemo(() => {

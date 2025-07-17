@@ -1,9 +1,10 @@
-// src/components/MCP/MCPModal.tsx - Updated with Event-Driven Polling
+// src/components/MCP/MCPModal.tsx - Updated with Internal Pub/Sub Event System
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useMCP, useSessionMCP } from '@/hooks/useMCP'
 import { MCPClient } from '@/lib/mcp/client'
+import { eventBus, EVENT_TYPES } from '@/lib/events/eventBus'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
@@ -58,7 +59,7 @@ export function MCPModal({ isOpen, onClose, sessionId }: MCPModalProps) {
   const sessionMCP = useSessionMCP()
 
   // EVENT-DRIVEN: Fetch session data from MCP
-  const fetchSessionData = async () => {
+  const fetchSessionData = useCallback(async () => {
     if (!sessionId) {
       setCurrentSession(null)
       return
@@ -73,37 +74,124 @@ export function MCPModal({ isOpen, onClose, sessionId }: MCPModalProps) {
       console.error('Failed to fetch session data:', error)
       setCurrentSession(null)
     }
-  }
+  }, [sessionId])
 
-  // EVENT-DRIVEN: Register data refresh callbacks
+  // EVENT-DRIVEN: Handle session updates
+  const handleSessionUpdated = useCallback(async (payload: any) => {
+    console.log('🔧 MCPModal: Session updated event received:', payload.data)
+    
+    // If this is our session, refresh the data
+    if (payload.data.sessionId === sessionId) {
+      await fetchSessionData()
+    }
+  }, [sessionId, fetchSessionData])
+
+  // EVENT-DRIVEN: Handle message events
+  const handleMessageEvent = useCallback(async (payload: any) => {
+    console.log('🔧 MCPModal: Message event received:', payload.data)
+    
+    // If this affects our session, refresh the data
+    if (payload.data.sessionId === sessionId) {
+      await fetchSessionData()
+    }
+  }, [sessionId, fetchSessionData])
+
+  // EVENT-DRIVEN: Handle participant events
+  const handleParticipantEvent = useCallback(async (payload: any) => {
+    console.log('🔧 MCPModal: Participant event received:', payload.data)
+    
+    // If this affects our session, refresh the data
+    if (payload.data.sessionId === sessionId) {
+      await fetchSessionData()
+    }
+  }, [sessionId, fetchSessionData])
+
+  // EVENT-DRIVEN: Handle conversation events
+  const handleConversationEvent = useCallback(async (payload: any) => {
+    console.log('🔧 MCPModal: Conversation event received:', payload.data)
+    
+    // If this affects our session, refresh the data
+    if (payload.data.sessionId === sessionId) {
+      await fetchSessionData()
+    }
+  }, [sessionId, fetchSessionData])
+
+  // EVENT-DRIVEN: Handle analysis events
+  const handleAnalysisEvent = useCallback(async (payload: any) => {
+    console.log('🔧 MCPModal: Analysis event received:', payload.data)
+    
+    // If this affects our session and we're on the analysis tab, refresh analysis
+    if (payload.data.sessionId === sessionId && activeTab === 'analysis') {
+      // Reload analysis if we have existing data
+      if (analysisData) {
+        loadAnalysis()
+      }
+    }
+  }, [sessionId, activeTab, analysisData])
+
+  // EVENT-DRIVEN: Subscribe to relevant events via internal pub/sub
   useEffect(() => {
     if (!isOpen) return
 
-    console.log('🔧 MCPModal: Setting up event-driven data refresh')
+    console.log('🔧 MCPModal: Setting up internal pub/sub event subscriptions')
 
     // Initial fetch
     setIsLoadingSession(true)
     fetchSessionData().finally(() => setIsLoadingSession(false))
 
-    // Register for session data updates via event-driven system
-    const unsubscribeSessionData = mcpClient.current.registerDataRefreshCallback('session-data', fetchSessionData)
-    const unsubscribeCurrentSession = mcpClient.current.registerDataRefreshCallback('current-session', fetchSessionData)
+    // Session events
+    const unsubscribeSessionUpdated = eventBus.subscribe(EVENT_TYPES.SESSION_UPDATED, handleSessionUpdated)
+    const unsubscribeSessionSwitched = eventBus.subscribe(EVENT_TYPES.SESSION_SWITCHED, handleSessionUpdated)
     
-    // If we have a sessionId, register for session-specific updates
-    let unsubscribeSessionSpecific: (() => void) | null = null
-    if (sessionId) {
-      unsubscribeSessionSpecific = mcpClient.current.registerDataRefreshCallback(`session-${sessionId}`, fetchSessionData)
-    }
+    // Message events
+    const unsubscribeMessageSent = eventBus.subscribe(EVENT_TYPES.MESSAGE_SENT, handleMessageEvent)
+    const unsubscribeMessageUpdated = eventBus.subscribe(EVENT_TYPES.MESSAGE_UPDATED, handleMessageEvent)
+    const unsubscribeMessageDeleted = eventBus.subscribe(EVENT_TYPES.MESSAGE_DELETED, handleMessageEvent)
+    
+    // Participant events
+    const unsubscribeParticipantAdded = eventBus.subscribe(EVENT_TYPES.PARTICIPANT_ADDED, handleParticipantEvent)
+    const unsubscribeParticipantRemoved = eventBus.subscribe(EVENT_TYPES.PARTICIPANT_REMOVED, handleParticipantEvent)
+    const unsubscribeParticipantUpdated = eventBus.subscribe(EVENT_TYPES.PARTICIPANT_UPDATED, handleParticipantEvent)
+    
+    // Conversation events
+    const unsubscribeConversationStarted = eventBus.subscribe(EVENT_TYPES.CONVERSATION_STARTED, handleConversationEvent)
+    const unsubscribeConversationPaused = eventBus.subscribe(EVENT_TYPES.CONVERSATION_PAUSED, handleConversationEvent)
+    const unsubscribeConversationResumed = eventBus.subscribe(EVENT_TYPES.CONVERSATION_RESUMED, handleConversationEvent)
+    const unsubscribeConversationStopped = eventBus.subscribe(EVENT_TYPES.CONVERSATION_STOPPED, handleConversationEvent)
+    
+    // Analysis events
+    const unsubscribeAnalysisSaved = eventBus.subscribe(EVENT_TYPES.ANALYSIS_SAVED, handleAnalysisEvent)
+    const unsubscribeAnalysisTriggered = eventBus.subscribe(EVENT_TYPES.ANALYSIS_TRIGGERED, handleAnalysisEvent)
+    const unsubscribeAnalysisCleared = eventBus.subscribe(EVENT_TYPES.ANALYSIS_CLEARED, handleAnalysisEvent)
 
     return () => {
-      console.log('🔧 MCPModal: Cleaning up event-driven callbacks')
-      unsubscribeSessionData()
-      unsubscribeCurrentSession()
-      if (unsubscribeSessionSpecific) {
-        unsubscribeSessionSpecific()
-      }
+      console.log('🔧 MCPModal: Cleaning up internal pub/sub event subscriptions')
+      unsubscribeSessionUpdated()
+      unsubscribeSessionSwitched()
+      unsubscribeMessageSent()
+      unsubscribeMessageUpdated()
+      unsubscribeMessageDeleted()
+      unsubscribeParticipantAdded()
+      unsubscribeParticipantRemoved()
+      unsubscribeParticipantUpdated()
+      unsubscribeConversationStarted()
+      unsubscribeConversationPaused()
+      unsubscribeConversationResumed()
+      unsubscribeConversationStopped()
+      unsubscribeAnalysisSaved()
+      unsubscribeAnalysisTriggered()
+      unsubscribeAnalysisCleared()
     }
-  }, [sessionId, isOpen])
+  }, [
+    sessionId, 
+    isOpen, 
+    fetchSessionData,
+    handleSessionUpdated,
+    handleMessageEvent,
+    handleParticipantEvent,
+    handleConversationEvent,
+    handleAnalysisEvent
+  ])
 
   // Load analysis when switching to analysis tab
   useEffect(() => {
@@ -161,7 +249,7 @@ export function MCPModal({ isOpen, onClose, sessionId }: MCPModalProps) {
         }
       }
 
-      // This will trigger automatic refresh via event-driven system
+      // This will trigger automatic refresh via internal pub/sub event system
       const result = await mcp.callTool(selectedTool, args)
       setToolResult(result)
     } catch (error) {
