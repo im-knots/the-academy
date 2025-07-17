@@ -1,4 +1,4 @@
-// src/hooks/useMCP.ts - Complete Fixed Version with Error Tracking Added
+// src/hooks/useMCP.ts - Updated with Event-Driven System
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
@@ -334,21 +334,8 @@ export function useMCP(): MCPHook {
     if (!clientRef.current) throw new Error('MCP client not initialized')
     
     try {
+      // EVENT-DRIVEN: The MCP client will automatically trigger data refresh callbacks
       const result = await clientRef.current.callTool(name, args)
-      
-      // Refresh resources after tool calls that might change data
-      const dataModifyingTools = [
-        'create_session', 'delete_session', 'update_session', 'switch_current_session',
-        'duplicate_session', 'import_session', 'send_message', 'add_participant',
-        'remove_participant', 'update_participant', 'update_participant_status',
-        'start_conversation', 'pause_conversation', 'resume_conversation', 
-        'stop_conversation', 'inject_moderator_prompt'
-      ]
-      
-      if (dataModifyingTools.includes(name)) {
-        setTimeout(refreshResources, 100)
-      }
-      
       return result
     } catch (error) {
       console.error(`Failed to call tool ${name}:`, error)
@@ -359,7 +346,7 @@ export function useMCP(): MCPHook {
       }))
       throw error
     }
-  }, [refreshResources])
+  }, [])
 
   const listPrompts = useCallback(async () => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
@@ -425,11 +412,8 @@ export function useMCP(): MCPHook {
     console.log(`🆕 useMCP: Creating session via MCP: ${name}`)
     
     try {
+      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.createSessionViaMCP(name, description, template, participants)
-      
-      // Refresh resources after session creation
-      setTimeout(refreshResources, 100)
-      
       return result
     } catch (error) {
       console.error('Failed to create session via MCP:', error)
@@ -440,7 +424,7 @@ export function useMCP(): MCPHook {
       }))
       throw error
     }
-  }, [refreshResources])
+  }, [])
 
   const deleteSessionViaMCP = useCallback(async (sessionId: string) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
@@ -448,11 +432,8 @@ export function useMCP(): MCPHook {
     console.log(`🗑️ useMCP: Deleting session via MCP: ${sessionId}`)
     
     try {
+      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.deleteSessionViaMCP(sessionId)
-      
-      // Refresh resources after session deletion
-      setTimeout(refreshResources, 100)
-      
       return result
     } catch (error) {
       console.error('Failed to delete session via MCP:', error)
@@ -463,7 +444,7 @@ export function useMCP(): MCPHook {
       }))
       throw error
     }
-  }, [refreshResources])
+  }, [])
 
   const updateSessionViaMCP = useCallback(async (sessionId: string, name?: string, description?: string, metadata?: any) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
@@ -471,11 +452,8 @@ export function useMCP(): MCPHook {
     console.log(`✏️ useMCP: Updating session via MCP: ${sessionId}`)
     
     try {
+      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.updateSessionViaMCP(sessionId, name, description, metadata)
-      
-      // Refresh resources after session update
-      setTimeout(refreshResources, 100)
-      
       return result
     } catch (error) {
       console.error('Failed to update session via MCP:', error)
@@ -486,7 +464,7 @@ export function useMCP(): MCPHook {
       }))
       throw error
     }
-  }, [refreshResources])
+  }, [])
 
   const switchCurrentSessionViaMCP = useCallback(async (sessionId: string) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
@@ -494,11 +472,8 @@ export function useMCP(): MCPHook {
     console.log(`🔄 useMCP: Switching current session via MCP: ${sessionId}`)
     
     try {
+      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.switchCurrentSessionViaMCP(sessionId)
-      
-      // Refresh resources after session switch
-      setTimeout(refreshResources, 100)
-      
       return result
     } catch (error) {
       console.error('Failed to switch current session via MCP:', error)
@@ -509,7 +484,7 @@ export function useMCP(): MCPHook {
       }))
       throw error
     }
-  }, [refreshResources])
+  }, [])
 
   const duplicateSessionViaMCP = useCallback(async (sessionId: string, newName?: string, includeMessages: boolean = false) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
@@ -517,11 +492,8 @@ export function useMCP(): MCPHook {
     console.log(`📋 useMCP: Duplicating session via MCP: ${sessionId}`)
     
     try {
+      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.duplicateSessionViaMCP(sessionId, newName, includeMessages)
-      
-      // Refresh resources after session duplication
-      setTimeout(refreshResources, 100)
-      
       return result
     } catch (error) {
       console.error('Failed to duplicate session via MCP:', error)
@@ -532,7 +504,7 @@ export function useMCP(): MCPHook {
       }))
       throw error
     }
-  }, [refreshResources])
+  }, [])
 
   const importSessionViaMCP = useCallback(async (sessionData: any, name?: string) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
@@ -540,11 +512,8 @@ export function useMCP(): MCPHook {
     console.log(`📥 useMCP: Importing session via MCP`)
     
     try {
+      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.importSessionViaMCP(sessionData, name)
-      
-      // Refresh resources after session import
-      setTimeout(refreshResources, 100)
-      
       return result
     } catch (error) {
       console.error('Failed to import session via MCP:', error)
@@ -555,7 +524,7 @@ export function useMCP(): MCPHook {
       }))
       throw error
     }
-  }, [refreshResources])
+  }, [])
 
   const getSessionTemplates = useCallback(async () => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
@@ -580,11 +549,8 @@ export function useMCP(): MCPHook {
     console.log(`📋 useMCP: Creating session from template via MCP: ${templateId}`)
     
     try {
+      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.createSessionFromTemplateViaMCP(templateId, name, description, customizations)
-      
-      // Refresh resources after session creation
-      setTimeout(refreshResources, 100)
-      
       return result
     } catch (error) {
       console.error('Failed to create session from template via MCP:', error)
@@ -595,7 +561,7 @@ export function useMCP(): MCPHook {
       }))
       throw error
     }
-  }, [refreshResources])
+  }, [])
 
   const sendMessageViaMCP = useCallback(async (sessionId: string, content: string, participantId: string, participantName: string, participantType: any) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
@@ -603,11 +569,8 @@ export function useMCP(): MCPHook {
     console.log(`💬 useMCP: Sending message via MCP to session: ${sessionId}`)
     
     try {
+      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.sendMessageViaMCP(sessionId, content, participantId, participantName, participantType)
-      
-      // Refresh resources after message sent
-      setTimeout(refreshResources, 100)
-      
       return result
     } catch (error) {
       console.error('Failed to send message via MCP:', error)
@@ -618,7 +581,7 @@ export function useMCP(): MCPHook {
       }))
       throw error
     }
-  }, [refreshResources])
+  }, [])
 
   // ========================================
   // PHASE 2: PARTICIPANT MANAGEMENT METHODS (COMPLETE)
@@ -630,11 +593,8 @@ export function useMCP(): MCPHook {
     console.log(`👤 useMCP: Adding participant via MCP to session: ${sessionId}`)
     
     try {
+      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.addParticipantViaMCP(sessionId, name, type, provider, model, settings, characteristics)
-      
-      // Refresh resources after participant added
-      setTimeout(refreshResources, 100)
-      
       return result
     } catch (error) {
       console.error('Failed to add participant via MCP:', error)
@@ -645,7 +605,7 @@ export function useMCP(): MCPHook {
       }))
       throw error
     }
-  }, [refreshResources])
+  }, [])
 
   const removeParticipantViaMCP = useCallback(async (sessionId: string, participantId: string) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
@@ -653,11 +613,8 @@ export function useMCP(): MCPHook {
     console.log(`❌ useMCP: Removing participant via MCP from session: ${sessionId}`)
     
     try {
+      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.removeParticipantViaMCP(sessionId, participantId)
-      
-      // Refresh resources after participant removed
-      setTimeout(refreshResources, 100)
-      
       return result
     } catch (error) {
       console.error('Failed to remove participant via MCP:', error)
@@ -668,7 +625,7 @@ export function useMCP(): MCPHook {
       }))
       throw error
     }
-  }, [refreshResources])
+  }, [])
 
   const updateParticipantViaMCP = useCallback(async (sessionId: string, participantId: string, updates: any) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
@@ -676,11 +633,8 @@ export function useMCP(): MCPHook {
     console.log(`✏️ useMCP: Updating participant via MCP: ${participantId}`)
     
     try {
+      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.updateParticipantViaMCP(sessionId, participantId, updates)
-      
-      // Refresh resources after participant update
-      setTimeout(refreshResources, 100)
-      
       return result
     } catch (error) {
       console.error('Failed to update participant via MCP:', error)
@@ -691,7 +645,7 @@ export function useMCP(): MCPHook {
       }))
       throw error
     }
-  }, [refreshResources])
+  }, [])
 
   const updateParticipantStatusViaMCP = useCallback(async (sessionId: string, participantId: string, status: string) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
@@ -699,11 +653,8 @@ export function useMCP(): MCPHook {
     console.log(`🔄 useMCP: Updating participant status via MCP: ${participantId}`)
     
     try {
+      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.updateParticipantStatusViaMCP(sessionId, participantId, status)
-      
-      // Refresh resources after status update
-      setTimeout(refreshResources, 100)
-      
       return result
     } catch (error) {
       console.error('Failed to update participant status via MCP:', error)
@@ -714,7 +665,7 @@ export function useMCP(): MCPHook {
       }))
       throw error
     }
-  }, [refreshResources])
+  }, [])
 
   const getAvailableModelsViaMCP = useCallback(async (provider?: string) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
@@ -760,11 +711,8 @@ export function useMCP(): MCPHook {
     console.log(`▶️ useMCP: Starting conversation via MCP: ${sessionId}`)
     
     try {
+      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.startConversationViaMCP(sessionId, initialPrompt)
-      
-      // Refresh resources after conversation started
-      setTimeout(refreshResources, 100)
-      
       return result
     } catch (error) {
       console.error('Failed to start conversation via MCP:', error)
@@ -775,7 +723,7 @@ export function useMCP(): MCPHook {
       }))
       throw error
     }
-  }, [refreshResources])
+  }, [])
 
   const pauseConversationViaMCP = useCallback(async (sessionId: string) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
@@ -783,11 +731,8 @@ export function useMCP(): MCPHook {
     console.log(`⏸️ useMCP: Pausing conversation via MCP: ${sessionId}`)
     
     try {
+      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.pauseConversationViaMCP(sessionId)
-      
-      // Refresh resources after conversation paused
-      setTimeout(refreshResources, 100)
-      
       return result
     } catch (error) {
       console.error('Failed to pause conversation via MCP:', error)
@@ -798,7 +743,7 @@ export function useMCP(): MCPHook {
       }))
       throw error
     }
-  }, [refreshResources])
+  }, [])
 
   const resumeConversationViaMCP = useCallback(async (sessionId: string) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
@@ -806,11 +751,8 @@ export function useMCP(): MCPHook {
     console.log(`▶️ useMCP: Resuming conversation via MCP: ${sessionId}`)
     
     try {
+      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.resumeConversationViaMCP(sessionId)
-      
-      // Refresh resources after conversation resumed
-      setTimeout(refreshResources, 100)
-      
       return result
     } catch (error) {
       console.error('Failed to resume conversation via MCP:', error)
@@ -821,7 +763,7 @@ export function useMCP(): MCPHook {
       }))
       throw error
     }
-  }, [refreshResources])
+  }, [])
 
   const stopConversationViaMCP = useCallback(async (sessionId: string) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
@@ -829,11 +771,8 @@ export function useMCP(): MCPHook {
     console.log(`⏹️ useMCP: Stopping conversation via MCP: ${sessionId}`)
     
     try {
+      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.stopConversationViaMCP(sessionId)
-      
-      // Refresh resources after conversation stopped
-      setTimeout(refreshResources, 100)
-      
       return result
     } catch (error) {
       console.error('Failed to stop conversation via MCP:', error)
@@ -844,7 +783,7 @@ export function useMCP(): MCPHook {
       }))
       throw error
     }
-  }, [refreshResources])
+  }, [])
 
   const getConversationStatusViaMCP = useCallback(async (sessionId: string) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
@@ -886,11 +825,8 @@ export function useMCP(): MCPHook {
     console.log(`💉 useMCP: Injecting prompt via MCP: ${sessionId}`)
     
     try {
+      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.injectPromptViaMCP(sessionId, prompt)
-      
-      // Refresh resources after prompt injection
-      setTimeout(refreshResources, 100)
-      
       return result
     } catch (error) {
       console.error('Failed to inject prompt via MCP:', error)
@@ -901,7 +837,7 @@ export function useMCP(): MCPHook {
       }))
       throw error
     }
-  }, [refreshResources])
+  }, [])
 
   // ========================================
   // PHASE 3: MESSAGE CONTROL METHODS
@@ -913,11 +849,8 @@ export function useMCP(): MCPHook {
     console.log(`✏️ useMCP: Updating message via MCP: ${messageId}`)
     
     try {
+      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.updateMessageViaMCP(sessionId, messageId, content)
-      
-      // Refresh resources after message update
-      setTimeout(refreshResources, 100)
-      
       return result
     } catch (error) {
       console.error('Failed to update message via MCP:', error)
@@ -928,7 +861,7 @@ export function useMCP(): MCPHook {
       }))
       throw error
     }
-  }, [refreshResources])
+  }, [])
 
   const deleteMessageViaMCP = useCallback(async (sessionId: string, messageId: string) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
@@ -936,11 +869,8 @@ export function useMCP(): MCPHook {
     console.log(`🗑️ useMCP: Deleting message via MCP: ${messageId}`)
     
     try {
+      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.deleteMessageViaMCP(sessionId, messageId)
-      
-      // Refresh resources after message deletion
-      setTimeout(refreshResources, 100)
-      
       return result
     } catch (error) {
       console.error('Failed to delete message via MCP:', error)
@@ -951,7 +881,7 @@ export function useMCP(): MCPHook {
       }))
       throw error
     }
-  }, [refreshResources])
+  }, [])
 
   const clearMessagesViaMCP = useCallback(async (sessionId: string) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
@@ -959,11 +889,8 @@ export function useMCP(): MCPHook {
     console.log(`🧹 useMCP: Clearing messages via MCP: ${sessionId}`)
     
     try {
+      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.clearMessagesViaMCP(sessionId)
-      
-      // Refresh resources after messages cleared
-      setTimeout(refreshResources, 100)
-      
       return result
     } catch (error) {
       console.error('Failed to clear messages via MCP:', error)
@@ -974,7 +901,7 @@ export function useMCP(): MCPHook {
       }))
       throw error
     }
-  }, [refreshResources])
+  }, [])
 
   const injectModeratorPromptViaMCP = useCallback(async (sessionId: string, prompt: string) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
@@ -982,11 +909,8 @@ export function useMCP(): MCPHook {
     console.log(`👤 useMCP: Injecting moderator prompt via MCP: ${sessionId}`)
     
     try {
+      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.injectModeratorPromptViaMCP(sessionId, prompt)
-      
-      // Refresh resources after moderator prompt injection
-      setTimeout(refreshResources, 100)
-      
       return result
     } catch (error) {
       console.error('Failed to inject moderator prompt via MCP:', error)
@@ -997,7 +921,7 @@ export function useMCP(): MCPHook {
       }))
       throw error
     }
-  }, [refreshResources])
+  }, [])
 
   // ========================================
   // PHASE 5: EXPORT METHODS
@@ -1144,6 +1068,7 @@ export function useMCP(): MCPHook {
     if (!clientRef.current) throw new Error('MCP client not initialized')
     
     try {
+      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.saveAnalysisSnapshotViaMCP(sessionId, analysis, analysisType)
       return result
     } catch (error) {
@@ -1178,6 +1103,7 @@ export function useMCP(): MCPHook {
     if (!clientRef.current) throw new Error('MCP client not initialized')
     
     try {
+      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.clearAnalysisHistoryViaMCP(sessionId)
       return result
     } catch (error) {
@@ -1195,6 +1121,7 @@ export function useMCP(): MCPHook {
     if (!clientRef.current) throw new Error('MCP client not initialized')
     
     try {
+      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.analyzeConversationViaMCP(sessionId, analysisType)
       return result
     } catch (error) {
@@ -1383,11 +1310,8 @@ export function useMCP(): MCPHook {
     console.log(`🧪 useMCP: Creating experiment via MCP`)
     
     try {
+      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.createExperimentViaMCP(config)
-      
-      // Refresh resources after experiment creation
-      setTimeout(refreshResources, 100)
-      
       return result
     } catch (error) {
       console.error('Failed to create experiment via MCP:', error)
@@ -1398,7 +1322,7 @@ export function useMCP(): MCPHook {
       }))
       throw error
     }
-  }, [refreshResources])
+  }, [])
 
   const getExperimentsViaMCP = useCallback(async () => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
@@ -1440,11 +1364,8 @@ export function useMCP(): MCPHook {
     console.log(`✏️ useMCP: Updating experiment via MCP: ${experimentId}`)
     
     try {
+      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.updateExperimentViaMCP(experimentId, updates)
-      
-      // Refresh resources after experiment update
-      setTimeout(refreshResources, 100)
-      
       return result
     } catch (error) {
       console.error('Failed to update experiment via MCP:', error)
@@ -1455,7 +1376,7 @@ export function useMCP(): MCPHook {
       }))
       throw error
     }
-  }, [refreshResources])
+  }, [])
 
   const deleteExperimentViaMCP = useCallback(async (experimentId: string) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
@@ -1463,11 +1384,8 @@ export function useMCP(): MCPHook {
     console.log(`🗑️ useMCP: Deleting experiment via MCP: ${experimentId}`)
     
     try {
+      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.deleteExperimentViaMCP(experimentId)
-      
-      // Refresh resources after experiment deletion
-      setTimeout(refreshResources, 100)
-      
       return result
     } catch (error) {
       console.error('Failed to delete experiment via MCP:', error)
@@ -1478,7 +1396,7 @@ export function useMCP(): MCPHook {
       }))
       throw error
     }
-  }, [refreshResources])
+  }, [])
 
   const executeExperimentViaMCP = useCallback(async (experimentId: string, experimentConfig: any) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
@@ -1486,11 +1404,8 @@ export function useMCP(): MCPHook {
     console.log(`🚀 useMCP: Executing experiment via MCP: ${experimentId}`)
     
     try {
+      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.executeExperimentViaMCP(experimentId, experimentConfig)
-      
-      // Refresh resources after experiment execution starts
-      setTimeout(refreshResources, 100)
-      
       return result
     } catch (error) {
       console.error('Failed to execute experiment via MCP:', error)
@@ -1501,7 +1416,7 @@ export function useMCP(): MCPHook {
       }))
       throw error
     }
-  }, [refreshResources])
+  }, [])
 
   const getExperimentStatusViaMCP = useCallback(async (experimentId: string) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
@@ -1526,11 +1441,8 @@ export function useMCP(): MCPHook {
     console.log(`⏸️ useMCP: Pausing experiment via MCP: ${experimentId}`)
     
     try {
+      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.pauseExperimentViaMCP(experimentId)
-      
-      // Refresh resources after experiment pause
-      setTimeout(refreshResources, 100)
-      
       return result
     } catch (error) {
       console.error('Failed to pause experiment via MCP:', error)
@@ -1541,7 +1453,7 @@ export function useMCP(): MCPHook {
       }))
       throw error
     }
-  }, [refreshResources])
+  }, [])
 
   const resumeExperimentViaMCP = useCallback(async (experimentId: string) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
@@ -1549,11 +1461,8 @@ export function useMCP(): MCPHook {
     console.log(`▶️ useMCP: Resuming experiment via MCP: ${experimentId}`)
     
     try {
+      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.resumeExperimentViaMCP(experimentId)
-      
-      // Refresh resources after experiment resume
-      setTimeout(refreshResources, 100)
-      
       return result
     } catch (error) {
       console.error('Failed to resume experiment via MCP:', error)
@@ -1564,7 +1473,7 @@ export function useMCP(): MCPHook {
       }))
       throw error
     }
-  }, [refreshResources])
+  }, [])
 
   const stopExperimentViaMCP = useCallback(async (experimentId: string) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
@@ -1572,11 +1481,8 @@ export function useMCP(): MCPHook {
     console.log(`⏹️ useMCP: Stopping experiment via MCP: ${experimentId}`)
     
     try {
+      // EVENT-DRIVEN: This will trigger automatic refresh via the MCP client
       const result = await clientRef.current.stopExperimentViaMCP(experimentId)
-      
-      // Refresh resources after experiment stop
-      setTimeout(refreshResources, 100)
-      
       return result
     } catch (error) {
       console.error('Failed to stop experiment via MCP:', error)
@@ -1587,7 +1493,7 @@ export function useMCP(): MCPHook {
       }))
       throw error
     }
-  }, [refreshResources])
+  }, [])
 
   const getExperimentResultsViaMCP = useCallback(async (experimentId: string) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
@@ -1739,32 +1645,52 @@ export function useMCP(): MCPHook {
 
 export function useSessionMCP() {
   const mcp = useMCP()
+  const mcpClientRef = useRef(MCPClient.getInstance())
   const [currentSession, setCurrentSession] = useState<any>(null)
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
 
-  // Fetch current session
-  useEffect(() => {
-    const fetchCurrentSession = async () => {
-      try {
-        const result = await mcp.callTool('get_current_session_id', {})
-        if (result.success && result.sessionId) {
-          setCurrentSessionId(result.sessionId)
-          
-          const sessionResult = await mcp.callTool('get_session', { sessionId: result.sessionId })
-          if (sessionResult.success && sessionResult.session) {
-            setCurrentSession(sessionResult.session)
-          }
+  // EVENT-DRIVEN: Fetch current session function
+  const fetchCurrentSession = useCallback(async () => {
+    try {
+      const result = await mcp.callTool('get_current_session_id', {})
+      if (result.success && result.sessionId) {
+        setCurrentSessionId(result.sessionId)
+        
+        const sessionResult = await mcp.callTool('get_session', { sessionId: result.sessionId })
+        if (sessionResult.success && sessionResult.session) {
+          setCurrentSession(sessionResult.session)
         }
-      } catch (error) {
-        console.error('Failed to fetch current session:', error)
       }
+    } catch (error) {
+      console.error('Failed to fetch current session:', error)
     }
-
-    fetchCurrentSession()
-    // Poll for updates
-    const interval = setInterval(fetchCurrentSession, 2000)
-    return () => clearInterval(interval)
   }, [mcp])
+
+  // EVENT-DRIVEN: Register data refresh callbacks for session updates
+  useEffect(() => {
+    console.log('🎯 useSessionMCP: Setting up event-driven refresh')
+
+    // Initial fetch
+    fetchCurrentSession()
+
+    // Register for current session updates via event-driven system
+    const unsubscribeCurrentSession = mcpClientRef.current.registerDataRefreshCallback(
+      'current-session', 
+      fetchCurrentSession
+    )
+    
+    // Also register for session data updates
+    const unsubscribeSessionData = mcpClientRef.current.registerDataRefreshCallback(
+      'session-data', 
+      fetchCurrentSession
+    )
+
+    return () => {
+      console.log('🎯 useSessionMCP: Cleaning up event-driven callbacks')
+      unsubscribeCurrentSession()
+      unsubscribeSessionData()
+    }
+  }, [fetchCurrentSession])
 
   // Session-specific convenience methods
   const analyzeConversation = useCallback(async (analysisType: string = 'full') => {

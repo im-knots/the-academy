@@ -1,4 +1,4 @@
-// src/app/api/mcp/ws/route.ts
+// src/app/api/mcp/ws/route.ts - Updated with Event-Driven Broadcasting
 import { NextRequest } from 'next/server'
 import { WebSocketServer, WebSocket as WSWebSocket } from 'ws'
 import { MCPServer, setMCPStoreReference } from '@/lib/mcp/server'
@@ -48,9 +48,12 @@ function initializeWebSocketServer() {
             ws.send(JSON.stringify(response))
           }
 
-          // Handle notifications that should be broadcast
-          if (message.method && shouldBroadcast(message.method)) {
-            broadcastNotification(message.method, message.params, clientId)
+          // EVENT-DRIVEN: Broadcast data refresh notifications based on tool calls
+          if (message.method === 'call_tool' && message.params?.name) {
+            const refreshKeys = getRefreshKeysForTool(message.params.name, message.params.arguments)
+            if (refreshKeys.length > 0) {
+              broadcastDataRefreshNotification(refreshKeys, clientId)
+            }
           }
         }
       } catch (error) {
@@ -92,7 +95,7 @@ function initializeWebSocketServer() {
         serverInfo: {
           name: 'The Academy MCP Server',
           version: '1.0.0',
-          capabilities: ['real-time-updates', 'conversation-control', 'analysis']
+          capabilities: ['real-time-updates', 'conversation-control', 'analysis', 'event-driven-refresh']
         }
       }
     }
@@ -130,22 +133,87 @@ function generateClientId(): string {
   return `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 }
 
-function shouldBroadcast(method: string): boolean {
-  const broadcastMethods = [
-    'call_tool', // Tool calls that modify state
-    'send_message',
-    'start_conversation',
-    'pause_conversation',
-    'resume_conversation',
-    'stop_conversation',
-    'inject_prompt',
-    'create_session',
-    'add_participant'
-  ]
+// EVENT-DRIVEN: Determine which data refresh keys should be triggered based on the tool
+function getRefreshKeysForTool(toolName: string, args: any = {}): string[] {
+  const keys: string[] = []
   
-  return broadcastMethods.includes(method)
+  // Session-related operations
+  if (['create_session', 'delete_session', 'update_session', 'import_session', 
+       'duplicate_session', 'switch_current_session'].includes(toolName)) {
+    keys.push('sessions-list', 'current-session')
+  }
+  
+  // Current session data operations
+  if (['get_session', 'send_message', 'add_participant', 'remove_participant',
+       'update_participant', 'start_conversation', 'pause_conversation',
+       'resume_conversation', 'stop_conversation', 'inject_prompt',
+       'update_message', 'delete_message', 'clear_messages'].includes(toolName)) {
+    keys.push('session-data')
+    
+    // If we have a sessionId, add session-specific key
+    if (args.sessionId) {
+      keys.push(`session-${args.sessionId}`)
+    }
+  }
+  
+  // Analysis operations
+  if (['save_analysis_snapshot', 'trigger_live_analysis', 'analyze_conversation',
+       'clear_analysis_history'].includes(toolName)) {
+    keys.push('analysis-data')
+    
+    if (args.sessionId) {
+      keys.push(`analysis-${args.sessionId}`)
+    }
+  }
+  
+  // Experiment operations
+  if (['create_experiment', 'update_experiment', 'delete_experiment',
+       'execute_experiment', 'pause_experiment', 'resume_experiment',
+       'stop_experiment', 'create_experiment_run', 'update_experiment_run'].includes(toolName)) {
+    keys.push('experiments-list')
+    
+    if (args.experimentId) {
+      keys.push(`experiment-${args.experimentId}`)
+    }
+  }
+  
+  // Error tracking operations
+  if (['log_api_error', 'clear_api_errors'].includes(toolName)) {
+    keys.push('api-errors')
+  }
+  
+  console.log(`🔄 WebSocket: Tool ${toolName} triggers refresh for: ${keys.join(', ')}`)
+  return keys
 }
 
+// EVENT-DRIVEN: Broadcast data refresh notification to all connected clients
+function broadcastDataRefreshNotification(refreshKeys: string[], excludeClientId?: string) {
+  const notification = {
+    jsonrpc: '2.0',
+    method: 'academy/data_refresh',
+    params: {
+      refreshKeys,
+      timestamp: new Date().toISOString(),
+      fromClient: excludeClientId
+    }
+  }
+
+  let broadcastCount = 0
+  clients.forEach((ws, clientId) => {
+    if (clientId !== excludeClientId && ws.readyState === WSWebSocket.OPEN) {
+      try {
+        ws.send(JSON.stringify(notification))
+        broadcastCount++
+      } catch (error) {
+        console.error(`Failed to send refresh notification to client ${clientId}:`, error)
+      }
+    }
+  })
+
+  console.log(`📡 WebSocket: Broadcast data refresh to ${broadcastCount} clients for keys: ${refreshKeys.join(', ')}`)
+}
+
+// Legacy broadcast function for backward compatibility
 function broadcastNotification(method: string, params: any, excludeClientId?: string) {
   const notification = {
     jsonrpc: '2.0',

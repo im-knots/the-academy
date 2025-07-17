@@ -1,5 +1,5 @@
-// src/hooks/useTemplatePrompt.ts
-import { useEffect, useState, useCallback } from 'react'
+// src/hooks/useTemplatePrompt.ts - Updated with Event-Driven Polling
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { MCPClient } from '@/lib/mcp/client'
 
 const TEMPLATE_PROMPTS: Record<string, string> = {
@@ -13,18 +13,17 @@ const TEMPLATE_PROMPTS: Record<string, string> = {
 export function useTemplatePrompt() {
   const [currentSession, setCurrentSession] = useState<any>(null)
   const [suggestedPrompt, setSuggestedPrompt] = useState<string>('')
-  const mcpClient = MCPClient.getInstance()
+  const mcpClientRef = useRef(MCPClient.getInstance())
 
-  // Fetch current session
+  // EVENT-DRIVEN: Fetch current session function
   const fetchCurrentSession = useCallback(async () => {
     try {
       // Get current session ID
-      const sessionIdResult = await mcpClient.callTool('get_current_session_id', {})
-      
+      const sessionIdResult = await mcpClientRef.current.callTool('get_current_session_id', {})
       if (sessionIdResult.success && sessionIdResult.sessionId) {
         // Get session details
-        const sessionResult = await mcpClient.callTool('get_session', { 
-          sessionId: sessionIdResult.sessionId 
+        const sessionResult = await mcpClientRef.current.callTool('get_session', {
+          sessionId: sessionIdResult.sessionId
         })
         
         if (sessionResult.success && sessionResult.session) {
@@ -39,16 +38,39 @@ export function useTemplatePrompt() {
       console.error('Failed to fetch current session for template prompt:', error)
       setCurrentSession(null)
     }
-  }, [mcpClient])
+  }, [])
 
-  // Poll for current session updates
+  // EVENT-DRIVEN: Register data refresh callbacks for session updates
   useEffect(() => {
+    console.log('🎯 useTemplatePrompt: Setting up event-driven refresh')
+
+    // Initial fetch
     fetchCurrentSession()
+
+    // Register for current session updates via event-driven system
+    const unsubscribeCurrentSession = mcpClientRef.current.registerDataRefreshCallback(
+      'current-session', 
+      fetchCurrentSession
+    )
     
-    // Poll every 2 seconds for updates
-    const interval = setInterval(fetchCurrentSession, 2000)
+    // Also register for session data updates (in case session content changes)
+    const unsubscribeSessionData = mcpClientRef.current.registerDataRefreshCallback(
+      'session-data', 
+      fetchCurrentSession
+    )
     
-    return () => clearInterval(interval)
+    // Register for sessions list updates (switching sessions)
+    const unsubscribeSessionsList = mcpClientRef.current.registerDataRefreshCallback(
+      'sessions-list', 
+      fetchCurrentSession
+    )
+
+    return () => {
+      console.log('🎯 useTemplatePrompt: Cleaning up event-driven callbacks')
+      unsubscribeCurrentSession()
+      unsubscribeSessionData()
+      unsubscribeSessionsList()
+    }
   }, [fetchCurrentSession])
 
   // Update suggested prompt based on session template
@@ -58,6 +80,7 @@ export function useTemplatePrompt() {
         currentSession.messages.length === 0) {
       const templateId = currentSession.metadata.template
       const prompt = TEMPLATE_PROMPTS[templateId]
+      
       if (prompt) {
         setSuggestedPrompt(prompt)
       }

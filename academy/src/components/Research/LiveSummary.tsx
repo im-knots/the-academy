@@ -1,4 +1,4 @@
-// src/components/Research/LiveSummary.tsx - Updated to use MCP Client instead of Zustand
+// src/components/Research/LiveSummary.tsx - Updated with Event-Driven Polling
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
@@ -86,7 +86,7 @@ export function LiveSummary({ className = '', sessionId }: LiveSummaryProps) {
   const [showProviderSelect, setShowProviderSelect] = useState(false)
   const [showWindowSelect, setShowWindowSelect] = useState(false)
   const [selectedProvider, setSelectedProvider] = useState<'claude' | 'gpt'>('claude')
-  const [messageWindow, setMessageWindow] = useState<number>(0) // 0 means all messages
+  const [messageWindow, setMessageWindow] = useState<number>(10)
   const [error, setError] = useState<string | null>(null)
   const [lastAnalyzedMessageCount, setLastAnalyzedMessageCount] = useState(0)
   const [lastAnalyzedSessionId, setLastAnalyzedSessionId] = useState<string | null>(null)
@@ -97,10 +97,9 @@ export function LiveSummary({ className = '', sessionId }: LiveSummaryProps) {
   const [analysisCount, setAnalysisCount] = useState(0)
   
   const analysisIntervalRef = useRef<NodeJS.Timeout | null>(null)
-  const pollingInterval = useRef<NodeJS.Timeout | null>(null)
   const ANALYSIS_TRIGGER_INTERVAL = 3 // Analyze every 3 new messages
 
-  // Fetch session data from MCP
+  // EVENT-DRIVEN: Fetch session data function
   const fetchSessionData = async () => {
     if (!sessionId) return
 
@@ -121,23 +120,31 @@ export function LiveSummary({ className = '', sessionId }: LiveSummaryProps) {
     }
   }
 
-  // Initial load and polling setup
+  // EVENT-DRIVEN: Register data refresh callbacks for session updates
   useEffect(() => {
     if (!sessionId) return
+
+    console.log(`📊 LiveSummary: Setting up event-driven refresh for session ${sessionId}`)
 
     // Initial fetch
     fetchSessionData()
 
-    // Set up polling for updates (every 2 seconds)
-    pollingInterval.current = setInterval(() => {
-      fetchSessionData()
-    }, 2000)
+    // Register for session data updates via event-driven system
+    const unsubscribeSessionData = mcpClient.current.registerDataRefreshCallback(
+      `session-${sessionId}`, 
+      fetchSessionData
+    )
+    
+    // Also register for general session data updates
+    const unsubscribeSessionGeneral = mcpClient.current.registerDataRefreshCallback(
+      'session-data', 
+      fetchSessionData
+    )
 
     return () => {
-      if (pollingInterval.current) {
-        clearInterval(pollingInterval.current)
-        pollingInterval.current = null
-      }
+      console.log(`📊 LiveSummary: Cleaning up event-driven callbacks for session ${sessionId}`)
+      unsubscribeSessionData()
+      unsubscribeSessionGeneral()
     }
   }, [sessionId])
 
@@ -162,7 +169,13 @@ export function LiveSummary({ className = '', sessionId }: LiveSummaryProps) {
 
     fetchAnalysisCount()
 
-    // Subscribe to MCP analysis updates
+    // EVENT-DRIVEN: Register for analysis data updates
+    const unsubscribeAnalysis = mcpClient.current.registerDataRefreshCallback(
+      `analysis-${currentSession.id}`,
+      fetchAnalysisCount
+    )
+
+    // Subscribe to MCP analysis events
     const unsubscribeSaved = mcpAnalysisHandler.subscribe('analysis_snapshot_saved', (data) => {
       if (data.sessionId === currentSession.id) {
         console.log(`📊 LiveSummary: MCP analysis snapshot saved event received. New count: ${data.totalSnapshots}`)
@@ -187,6 +200,7 @@ export function LiveSummary({ className = '', sessionId }: LiveSummaryProps) {
     })
 
     return () => {
+      unsubscribeAnalysis()
       unsubscribeSaved()
       unsubscribeUpdated()
       unsubscribeCleared()
@@ -482,7 +496,7 @@ Return only the JSON object, no additional text.`
 
       console.log('📊 LiveSummary: Analysis data prepared:', analysisSnapshotData)
 
-      // Save via MCP
+      // Save via MCP - this will trigger automatic refresh via event-driven system
       const result = await mcpClient.current.saveAnalysisSnapshotViaMCP(
         currentSession.id,
         analysisSnapshotData,
@@ -496,7 +510,7 @@ Return only the JSON object, no additional text.`
         const snapshotId = await mcpAnalysisHandler.saveAnalysisSnapshot(currentSession.id, analysisSnapshotData)
         console.log(`💾 LiveSummary: MCP handler snapshot saved: ${snapshotId}`)
         
-        // Update analysis count
+        // Update analysis count - event-driven system will also update this
         setAnalysisCount(prev => prev + 1)
         setLastSaved(new Date())
         setTimeout(() => setLastSaved(null), 3000)

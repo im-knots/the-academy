@@ -1,4 +1,4 @@
-// src/components/Sessions/SessionsSection.tsx - Updated to use MCP Client instead of Zustand
+// src/components/Sessions/SessionsSection.tsx - Updated with Event-Driven Polling
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
@@ -227,7 +227,6 @@ export function SessionsSection({ currentSessionId, onSessionChange }: SessionsS
   const [isLoading, setIsLoading] = useState(true)
   const [isCreating, setIsCreating] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
-  const pollingInterval = useRef<NodeJS.Timeout | null>(null)
   
   const [showCreateMenu, setShowCreateMenu] = useState(false)
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
@@ -247,7 +246,7 @@ export function SessionsSection({ currentSessionId, onSessionChange }: SessionsS
   const dropdownRef = useRef<HTMLDivElement>(null)
   const createMenuRef = useRef<HTMLDivElement>(null)
 
-  // Fetch sessions from MCP
+  // EVENT-DRIVEN: Fetch sessions function
   const fetchSessions = async () => {
     try {
       const result = await mcpClient.current.callTool('list_sessions', {})
@@ -265,20 +264,29 @@ export function SessionsSection({ currentSessionId, onSessionChange }: SessionsS
     }
   }
 
-  // Initial load and polling setup
+  // EVENT-DRIVEN: Register data refresh callbacks for session updates
   useEffect(() => {
+    console.log('📋 SessionsSection: Setting up event-driven refresh for sessions list')
+
+    // Initial fetch
     fetchSessions()
 
-    // Set up polling for updates (every 3 seconds)
-    pollingInterval.current = setInterval(() => {
-      fetchSessions()
-    }, 3000)
+    // Register for sessions list updates via event-driven system
+    const unsubscribeSessionsList = mcpClient.current.registerDataRefreshCallback(
+      'sessions-list', 
+      fetchSessions
+    )
+    
+    // Also register for current session updates (in case switching sessions)
+    const unsubscribeCurrentSession = mcpClient.current.registerDataRefreshCallback(
+      'current-session', 
+      fetchSessions
+    )
 
     return () => {
-      if (pollingInterval.current) {
-        clearInterval(pollingInterval.current)
-        pollingInterval.current = null
-      }
+      console.log('📋 SessionsSection: Cleaning up event-driven callbacks')
+      unsubscribeSessionsList()
+      unsubscribeCurrentSession()
     }
   }, [])
 
@@ -299,6 +307,7 @@ export function SessionsSection({ currentSessionId, onSessionChange }: SessionsS
   const handleCreateFromTemplate = async (template: any) => {
     try {
       setIsCreating(true)
+      // This will trigger automatic refresh via event-driven system
       const result = await mcpClient.current.createSessionViaMCP(
         template.name, 
         template.description,
@@ -314,6 +323,7 @@ export function SessionsSection({ currentSessionId, onSessionChange }: SessionsS
         
         // Store the template prompt in session metadata if needed
         if (template.prompt) {
+          // This will also trigger automatic refresh
           await mcpClient.current.updateSessionViaMCP(
             result.sessionId,
             undefined,
@@ -321,9 +331,6 @@ export function SessionsSection({ currentSessionId, onSessionChange }: SessionsS
             { initialPrompt: template.prompt }
           )
         }
-        
-        // Refresh sessions list
-        await fetchSessions()
       }
     } catch (error) {
       console.error('Failed to create session from template:', error)
@@ -337,6 +344,7 @@ export function SessionsSection({ currentSessionId, onSessionChange }: SessionsS
     try {
       setIsCreating(true)
       const sessionNumber = sessions.length + 1
+      // This will trigger automatic refresh via event-driven system
       const result = await mcpClient.current.createSessionViaMCP(
         `Session ${sessionNumber}`,
         "New research dialogue",
@@ -348,7 +356,6 @@ export function SessionsSection({ currentSessionId, onSessionChange }: SessionsS
         if (onSessionChange) {
           onSessionChange(result.sessionId)
         }
-        await fetchSessions()
       }
     } catch (error) {
       console.error('Failed to create blank session:', error)
@@ -377,11 +384,11 @@ export function SessionsSection({ currentSessionId, onSessionChange }: SessionsS
     if (editingSessionId && editingName.trim()) {
       try {
         setIsUpdating(true)
+        // This will trigger automatic refresh via event-driven system
         await mcpClient.current.updateSessionViaMCP(
           editingSessionId,
           editingName.trim()
         )
-        await fetchSessions()
       } catch (error) {
         console.error('Failed to update session:', error)
         alert('Failed to update session name.')
@@ -415,6 +422,7 @@ export function SessionsSection({ currentSessionId, onSessionChange }: SessionsS
   const confirmDeleteSession = async () => {
     if (deleteModal.sessionId) {
       try {
+        // This will trigger automatic refresh via event-driven system
         await mcpClient.current.deleteSessionViaMCP(deleteModal.sessionId)
         
         // If deleting current session, notify parent
@@ -424,8 +432,6 @@ export function SessionsSection({ currentSessionId, onSessionChange }: SessionsS
             onSessionChange(remainingSessions[0].id)
           }
         }
-        
-        await fetchSessions()
       } catch (error) {
         console.error('Failed to delete session:', error)
         alert('Failed to delete session. Please try again.')
@@ -442,14 +448,15 @@ export function SessionsSection({ currentSessionId, onSessionChange }: SessionsS
     e.stopPropagation()
     try {
       setIsCreating(true)
+      // This will trigger automatic refresh via event-driven system
       const result = await mcpClient.current.duplicateSessionViaMCP(
         session.id,
         `${session.name} (Copy)`,
         false // Don't include messages
       )
       
-      if (result.success) {
-        await fetchSessions()
+      if (!result.success) {
+        throw new Error('Failed to duplicate session')
       }
     } catch (error) {
       console.error('Failed to duplicate session:', error)
