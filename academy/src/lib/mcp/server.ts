@@ -4214,7 +4214,8 @@ export class MCPServer {
         with: {
           messages: {
             orderBy: [messages.timestamp]
-          }
+          },
+          participants: true
         }
       })
 
@@ -4222,30 +4223,45 @@ export class MCPServer {
         throw new Error(`Session ${sessionId} not found`)
       }
 
-      // Check if mcpAnalysisHandler has the expected method
-      if (typeof mcpAnalysisHandler?.analyzeConversation !== 'function') {
-        console.warn('Analysis handler does not have analyzeConversation method')
-        return {
-          success: true,
-          sessionId: sessionId,
-          analysisType: analysisType,
-          analysis: null,
-          message: 'Analysis method not available'
+      // For server-side execution, perform analysis directly
+      // instead of going through the MCP client
+      const messageCount = session.messages.length;
+      const participantCount = session.participants.length;
+      
+      // Call your AI provider directly for analysis
+      const analysisPrompt = `Analyze this conversation and provide insights...`;
+      
+      // Example using Claude directly
+      const analysisResult = await this.callClaudeAPIDirect({
+        message: analysisPrompt,
+        systemPrompt: "You are an expert conversation analyst...",
+        temperature: 0.7,
+        maxTokens: 2000
+      });
+
+      const analysis = {
+        messageCountAtAnalysis: messageCount,
+        participantCountAtAnalysis: participantCount,
+        provider: 'claude',
+        conversationPhase: 'active',
+        analysis: {
+          summary: analysisResult.content,
+          keyInsights: [],
+          // ... other analysis fields
+        },
+        conversationContext: {
+          sessionId,
+          messageCount,
+          participantCount
         }
-      }
+      };
 
-      // Perform analysis
-      const analysis = await mcpAnalysisHandler.analyzeConversation(
-        session.messages,
-        analysisType
-      )
-
-      // Save analysis snapshot
-      await db.insert(analysisSnapshots).values({
+      // Save the analysis snapshot
+      const saveResult = await this.toolSaveAnalysisSnapshot({
         sessionId,
         analysis,
         analysisType
-      })
+      });
 
       return {
         success: true,
@@ -4557,8 +4573,8 @@ export class MCPServer {
       }
 
       // Use analysis handler for advanced analysis
-      const analysis = await mcpAnalysisHandler.analyzeConversation(
-        session.messages,
+      const analysis = await mcpAnalysisHandler.analyzeSession(
+        sessionId,
         analysisType
       )
 
@@ -5081,7 +5097,7 @@ export class MCPServer {
         
         if (success) {
           updates.completedSessions = currentRun.completedSessions + 1;
-          updates.progress = 30 + ((currentRun.completedSessions + 1) / totalSessions) * 70;
+          updates.progress = Math.round(30 + ((currentRun.completedSessions + 1) / totalSessions) * 70);
         } else {
           updates.failedSessions = currentRun.failedSessions + 1;
           updates.errors = [
