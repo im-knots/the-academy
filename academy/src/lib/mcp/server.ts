@@ -23,6 +23,12 @@ export class MCPServer {
   private experimentIntervals = new Map<string, NodeJS.Timeout>()
   private errors: APIError[] = [];
   private conversationManager: ServerConversationManager
+
+  constructor() {
+    // Initialize the server-side conversation manager with reference to this server
+    this.conversationManager = ServerConversationManager.getInstance(this)
+  }
+
   private defaultRetryConfig: RetryConfig = {
     maxRetries: 3,
     baseDelay: 1000, // 1 second
@@ -143,6 +149,29 @@ export class MCPServer {
     }
 
     throw lastError;
+  }
+
+  async callAIProviderTool(toolName: string, args: any, abortSignal?: AbortSignal): Promise<any> {
+    switch (toolName) {
+      case 'claude_chat':
+        return this.callClaudeAPIDirect(args, abortSignal)
+      case 'openai_chat':
+        return this.callOpenAIAPIDirect(args, abortSignal)
+      case 'grok_chat':
+        return this.callGrokAPIDirect(args, abortSignal)
+      case 'gemini_chat':
+        return this.callGeminiAPIDirect(args, abortSignal)
+      case 'ollama_chat':
+        return this.callOllamaAPIDirect(args, abortSignal)
+      case 'deepseek_chat':
+        return this.callDeepseekAPIDirect(args, abortSignal)
+      case 'mistral_chat':
+        return this.callMistralAPIDirect(args, abortSignal)
+      case 'cohere_chat':
+        return this.callCohereAPIDirect(args, abortSignal)
+      default:
+        throw new Error(`Unknown AI provider tool: ${toolName}`)
+    }
   }
 
   async handleRequest(request: JSONRPCRequest): Promise<JSONRPCResponse> {
@@ -1596,7 +1625,7 @@ export class MCPServer {
   // DIRECT AI PROVIDER METHODS (KEEPING EXISTING)
   // ========================================
 
-  private async callClaudeAPIDirect(args: any): Promise<any> {
+  private async callClaudeAPIDirect(args: any, abortSignal?: AbortSignal): Promise<any> {
     const { 
       message, 
       messages, 
@@ -1612,6 +1641,9 @@ export class MCPServer {
     
     return this.retryWithBackoff(
       async () => {
+        if (abortSignal?.aborted) {
+          throw new Error('Request was aborted')
+        }
         // Process messages
         let processedMessages: any[];
         
@@ -1691,7 +1723,8 @@ export class MCPServer {
             'x-api-key': apiKey,
             'anthropic-version': '2023-06-01'
           },
-          body: JSON.stringify(requestBody)
+          body: JSON.stringify(requestBody),
+          signal: abortSignal
         });
 
         if (!response.ok) {
@@ -1732,7 +1765,7 @@ export class MCPServer {
     );
   }
 
-  private async callOpenAIAPIDirect(args: any): Promise<any> {
+  private async callOpenAIAPIDirect(args: any, abortSignal?: AbortSignal): Promise<any> {
     const { 
       message, 
       messages, 
@@ -1802,7 +1835,8 @@ export class MCPServer {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${apiKey}`
           },
-          body: JSON.stringify(requestBody)
+          body: JSON.stringify(requestBody),
+          signal: abortSignal
         });
 
         if (!response.ok) {
@@ -1843,7 +1877,7 @@ export class MCPServer {
     );
   }
 
-  private async callGrokAPIDirect(args: any): Promise<any> {
+  private async callGrokAPIDirect(args: any, abortSignal?: AbortSignal): Promise<any> {
     const { 
       message, 
       messages, 
@@ -1918,7 +1952,8 @@ export class MCPServer {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${apiKey}`
           },
-          body: JSON.stringify(requestBody)
+          body: JSON.stringify(requestBody),
+          signal: abortSignal
         });
 
         if (!response.ok) {
@@ -1957,7 +1992,7 @@ export class MCPServer {
     );
   }
 
-  private async callGeminiAPIDirect(args: any): Promise<any> {
+  private async callGeminiAPIDirect(args: any, abortSignal?: AbortSignal): Promise<any> {
     const { 
       message, 
       messages, 
@@ -2049,7 +2084,8 @@ export class MCPServer {
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify(requestBody)
+          body: JSON.stringify(requestBody),
+          signal: abortSignal
         });
 
         if (!response.ok) {
@@ -2088,7 +2124,7 @@ export class MCPServer {
     );
   }
 
-  private async callOllamaAPIDirect(args: any): Promise<any> {
+  private async callOllamaAPIDirect(args: any, abortSignal?: AbortSignal): Promise<any> {
     const { 
       message, 
       messages, 
@@ -2194,7 +2230,7 @@ export class MCPServer {
     );
   }
 
-  private async callDeepseekAPIDirect(args: any): Promise<any> {
+  private async callDeepseekAPIDirect(args: any, abortSignal?: AbortSignal): Promise<any> {
     const { 
       message, 
       messages, 
@@ -2264,7 +2300,8 @@ export class MCPServer {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${apiKey}`
           },
-          body: JSON.stringify(requestBody)
+          body: JSON.stringify(requestBody),
+          signal: abortSignal
         });
 
         if (!response.ok) {
@@ -2305,7 +2342,7 @@ export class MCPServer {
     );
   }
 
-  private async callMistralAPIDirect(args: any): Promise<any> {
+  private async callMistralAPIDirect(args: any, abortSignal?: AbortSignal): Promise<any> {
     const { 
       message, 
       messages, 
@@ -2375,7 +2412,8 @@ export class MCPServer {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${apiKey}`
           },
-          body: JSON.stringify(requestBody)
+          body: JSON.stringify(requestBody),
+          signal: abortSignal
         });
 
         if (!response.ok) {
@@ -2416,7 +2454,7 @@ export class MCPServer {
     );
   }
 
-  private async callCohereAPIDirect(args: any): Promise<any> {
+  private async callCohereAPIDirect(args: any, abortSignal?: AbortSignal): Promise<any> {
     const {
       message,
       messages,
@@ -2488,7 +2526,8 @@ export class MCPServer {
             'Authorization': `Bearer ${apiKey}`,
             'X-Client-Name': 'academy-app'
           },
-          body: JSON.stringify(requestBody)
+          body: JSON.stringify(requestBody),
+          signal: abortSignal
         });
 
         if (!response.ok) {
@@ -3578,30 +3617,15 @@ export class MCPServer {
         throw new Error(`Session ${sessionId} not found`)
       }
 
-      // Update session status
-      await db
-        .update(sessions)
-        .set({ status: 'active' as const })
-        .where(eq(sessions.id, sessionId))
-
-      // Add initial prompt if provided
-      if (initialPrompt?.trim()) {
-        await db.insert(messages).values({
-          sessionId,
-          participantId: 'moderator',
-          participantName: 'Research Moderator',
-          participantType: 'moderator',
-          content: initialPrompt.trim(),
-          metadata: {}
-        })
-      }
+      // Start the conversation using the server-side conversation manager
+      await this.conversationManager.startConversation(sessionId, initialPrompt)
 
       return {
         success: true,
         sessionId: sessionId,
         status: 'active',
         initialPrompt: initialPrompt || null,
-        message: 'Conversation started successfully'
+        message: 'Conversation started successfully using server-side management'
       }
     } catch (error) {
       console.error('Start conversation failed:', error)
@@ -3616,6 +3640,8 @@ export class MCPServer {
       if (!sessionId) {
         throw new Error('Session ID is required')
       }
+
+      await this.conversationManager.pauseConversation(sessionId)
 
       const session = await db.query.sessions.findFirst({
         where: eq(sessions.id, sessionId)
@@ -3651,6 +3677,8 @@ export class MCPServer {
         throw new Error('Session ID is required')
       }
 
+      await this.conversationManager.pauseConversation(sessionId)
+
       const session = await db.query.sessions.findFirst({
         where: eq(sessions.id, sessionId)
       })
@@ -3684,6 +3712,8 @@ export class MCPServer {
       if (!sessionId) {
         throw new Error('Session ID is required')
       }
+
+      await this.conversationManager.stopConversation(sessionId)
 
       const session = await db.query.sessions.findFirst({
         where: eq(sessions.id, sessionId)
@@ -3762,6 +3792,8 @@ export class MCPServer {
       if (!sessionId) {
         throw new Error('Session ID is required')
       }
+
+      const conversationStats = await this.conversationManager.getConversationStats(sessionId)
 
       const session = await db.query.sessions.findFirst({
         where: eq(sessions.id, sessionId),
@@ -4167,7 +4199,14 @@ export class MCPServer {
       }
 
       if (!this.isAnalysisHandlerAvailable()) {
-        throw new Error('Analysis handler not available')
+        console.warn('Analysis handler not available, skipping analysis')
+        return {
+          success: true,
+          sessionId: sessionId,
+          analysisType: analysisType,
+          analysis: null,
+          message: 'Analysis handler not available, analysis skipped'
+        }
       }
 
       const session = await db.query.sessions.findFirst({
@@ -4181,6 +4220,18 @@ export class MCPServer {
 
       if (!session) {
         throw new Error(`Session ${sessionId} not found`)
+      }
+
+      // Check if mcpAnalysisHandler has the expected method
+      if (typeof mcpAnalysisHandler?.analyzeConversation !== 'function') {
+        console.warn('Analysis handler does not have analyzeConversation method')
+        return {
+          success: true,
+          sessionId: sessionId,
+          analysisType: analysisType,
+          analysis: null,
+          message: 'Analysis method not available'
+        }
       }
 
       // Perform analysis
@@ -4763,22 +4814,6 @@ export class MCPServer {
     }
   }
 
-  private async startConversationManager(sessionId: string): Promise<void> {
-    try {
-      // Import the conversation manager
-      const { MCPConversationManager } = await import('../ai/mcp-conversation-manager');
-      
-      // Get the conversation manager instance and start the conversation
-      const conversationManager = MCPConversationManager.getInstance();
-      await conversationManager.startConversation(sessionId);
-      
-      console.log(`✅ Conversation manager activated for session ${sessionId}`);
-    } catch (error) {
-      console.error(`❌ Failed to start conversation manager for session ${sessionId}:`, error);
-      // Don't throw - continue with the experiment
-    }
-  }
-
   private async executeExperimentAsync(experimentId: string, runId: string): Promise<void> {
     try {
       const experiment = await db.query.experiments.findFirst({
@@ -4854,7 +4889,7 @@ export class MCPServer {
             console.log(`✅ Conversation started for session ${sessionId}`);
             
             // Step 4: Start the conversation manager (IMPORTANT!)
-            await this.startConversationManager(sessionId);
+            console.log(`✅ Server-side conversation manager is handling session ${sessionId}`);
             
             // Step 5: Wait for conversation completion
             await this.waitForConversationCompletion(sessionId, experimentConfig.maxMessageCount);
