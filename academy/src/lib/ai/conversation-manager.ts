@@ -159,7 +159,7 @@ export class ServerConversationManager {
 
         // Check if we have enough participants
         const activeAIParticipants = session.participants.filter(p => 
-          p.type !== 'moderator' && p.status !== 'error'
+          p.type !== 'moderator' && p.status === 'active'
         )
         
         if (activeAIParticipants.length < 2) {
@@ -198,7 +198,7 @@ export class ServerConversationManager {
         }
 
         // Skip if participant is in error state
-        if (currentParticipant.status === 'error') {
+        if (currentParticipant.status === 'inactive') {
           console.log(`⚠️ Skipping participant ${currentParticipant.name} due to error state`)
           this.moveToNextParticipant(sessionId)
           await new Promise(resolve => setTimeout(resolve, 3000))
@@ -267,9 +267,9 @@ export class ServerConversationManager {
               conversationState.wasInterrupted = true
               conversationState.interruptedParticipantId = currentParticipantId
               conversationState.interruptedAt = new Date()
-              await this.updateParticipantStatus(sessionId, currentParticipantId, 'idle')
+              await this.updateParticipantStatus(sessionId, currentParticipantId, 'inactive')
             } else {
-              await this.updateParticipantStatus(sessionId, currentParticipantId, 'error')
+              await this.updateParticipantStatus(sessionId, currentParticipantId, 'inactive')
               this.moveToNextParticipant(sessionId)
             }
           }
@@ -283,12 +283,12 @@ export class ServerConversationManager {
               conversationState.wasInterrupted = true
               conversationState.interruptedParticipantId = currentParticipantId
               conversationState.interruptedAt = new Date()
-              await this.updateParticipantStatus(sessionId, currentParticipantId, 'idle')
+              await this.updateParticipantStatus(sessionId, currentParticipantId, 'inactive')
               break
             }
           }
           
-          await this.updateParticipantStatus(sessionId, currentParticipantId, 'error')
+          await this.updateParticipantStatus(sessionId, currentParticipantId, 'inactive')
           this.moveToNextParticipant(sessionId)
           await new Promise(resolve => setTimeout(resolve, 5000))
         } finally {
