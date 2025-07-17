@@ -1191,7 +1191,20 @@ export class MCPServer {
           type: 'object',
           properties: {
             experimentId: { type: 'string', description: 'Experiment ID' },
-            run: { type: 'object', description: 'Run configuration' }
+            run: { 
+              type: 'object', 
+              description: 'Run configuration object',
+              properties: {
+                status: { type: 'string', description: 'Run status' },
+                progress: { type: 'number', description: 'Progress percentage' },
+                totalSessions: { type: 'number', description: 'Total sessions to run' },
+                completedSessions: { type: 'number', description: 'Completed sessions count' },
+                failedSessions: { type: 'number', description: 'Failed sessions count' },
+                averageMessageCount: { type: 'number', description: 'Average message count' },
+                results: { type: 'object', description: 'Run results object' }
+              },
+              required: ['status']
+            }
           },
           required: ['experimentId', 'run']
         }
@@ -4748,283 +4761,400 @@ export class MCPServer {
     }
   }
 
+  private async startConversationManager(sessionId: string): Promise<void> {
+    try {
+      // Import the conversation manager
+      const { MCPConversationManager } = await import('../ai/mcp-conversation-manager');
+      
+      // Get the conversation manager instance and start the conversation
+      const conversationManager = MCPConversationManager.getInstance();
+      await conversationManager.startConversation(sessionId);
+      
+      console.log(`✅ Conversation manager activated for session ${sessionId}`);
+    } catch (error) {
+      console.error(`❌ Failed to start conversation manager for session ${sessionId}:`, error);
+      // Don't throw - continue with the experiment
+    }
+  }
+
   private async executeExperimentAsync(experimentId: string, runId: string): Promise<void> {
     try {
-      const config = this.experimentConfigs.get(experimentId);
-      if (!config) {
+      const experiment = await db.query.experiments.findFirst({
+        where: eq(experiments.id, experimentId)
+      });
+
+      if (!experiment) {
         throw new Error('Experiment config not found');
       }
 
-      const totalSessions = config.totalSessions || 10;
-      const concurrentSessions = config.concurrentSessions || 3;
-      const sessionIds: string[] = [];
+      const experimentConfig = experiment.config;
+      console.log('🔬 Starting experiment execution:', experimentConfig.name);
 
-      // Create sessions
-      for (let i = 0; i < totalSessions; i++) {
-        const sessionName = config.sessionNamePattern?.replace('{index}', String(i + 1)) || 
-                          `${config.name} - Session ${i + 1}`;
+      // Generate session batches using the same logic as client
+      const batches = this.generateBatches(experimentConfig);
+      const createdSessionIds: string[] = [];
+
+      for (const batch of batches) {
+        console.log(`\n🚀 Starting batch ${batch.batchNumber} with ${batch.sessions.length} concurrent sessions`);
         
-        const result = await this.toolCreateSession({
-          name: sessionName,
-          description: `Automated session for experiment: ${config.name}`,
-          participants: config.participants
+        const sessionPromises = batch.sessions.map(async (sessionPlan) => {
+          try {
+            console.log(`\n📝 Starting session: ${sessionPlan.sessionName}`);
+            
+            // Step 1: Create session via internal MCP tool
+            const createResult = await this.toolCreateSession({
+              name: sessionPlan.sessionName,
+              description: `Experiment session ${sessionPlan.sessionNumber} for ${experimentConfig.name}`,
+              participants: sessionPlan.participants.map(p => ({
+                type: p.type,
+                name: p.name,
+                model: p.model,
+                apiKey: p.apiKey,
+                temperature: p.temperature,
+                maxTokens: p.maxTokens,
+                systemPrompt: p.systemPrompt,
+                characteristics: p.characteristics
+              }))
+            });
+            
+            if (!createResult.success) {
+              throw new Error(`Failed to create session: ${createResult.error}`);
+            }
+            
+            const sessionId = createResult.sessionId;
+            createdSessionIds.push(sessionId);
+            console.log(`✅ Session created: ${sessionId}`);
+            
+            // Step 2: Configure session via MCP tool
+            await this.toolUpdateSession({
+              sessionId: sessionId,
+              updates: {
+                analysis: {
+                  provider: experimentConfig.analysisProvider || 'claude',
+                  autoAnalysis: true,
+                  analysisInterval: (experimentConfig.maxMessageCount || 20) * 30
+                }
+              }
+            });
+            
+            // Step 3: Start the conversation with initial prompt via MCP tool
+            const initialPrompt = experimentConfig.systemPrompt || experimentConfig.startingPrompt || '';
+            
+            const startResult = await this.toolStartConversation({
+              sessionId,
+              initialPrompt: initialPrompt
+            });
+            
+            if (!startResult.success) {
+              throw new Error(`Failed to start conversation: ${startResult.error}`);
+            }
+            
+            console.log(`✅ Conversation started for session ${sessionId}`);
+            
+            // Step 4: Start the conversation manager (IMPORTANT!)
+            await this.startConversationManager(sessionId);
+            
+            // Step 5: Wait for conversation completion
+            await this.waitForConversationCompletion(sessionId, experimentConfig.maxMessageCount);
+            
+            // Step 6: Analysis if configured via MCP tool
+            if (experimentConfig.analysisProvider) {
+              console.log(`🔍 Triggering analysis for session ${sessionId}`);
+              try {
+                await this.toolTriggerLiveAnalysis({
+                  sessionId: sessionId,
+                  analysisType: 'full'
+                });
+              } catch (error) {
+                console.warn(`⚠️ Analysis failed for session ${sessionId}:`, error);
+              }
+            }
+            
+            // Step 7: Stop conversation via MCP tool
+            await this.toolStopConversation({ sessionId });
+            console.log(`✅ Conversation stopped for session ${sessionId}`);
+            
+            // Step 8: Update experiment progress via MCP tool
+            await this.updateExperimentProgress(experimentId, sessionPlan.sessionNumber, experimentConfig.totalSessions, true);
+            
+            return {
+              sessionId,
+              success: true,
+              sessionName: sessionPlan.sessionName
+            };
+            
+          } catch (error) {
+            console.error(`❌ Session ${sessionPlan.sessionName} failed:`, error);
+            
+            // Update experiment progress with failure via MCP tool
+            await this.updateExperimentProgress(experimentId, sessionPlan.sessionNumber, experimentConfig.totalSessions, false, error);
+            
+            return {
+              sessionId: null,
+              success: false,
+              sessionName: sessionPlan.sessionName,
+              error: error instanceof Error ? error.message : 'Unknown error'
+            };
+          }
         });
+
+        const batchResults = await Promise.all(sessionPromises);
         
-        sessionIds.push(result.sessionId);
+        const successCount = batchResults.filter(r => r.success).length;
+        console.log(`\n📊 Batch ${batch.batchNumber} completed: ${successCount}/${batch.sessions.length} successful`);
       }
 
-      this.activeExperimentSessions.set(experimentId, new Set(sessionIds));
-
-      // Process sessions in batches
-      for (let i = 0; i < sessionIds.length; i += concurrentSessions) {
-        const batch = sessionIds.slice(i, i + concurrentSessions);
-        
-        // Check if experiment should continue
-        const run = this.experimentRuns.get(experimentId);
-        if (!run || run.status !== 'running') {
-          console.log('Experiment stopped or paused');
-          break;
+      // Complete experiment via MCP tool
+      await this.toolUpdateExperimentRun({
+        experimentId,
+        updates: {
+          status: 'completed',
+          completedAt: new Date(),
+          progress: 100
         }
-
-        // Process batch concurrently
-        await Promise.all(batch.map(sessionId => 
-          this.runExperimentSession(experimentId, runId, sessionId, config)
-        ));
-
-        // Update progress
-        const progress = Math.round((i + batch.length) / totalSessions * 100);
-        await this.updateExperimentRunProgress(runId, progress);
-      }
-
-      // Complete experiment
-      await this.completeExperiment(experimentId, runId);
-    } catch (error) {
-      console.error('Experiment execution failed:', error);
-      await this.failExperiment(experimentId, runId, error);
-    }
-  }
-
-  private async runExperimentSession(
-    experimentId: string, 
-    runId: string, 
-    sessionId: string, 
-    config: ExperimentConfig
-  ): Promise<void> {
-    try {
-      // Start conversation
-      await this.toolStartConversation({
-        sessionId,
-        initialPrompt: config.systemPrompt || 'Begin the conversation.'
       });
 
-      let messageCount = 0;
-      const maxMessages = config.maxMessageCount || 20;
-
-      // Run conversation
-      while (messageCount < maxMessages) {
-        const run = this.experimentRuns.get(experimentId);
-        if (!run || run.status !== 'running') break;
-
-        // Get session participants
-        const session = await db.query.sessions.findFirst({
-          where: eq(sessions.id, sessionId),
-          with: { 
-            participants: true,
-            messages: {
-              orderBy: [messages.timestamp]
-            }
-          }
-        });
-
-        if (!session || session.participants.length === 0) break;
-
-        // Each participant takes a turn
-        for (const participant of session.participants) {
-          if (messageCount >= maxMessages) break;
-
-          // Get conversation context
-          const recentMessages = session.messages.slice(-10).map(m => ({
-            role: m.participantId === participant.id ? 'assistant' : 'user',
-            content: m.content
-          }));
-
-          // Find the participant config from experiment config
-          const participantConfig = config.participants.find(p => 
-            p.name === participant.name && p.type === participant.type
-          );
-
-          if (!participantConfig) {
-            console.warn(`No config found for participant ${participant.name}`);
-            continue;
-          }
-
-          // Call the appropriate AI provider based on participant type
-          const providerMethod = `call${participant.type.charAt(0).toUpperCase() + participant.type.slice(1)}APIDirect`;
-          let response;
-
-          try {
-            // Dynamic method call based on participant type
-            if (typeof this[providerMethod as keyof MCPServer] === 'function') {
-              response = await (this[providerMethod as keyof MCPServer] as any)({
-                messages: recentMessages,
-                systemPrompt: participantConfig.systemPrompt || participant.systemPrompt,
-                temperature: participantConfig.temperature ?? participant.settings?.temperature ?? 0.7,
-                maxTokens: participantConfig.maxTokens ?? participant.settings?.maxTokens ?? 1500,
-                model: participantConfig.model || participant.settings?.model,
-                sessionId,
-                participantId: participant.id
-              });
-            } else {
-              console.warn(`No API method found for provider type: ${participant.type}`);
-              continue;
-            }
-          } catch (error) {
-            console.error(`Failed to get response from ${participant.type}:`, error);
-            
-            // Check error rate threshold
-            const errorRate = run.failedSessions / (run.completedSessions + run.failedSessions + 1);
-            if (config.errorRateThreshold && errorRate > config.errorRateThreshold) {
-              throw new Error(`Error rate ${errorRate} exceeds threshold ${config.errorRateThreshold}`);
-            }
-            continue;
-          }
-
-          if (response && response.content) {
-            await this.toolSendMessage({
-              sessionId,
-              content: response.content,
-              participantId: participant.id,
-              participantName: participant.name,
-              participantType: participant.type
-            });
-            messageCount++;
-          }
-
-          // Delay between messages
-          const delay = participant.settings?.responseDelay || 2000;
-          await new Promise(resolve => setTimeout(resolve, delay));
-        }
-      }
-
-      // Run analysis if configured
-      if (config.analysisProvider) {
-        await this.toolAnalyzeConversation({
-          sessionId,
-          analysisType: 'full'
-        });
-      }
-
-      // Update completed sessions count
-      await db
-        .update(experimentRuns)
-        .set({
-          completedSessions: db.sql`${experimentRuns.completedSessions} + 1`
-        })
-        .where(eq(experimentRuns.id, runId));
-
-    } catch (error) {
-      console.error(`Session ${sessionId} failed:`, error);
+      console.log(`\n🎉 Experiment ${experimentConfig.name} completed!`);
       
-      // Update failed sessions count
-      await db
-        .update(experimentRuns)
-        .set({
-          failedSessions: db.sql`${experimentRuns.failedSessions} + 1`
-        })
-        .where(eq(experimentRuns.id, runId));
+    } catch (error) {
+      console.error('Experiment execution failed:', error);
+      
+      // Fail experiment via MCP tool
+      await this.toolUpdateExperimentRun({
+        experimentId,
+        updates: {
+          status: 'failed',
+          completedAt: new Date(),
+          error: error instanceof Error ? error.message : 'Unknown error'
+        }
+      });
     }
   }
 
-  private async updateExperimentRunProgress(runId: string, progress: number): Promise<void> {
-    await db
-      .update(experimentRuns)
-      .set({ progress })
-      .where(eq(experimentRuns.id, runId));
-  }
-
-  private async completeExperiment(experimentId: string, runId: string): Promise<void> {
-    const run = await db.query.experimentRuns.findFirst({
-      where: eq(experimentRuns.id, runId)
-    });
-
-    if (!run) return;
-
-    // Calculate results
-    const sessionIds = this.activeExperimentSessions.get(experimentId);
-    let totalMessages = 0;
-    let totalParticipants = 0;
-
-    if (sessionIds) {
-      for (const sessionId of sessionIds) {
-        const [messageCount] = await db
-          .select({ count: db.count() })
-          .from(messages)
-          .where(eq(messages.sessionId, sessionId));
+  private generateBatches(experimentConfig: any): Array<{
+    batchNumber: number;
+    sessions: Array<{
+      sessionNumber: number;
+      sessionName: string;
+      participants: any[];
+    }>;
+  }> {
+    const totalSessions = experimentConfig.totalSessions || 10;
+    const concurrentSessions = experimentConfig.concurrentSessions || 3;
+    const batches = [];
+    
+    let sessionNumber = 1;
+    for (let i = 0; i < totalSessions; i += concurrentSessions) {
+      const batchSessions = [];
+      const batchSize = Math.min(concurrentSessions, totalSessions - i);
+      
+      for (let j = 0; j < batchSize; j++) {
+        const sessionName = experimentConfig.sessionNamePattern?.replace('{index}', String(sessionNumber)) || 
+                          `${experimentConfig.name} - Session ${sessionNumber}`;
         
-        const [participantCount] = await db
-          .select({ count: db.count() })
-          .from(participants)
-          .where(eq(participants.sessionId, sessionId));
+        batchSessions.push({
+          sessionNumber,
+          sessionName,
+          participants: experimentConfig.participants || []
+        });
         
-        totalMessages += messageCount.count;
-        totalParticipants += participantCount.count;
+        sessionNumber++;
       }
+      
+      batches.push({
+        batchNumber: Math.floor(i / concurrentSessions) + 1,
+        sessions: batchSessions
+      });
     }
-
-    const averageMessageCount = run.completedSessions > 0 ? 
-      totalMessages / run.completedSessions : 0;
-
-    // Update run status
-    await db
-      .update(experimentRuns)
-      .set({
-        status: 'completed',
-        progress: 100,
-        averageMessageCount,
-        completedAt: new Date(),
-        results: {
-          totalMessages,
-          totalParticipants,
-          averageMessagesPerSession: averageMessageCount,
-          successRate: run.totalSessions > 0 ? 
-            (run.completedSessions / run.totalSessions) * 100 : 0
-        }
-      })
-      .where(eq(experimentRuns.id, runId));
-
-    // Update experiment status
-    await db
-      .update(experiments)
-      .set({ status: 'completed' })
-      .where(eq(experiments.id, experimentId));
-
-    // Clean up
-    this.experimentRuns.delete(experimentId);
-    this.activeExperimentSessions.delete(experimentId);
+    
+    return batches;
   }
 
-  private async failExperiment(experimentId: string, runId: string, error: any): Promise<void> {
-    // Update run status
+  private async waitForConversationCompletion(sessionId: string, maxMessageCount: number = 20): Promise<void> {
+    return new Promise((resolve, reject) => {
+      let messageCount = 0;
+      const startTime = Date.now();
+      const timeout = 10 * 60 * 1000; // 10 minutes max per conversation
+
+      const checkInterval = setInterval(async () => {
+        try {
+          // Check timeout
+          if (Date.now() - startTime > timeout) {
+            clearInterval(checkInterval);
+            console.log(`⏰ Session ${sessionId}: Conversation timed out`);
+            resolve(); // Don't reject on timeout, just complete
+            return;
+          }
+
+          // Get conversation status via MCP tool
+          const statusResult = await this.toolGetConversationStatus({ sessionId });
+          if (!statusResult.success) {
+            console.warn(`⚠️ Failed to get status for session ${sessionId}`);
+            return; // Continue checking
+          }
+
+          // Extract status from the correct location
+          const sessionStatus = statusResult.status?.sessionStatus || statusResult.data?.status;
+          
+          // Check if conversation is stopped or has errors
+          if (sessionStatus === 'stopped' || sessionStatus === 'error') {
+            clearInterval(checkInterval);
+            console.log(`✅ Session ${sessionId}: Conversation completed with status: ${sessionStatus}`);
+            resolve();
+            return;
+          }
+
+          // Check message count via MCP tool
+          const statsResult = await this.toolGetConversationStats({ sessionId });
+          if (statsResult.success && statsResult.stats) {
+            messageCount = statsResult.stats.totalMessages || 0;
+            
+            if (messageCount >= maxMessageCount) {
+              clearInterval(checkInterval);
+              console.log(`✅ Session ${sessionId}: Reached max message count (${messageCount}/${maxMessageCount})`);
+              resolve();
+              return;
+            }
+          }
+
+          console.log(`📊 Session ${sessionId}: ${messageCount}/${maxMessageCount} messages, status: ${sessionStatus || 'unknown'}`);
+          
+        } catch (error) {
+          console.error(`❌ Error monitoring session ${sessionId}:`, error);
+          // Don't reject immediately, continue monitoring
+        }
+      }, 5000); // Check every 5 seconds
+    });
+  }
+
+  private async updateExperimentProgress(
+    experimentId: string, 
+    sessionNumber: number, 
+    totalSessions: number, 
+    success: boolean, 
+    error?: any
+  ): Promise<void> {
+    try {
+      // Get current run via MCP tool
+      const runResult = await this.toolGetExperimentRun({ experimentId });
+      
+      if (runResult.success && runResult.run) {
+        const currentRun = runResult.run;
+        const updates: any = {};
+        
+        if (success) {
+          updates.completedSessions = currentRun.completedSessions + 1;
+          updates.progress = 30 + ((currentRun.completedSessions + 1) / totalSessions) * 70;
+        } else {
+          updates.failedSessions = currentRun.failedSessions + 1;
+          updates.errors = [
+            ...(currentRun.errors || []),
+            { 
+              step: `session_${sessionNumber}`, 
+              error: error instanceof Error ? error.message : 'Unknown error' 
+            }
+          ];
+        }
+        
+        // Update via MCP tool
+        await this.toolUpdateExperimentRun({
+          experimentId,
+          updates
+        });
+        
+        console.log(`📈 Experiment ${experimentId} progress updated: ${updates.progress || currentRun.progress}%`);
+      }
+    } catch (error) {
+      console.error('Failed to update experiment progress via MCP:', error);
+    }
+  }
+
+  // MCP Tool wrapper methods (add these new methods)
+  private async toolCreateExperimentRun(args: any): Promise<any> {
+    const { experimentId, run } = args;
+    
+    if (!experimentId) {
+      throw new Error('Experiment ID is required');
+    }
+
+    // Create experiment run in database
+    const [newRun] = await db.insert(experimentRuns).values({
+      experimentId,
+      status: run.status || 'running',
+      progress: run.progress || 0,
+      totalSessions: run.totalSessions || 10,
+      completedSessions: run.completedSessions || 0,
+      failedSessions: run.failedSessions || 0,
+      averageMessageCount: run.averageMessageCount || 0,
+      results: run.results || {}
+    }).returning();
+
+    this.experimentRuns.set(experimentId, newRun);
+
+    return {
+      success: true,
+      runId: newRun.id,
+      run: newRun,
+      message: 'Experiment run created successfully'
+    };
+  }
+
+  private async toolUpdateExperimentRun(args: any): Promise<any> {
+    const { experimentId, updates } = args;
+    
+    if (!experimentId) {
+      throw new Error('Experiment ID is required');
+    }
+
+    const currentRun = this.experimentRuns.get(experimentId);
+    if (!currentRun) {
+      throw new Error('No active experiment run found');
+    }
+
+    // Update in database
     await db
       .update(experimentRuns)
       .set({
-        status: 'failed',
-        completedAt: new Date(),
-        results: {
-          error: error instanceof Error ? error.message : String(error)
-        }
+        ...updates,
+        updatedAt: new Date()
       })
-      .where(eq(experimentRuns.id, runId));
+      .where(eq(experimentRuns.id, currentRun.id));
 
-    // Update experiment status
-    await db
-      .update(experiments)
-      .set({ status: 'failed' })
-      .where(eq(experiments.id, experimentId));
+    // Update in memory
+    const updatedRun = { ...currentRun, ...updates };
+    this.experimentRuns.set(experimentId, updatedRun);
 
-    // Clean up
-    this.experimentRuns.delete(experimentId);
-    this.activeExperimentSessions.delete(experimentId);
+    return {
+      success: true,
+      runId: currentRun.id,
+      run: updatedRun,
+      message: 'Experiment run updated successfully'
+    };
+  }
+
+  private async toolGetExperimentRun(args: any): Promise<any> {
+    const { experimentId } = args;
+    
+    if (!experimentId) {
+      throw new Error('Experiment ID is required');
+    }
+
+    // Check memory first
+    let run = this.experimentRuns.get(experimentId);
+    
+    // If not in memory, get latest from database
+    if (!run) {
+      run = await db.query.experimentRuns.findFirst({
+        where: eq(experimentRuns.experimentId, experimentId),
+        orderBy: [desc(experimentRuns.startedAt)]
+      });
+    }
+
+    return {
+      success: true,
+      run: run || null,
+      message: run ? 'Experiment run found' : 'No experiment run found'
+    };
   }
 
   private async toolGetExperimentStatus(args: any): Promise<any> {
