@@ -1,4 +1,4 @@
-// src/components/Research/ExperimentsInterface.tsx - Updated with Internal Pub/Sub Event System
+// src/components/Research/ExperimentsInterface.tsx - Updated with Single Run and Session Dropdown
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
@@ -16,21 +16,36 @@ import {
   Activity, Trash2, Clock,
   TrendingUp, AlertTriangle, Zap, Users, 
   BarChart3, Settings2, Database, Edit2,
-  Download, RefreshCw
+  Download, RefreshCw, ChevronDown, ChevronRight,
+  MessageSquare, Calendar, FileText
 } from 'lucide-react'
+
+interface ExperimentSession {
+  id: string
+  name: string
+  messageCount: number
+  participantCount: number
+  status: string
+  createdAt: Date
+  lastActivity: Date
+  messages?: Array<{
+    role: string
+    content: string
+    participantName: string
+    timestamp: Date
+  }>
+  analysisSnapshots?: Array<{
+    id: string
+    timestamp: Date
+    type: string
+    analysis: any
+  }>
+}
 
 interface ExperimentResults {
   config: ExperimentConfig
   run: ExperimentRun
-  sessions: Array<{
-    id: string
-    name: string
-    messageCount: number
-    participantCount: number
-    status: string
-    createdAt: Date
-    lastActivity: Date
-  }>
+  sessions: ExperimentSession[]
   aggregateStats: {
     totalSessions: number
     totalMessages: number
@@ -62,9 +77,14 @@ export function ExperimentsInterface({
   const [activeRun, setActiveRun] = useState<ExperimentRun | null>(null)
   const [experimentResults, setExperimentResults] = useState<ExperimentResults | null>(null)
   const [isLoadingStatus, setIsLoadingStatus] = useState(false)
+  const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set())
+  const [showSessionsDropdown, setShowSessionsDropdown] = useState(false)
   
   // MCP client ref for API calls
   const mcpClient = useRef(MCPClient.getInstance())
+  
+  // Track if we're currently loading to prevent duplicate requests
+  const loadingRef = useRef(false)
   
   const {
     executeExperimentViaMCP,
@@ -77,21 +97,56 @@ export function ExperimentsInterface({
     updateExperimentViaMCP
   } = useMCP()
 
-  // EVENT-DRIVEN: Load experiment status function
-  const loadExperimentStatus = useCallback(async () => {
+  // EVENT-DRIVEN: Load experiment results
+  const loadExperimentResults = useCallback(async () => {
     if (!selectedExperiment) return
 
+    try {
+      const results = await getExperimentResultsViaMCP(selectedExperiment.id)
+      console.log('🧪 Loaded experiment results:', results)
+      setExperimentResults(results.results)
+    } catch (error) {
+      console.error('Failed to load experiment results:', error)
+    }
+  }, [selectedExperiment, getExperimentResultsViaMCP])
+
+  // EVENT-DRIVEN: Load experiment status function
+  const loadExperimentStatus = useCallback(async () => {
+    if (!selectedExperiment || loadingRef.current) return
+
+    console.log(`🧪 Loading experiment status for ${selectedExperiment.id}`)
+    loadingRef.current = true
     setIsLoadingStatus(true)
+    
     try {
       const status = await getExperimentStatusViaMCP(selectedExperiment.id)
-      if (status.run) {
-        setActiveRun(status.run)
+      console.log('🧪 Received experiment status:', status)
+      
+      if (status.run || status.currentRun) {
+        const run = status.run || status.currentRun
+        // Ensure run has all required properties with defaults
+        const normalizedRun = {
+          ...run,
+          errors: run.errors || [],
+          sessionIds: run.sessionIds || [],
+          errorRate: run.errorRate || 0,
+          // Convert date strings to Date objects
+          startedAt: run.startedAt ? new Date(run.startedAt) : new Date(),
+          pausedAt: run.pausedAt ? new Date(run.pausedAt) : undefined,
+          resumedAt: run.resumedAt ? new Date(run.resumedAt) : undefined,
+          completedAt: run.completedAt ? new Date(run.completedAt) : undefined
+        }
+        setActiveRun(normalizedRun)
+        console.log('🧪 Updated active run:', normalizedRun)
         
         // Load results if experiment is completed
-        if (status.run.status === 'completed' || status.run.status === 'failed') {
+        if (normalizedRun.status === 'completed' || normalizedRun.status === 'failed') {
           await loadExperimentResults()
         }
+      } else if (status.success === false) {
+        console.log('🧪 Failed to get status:', status)
       } else {
+        console.log('🧪 No run found in status')
         setActiveRun(null)
         setExperimentResults(null)
       }
@@ -100,30 +155,45 @@ export function ExperimentsInterface({
       setActiveRun(null)
     } finally {
       setIsLoadingStatus(false)
+      loadingRef.current = false
     }
-  }, [selectedExperiment])
-
-  // EVENT-DRIVEN: Load experiment results
-  const loadExperimentResults = useCallback(async () => {
-    if (!selectedExperiment) return
-
-    try {
-      const results = await getExperimentResultsViaMCP(selectedExperiment.id)
-      setExperimentResults(results.results)
-    } catch (error) {
-      console.error('Failed to load experiment results:', error)
-    }
-  }, [selectedExperiment])
+  }, [selectedExperiment, getExperimentStatusViaMCP, loadExperimentResults])
 
   // EVENT-DRIVEN: Handle experiment events
   const handleExperimentEvent = useCallback(async (payload: any) => {
-    console.log('🧪 ExperimentsInterface: Experiment event received:', payload.data)
+    console.log('🧪 ExperimentsInterface: Experiment event received:', payload)
+    
+    // Check various payload structures since events might have different formats
+    const experimentId = payload?.data?.experimentId || 
+                        payload?.data?.configId || 
+                        payload?.experimentId || 
+                        payload?.configId ||
+                        payload?.data?.experiment?.id ||
+                        payload?.data?.experiment?.configId
+
+    console.log('🧪 Checking if event is for our experiment:', {
+      eventExperimentId: experimentId,
+      selectedExperimentId: selectedExperiment?.id,
+      matches: experimentId === selectedExperiment?.id
+    })
     
     // If this affects our selected experiment, refresh the status
-    if (payload.data.experimentId === selectedExperiment?.id) {
+    if (experimentId === selectedExperiment?.id) {
+      console.log('🧪 Event matches our experiment, refreshing status...')
       await loadExperimentStatus()
     }
   }, [selectedExperiment?.id, loadExperimentStatus])
+
+  // EVENT-DRIVEN: Handle any event that might affect experiment status
+  const handleAnyExperimentRelatedEvent = useCallback(async (payload: any) => {
+    console.log('🧪 ExperimentsInterface: Event received that might affect experiment:', payload)
+    
+    // For any event, just refresh the status if we have an active experiment
+    if (selectedExperiment && !loadingRef.current) {
+      console.log('🧪 Refreshing experiment status due to event')
+      await loadExperimentStatus()
+    }
+  }, [selectedExperiment, loadExperimentStatus])
 
   // EVENT-DRIVEN: Subscribe to relevant events via internal pub/sub
   useEffect(() => {
@@ -134,12 +204,20 @@ export function ExperimentsInterface({
     // Initial load
     loadExperimentStatus()
 
-    // Experiment events
+    // Experiment events - use specific handler
     const unsubscribeExperimentCreated = eventBus.subscribe(EVENT_TYPES.EXPERIMENT_CREATED, handleExperimentEvent)
     const unsubscribeExperimentUpdated = eventBus.subscribe(EVENT_TYPES.EXPERIMENT_UPDATED, handleExperimentEvent)
     const unsubscribeExperimentDeleted = eventBus.subscribe(EVENT_TYPES.EXPERIMENT_DELETED, handleExperimentEvent)
     const unsubscribeExperimentExecuted = eventBus.subscribe(EVENT_TYPES.EXPERIMENT_EXECUTED, handleExperimentEvent)
     const unsubscribeExperimentStatusChanged = eventBus.subscribe(EVENT_TYPES.EXPERIMENT_STATUS_CHANGED, handleExperimentEvent)
+    
+    // Session events - use generic handler since they might be part of experiment
+    const unsubscribeSessionCreated = eventBus.subscribe(EVENT_TYPES.SESSION_CREATED, handleAnyExperimentRelatedEvent)
+    const unsubscribeSessionUpdated = eventBus.subscribe(EVENT_TYPES.SESSION_UPDATED, handleAnyExperimentRelatedEvent)
+    const unsubscribeSessionDeleted = eventBus.subscribe(EVENT_TYPES.SESSION_DELETED, handleAnyExperimentRelatedEvent)
+    
+    // Message events - also refresh on new messages
+    const unsubscribeMessageCreated = eventBus.subscribe(EVENT_TYPES.MESSAGE_CREATED, handleAnyExperimentRelatedEvent)
 
     return () => {
       console.log(`🧪 ExperimentsInterface: Cleaning up internal pub/sub event subscriptions for experiment ${selectedExperiment.id}`)
@@ -148,13 +226,22 @@ export function ExperimentsInterface({
       unsubscribeExperimentDeleted()
       unsubscribeExperimentExecuted()
       unsubscribeExperimentStatusChanged()
+      unsubscribeSessionCreated()
+      unsubscribeSessionUpdated()
+      unsubscribeSessionDeleted()
+      unsubscribeMessageCreated()
     }
-  }, [selectedExperiment?.id, loadExperimentStatus, handleExperimentEvent])
+  }, [selectedExperiment?.id, loadExperimentStatus, handleExperimentEvent, handleAnyExperimentRelatedEvent])
 
   // EVENT-DRIVEN: Set up periodic status checking only for running experiments
   useEffect(() => {
     if (!selectedExperiment || !activeRun || 
         (activeRun.status !== 'running' && activeRun.status !== 'pending')) {
+      console.log('🧪 No periodic polling needed:', {
+        hasExperiment: !!selectedExperiment,
+        hasActiveRun: !!activeRun,
+        status: activeRun?.status
+      })
       return
     }
 
@@ -163,13 +250,32 @@ export function ExperimentsInterface({
     // For running experiments, we still need periodic checks since experiment status
     // updates happen externally and may not trigger MCP tool calls
     const pollStatus = async () => {
+      console.log('🧪 Polling experiment status...')
       try {
         const status = await getExperimentStatusViaMCP(selectedExperiment.id)
-        if (status.run) {
-          setActiveRun(status.run)
+        console.log('🧪 Polled status:', status)
+        
+        if (status.run || status.currentRun) {
+          const run = status.run || status.currentRun
+          // Ensure run has all required properties with defaults
+          const normalizedRun = {
+            ...run,
+            errors: run.errors || [],
+            sessionIds: run.sessionIds || [],
+            errorRate: run.errorRate || 0,
+            // Convert date strings to Date objects
+            startedAt: run.startedAt ? new Date(run.startedAt) : new Date(),
+            pausedAt: run.pausedAt ? new Date(run.pausedAt) : undefined,
+            resumedAt: run.resumedAt ? new Date(run.resumedAt) : undefined,
+            completedAt: run.completedAt ? new Date(run.completedAt) : undefined
+          }
+          setActiveRun(prevRun => {
+            console.log('🧪 Updating run from:', prevRun, 'to:', normalizedRun)
+            return normalizedRun
+          })
           
           // Load results if experiment completed or failed
-          if (status.run.status === 'completed' || status.run.status === 'failed') {
+          if (normalizedRun.status === 'completed' || normalizedRun.status === 'failed') {
             await loadExperimentResults()
           }
         }
@@ -178,7 +284,7 @@ export function ExperimentsInterface({
       }
     }
 
-    // Poll more frequently for running experiments (every 3 seconds instead of 2)
+    // Poll every 3 seconds for running experiments
     const interval = setInterval(pollStatus, 3000)
 
     return () => {
@@ -203,12 +309,14 @@ export function ExperimentsInterface({
       
       // This will emit events automatically via internal pub/sub
       const result = await executeExperimentViaMCP(selectedExperiment.id, selectedExperiment)
+      console.log('🧪 Experiment start result:', result)
+      
       if (result.success) {
         // Set initial status - event-driven system will update with real status
-        setActiveRun({
+        const initialRun = {
           id: result.runId,
           configId: selectedExperiment.id,
-          status: 'pending',
+          status: 'pending' as const,
           startedAt: new Date(),
           totalSessions: selectedExperiment.totalSessions,
           completedSessions: 0,
@@ -218,7 +326,15 @@ export function ExperimentsInterface({
           errorRate: 0,
           errors: [],
           progress: 0
-        })
+        }
+        console.log('🧪 Setting initial run state:', initialRun)
+        setActiveRun(initialRun)
+        
+        // Force a status check after a short delay
+        setTimeout(() => {
+          console.log('🧪 Force loading experiment status after start')
+          loadExperimentStatus()
+        }, 1000)
       }
     } catch (error) {
       console.error('Failed to start experiment:', error)
@@ -321,30 +437,64 @@ export function ExperimentsInterface({
     }
   }
 
+  const toggleSessionExpanded = (sessionId: string) => {
+    setExpandedSessions(prev => {
+      const next = new Set(prev)
+      if (next.has(sessionId)) {
+        next.delete(sessionId)
+      } else {
+        next.add(sessionId)
+      }
+      return next
+    })
+  }
+
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'running': return <Loader2 className="h-4 w-4 animate-spin" />
-      case 'completed': return <CheckCircle2 className="h-4 w-4" />
-      case 'failed': return <AlertCircle className="h-4 w-4" />
-      case 'paused': return <Clock className="h-4 w-4" />
-      default: return <Clock className="h-4 w-4" />
+      case 'running': 
+        return <Loader2 className="h-4 w-4 animate-spin" />
+      case 'completed': 
+        return <CheckCircle2 className="h-4 w-4" />
+      case 'failed': 
+        return <AlertCircle className="h-4 w-4" />
+      case 'paused': 
+        return <Pause className="h-4 w-4" />
+      case 'stopped':
+        return <Square className="h-4 w-4" />
+      case 'pending':
+        return <Clock className="h-4 w-4" />
+      default: 
+        return <Clock className="h-4 w-4" />
     }
   }
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'running': return 'text-blue-600 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700'
-      case 'completed': return 'text-green-600 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700'
-      case 'failed': return 'text-red-600 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700'
-      case 'paused': return 'text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-700'
-      default: return 'text-gray-600 bg-gray-50 dark:bg-gray-900/20 border-gray-200 dark:border-gray-700'
+      case 'running': 
+        return 'text-blue-600 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700'
+      case 'completed': 
+        return 'text-green-600 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700'
+      case 'failed': 
+        return 'text-red-600 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700'
+      case 'paused': 
+        return 'text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-700'
+      case 'stopped':
+        return 'text-gray-600 bg-gray-50 dark:bg-gray-900/20 border-gray-200 dark:border-gray-700'
+      case 'pending':
+        return 'text-orange-600 bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-700'
+      default: 
+        return 'text-gray-600 bg-gray-50 dark:bg-gray-900/20 border-gray-200 dark:border-gray-700'
     }
   }
 
-  const formatDuration = (start?: Date, end?: Date) => {
+  const formatDuration = (start?: Date | string, end?: Date | string) => {
     if (!start) return 'N/A'
-    const endTime = end || new Date()
-    const duration = endTime.getTime() - new Date(start).getTime()
+    
+    // Convert to Date objects if they're strings
+    const startTime = start instanceof Date ? start : new Date(start)
+    const endTime = end ? (end instanceof Date ? end : new Date(end)) : new Date()
+    
+    const duration = endTime.getTime() - startTime.getTime()
     const minutes = Math.floor(duration / 60000)
     const seconds = Math.floor((duration % 60000) / 1000)
     return `${minutes}m ${seconds}s`
@@ -495,7 +645,10 @@ export function ExperimentsInterface({
                         <div className="space-y-4">
                           {/* Status Badge */}
                           <div className="flex items-center justify-between">
-                            <Badge className={`px-3 py-1 flex items-center gap-2 ${getStatusColor(activeRun.status)}`}>
+                            <Badge 
+                              variant="outline" 
+                              className={`px-3 py-1 flex items-center gap-2 ${getStatusColor(activeRun.status)}`}
+                            >
                               {getStatusIcon(activeRun.status)}
                               {activeRun.status.charAt(0).toUpperCase() + activeRun.status.slice(1)}
                             </Badge>
@@ -573,6 +726,184 @@ export function ExperimentsInterface({
                   </Card>
                 )}
 
+                {/* Session Results - Collapsible */}
+                {experimentResults && (
+                  <Card>
+                    <CardHeader 
+                      className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                      onClick={() => setShowSessionsDropdown(!showSessionsDropdown)}
+                    >
+                      <CardTitle className="text-lg flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {showSessionsDropdown ? (
+                            <ChevronDown className="h-5 w-5" />
+                          ) : (
+                            <ChevronRight className="h-5 w-5" />
+                          )}
+                          <MessageSquare className="h-5 w-5" />
+                          Session Details & Analysis
+                        </div>
+                        <div className="text-sm font-normal text-gray-600 dark:text-gray-400">
+                          {experimentResults.sessions.length} sessions • {experimentResults.aggregateStats.totalMessages} messages
+                        </div>
+                      </CardTitle>
+                    </CardHeader>
+                    {showSessionsDropdown && (
+                      <CardContent>
+                        <div className="space-y-6">
+                          {/* Aggregate Stats */}
+                          <div>
+                            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                              Aggregate Statistics
+                            </h4>
+                            <div className="grid grid-cols-3 gap-4">
+                              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg p-4">
+                                <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                                  {experimentResults.aggregateStats.totalMessages}
+                                </div>
+                                <div className="text-sm text-gray-600 dark:text-gray-400">Total Messages</div>
+                              </div>
+                              <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg p-4">
+                                <div className="text-3xl font-bold text-green-600 dark:text-green-400">
+                                  {experimentResults.aggregateStats.avgMessagesPerSession.toFixed(1)}
+                                </div>
+                                <div className="text-sm text-gray-600 dark:text-gray-400">Avg Messages/Session</div>
+                              </div>
+                              <div className="bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 rounded-lg p-4">
+                                <div className="text-3xl font-bold text-green-600 dark:text-green-400">
+                                  {(experimentResults.aggregateStats.successRate * 100).toFixed(1)}%
+                                </div>
+                                <div className="text-sm text-gray-600 dark:text-gray-400">Success Rate</div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Participant Performance */}
+                          <div>
+                            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                              Participant Performance
+                            </h4>
+                            <div className="space-y-2">
+                              {Object.entries(experimentResults.aggregateStats.participantStats).map(([key, stats]) => (
+                                <div key={key} className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
+                                  <div className="flex items-center gap-3">
+                                    <Badge variant="outline" className="capitalize">
+                                      {key.split('-')[0]}
+                                    </Badge>
+                                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                                      {key.split('-')[1]}
+                                    </span>
+                                  </div>
+                                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                                    {stats.messageCount} messages across {stats.sessions} sessions
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Session List */}
+                          <div>
+                            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                              Sessions ({experimentResults.sessions.length})
+                            </h4>
+                            <div className="max-h-96 overflow-y-auto space-y-2">
+                              {experimentResults.sessions.map((session) => (
+                                <div key={session.id} className="bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                  <div 
+                                    className="p-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50"
+                                    onClick={() => toggleSessionExpanded(session.id)}
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-2">
+                                        {expandedSessions.has(session.id) ? (
+                                          <ChevronDown className="h-3 w-3 text-gray-500" />
+                                        ) : (
+                                          <ChevronRight className="h-3 w-3 text-gray-500" />
+                                        )}
+                                        <div>
+                                          <span className="font-medium text-sm">{session.name}</span>
+                                          <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
+                                            <span>{session.messageCount} messages</span>
+                                            <span>{session.participantCount} participants</span>
+                                            <span>{new Date(session.createdAt).toLocaleDateString()}</span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <Badge variant="outline" className="text-xs">
+                                        {session.status}
+                                      </Badge>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Session Details (Collapsible) */}
+                                  {expandedSessions.has(session.id) && (
+                                    <div className="border-t border-gray-200 dark:border-gray-700 p-3">
+                                      {/* Messages */}
+                                      {session.messages && session.messages.length > 0 && (
+                                        <div className="mb-4">
+                                          <h5 className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-1">
+                                            <MessageSquare className="h-3 w-3" />
+                                            Conversation History
+                                          </h5>
+                                          <div className="space-y-2 max-h-48 overflow-y-auto">
+                                            {session.messages.map((msg, idx) => (
+                                              <div key={idx} className="text-xs">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                  <Badge variant="outline" className="text-xs py-0">
+                                                    {msg.participantName}
+                                                  </Badge>
+                                                  <span className="text-gray-500">
+                                                    {new Date(msg.timestamp).toLocaleTimeString()}
+                                                  </span>
+                                                </div>
+                                                <p className="text-gray-600 dark:text-gray-400 ml-2">
+                                                  {msg.content}
+                                                </p>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {/* Analysis Snapshots */}
+                                      {session.analysisSnapshots && session.analysisSnapshots.length > 0 && (
+                                        <div>
+                                          <h5 className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-1">
+                                            <FileText className="h-3 w-3" />
+                                            Analysis Snapshots
+                                          </h5>
+                                          <div className="space-y-2">
+                                            {session.analysisSnapshots.map((snapshot, idx) => (
+                                              <div key={idx} className="bg-gray-100 dark:bg-gray-900 rounded p-2">
+                                                <div className="flex items-center justify-between mb-1">
+                                                  <Badge variant="outline" className="text-xs">
+                                                    {snapshot.type}
+                                                  </Badge>
+                                                  <span className="text-xs text-gray-500">
+                                                    {new Date(snapshot.timestamp).toLocaleTimeString()}
+                                                  </span>
+                                                </div>
+                                                <pre className="text-xs text-gray-600 dark:text-gray-400 whitespace-pre-wrap">
+                                                  {JSON.stringify(snapshot.analysis, null, 2)}
+                                                </pre>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    )}
+                  </Card>
+                )}
+
                 {/* Experiment Configuration */}
                 <Card>
                   <CardHeader>
@@ -639,98 +970,6 @@ export function ExperimentsInterface({
                     </div>
                   </CardContent>
                 </Card>
-
-                {/* Results */}
-                {experimentResults && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        <BarChart3 className="h-5 w-5" />
-                        Experiment Results
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-6">
-                        {/* Aggregate Stats */}
-                        <div>
-                          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                            Aggregate Statistics
-                          </h4>
-                          <div className="grid grid-cols-3 gap-4">
-                            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg p-4">
-                              <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-                                {experimentResults.aggregateStats.totalMessages}
-                              </div>
-                              <div className="text-sm text-gray-600 dark:text-gray-400">Total Messages</div>
-                            </div>
-                            <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg p-4">
-                              <div className="text-3xl font-bold text-green-600 dark:text-green-400">
-                                {experimentResults.aggregateStats.avgMessagesPerSession.toFixed(1)}
-                              </div>
-                              <div className="text-sm text-gray-600 dark:text-gray-400">Avg Messages/Session</div>
-                            </div>
-                            <div className="bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 rounded-lg p-4">
-                              <div className="text-3xl font-bold text-green-600 dark:text-green-400">
-                                {(experimentResults.aggregateStats.successRate * 100).toFixed(1)}%
-                              </div>
-                              <div className="text-sm text-gray-600 dark:text-gray-400">Success Rate</div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Participant Performance */}
-                        <div>
-                          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                            Participant Performance
-                          </h4>
-                          <div className="space-y-2">
-                            {Object.entries(experimentResults.aggregateStats.participantStats).map(([key, stats]) => (
-                              <div key={key} className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                                <div className="flex items-center gap-3">
-                                  <Badge variant="outline" className="capitalize">
-                                    {key.split('-')[0]}
-                                  </Badge>
-                                  <span className="text-sm text-gray-600 dark:text-gray-400">
-                                    {key.split('-')[1]}
-                                  </span>
-                                </div>
-                                <div className="text-sm text-gray-600 dark:text-gray-400">
-                                  {stats.messageCount} messages across {stats.sessions} sessions
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Session List */}
-                        <div>
-                          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                            Sessions ({experimentResults.sessions.length})
-                          </h4>
-                          <div className="max-h-64 overflow-y-auto space-y-2">
-                            {experimentResults.sessions.map((session) => (
-                              <div key={session.id} className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                                <div className="flex items-center justify-between">
-                                  <div>
-                                    <span className="font-medium text-sm">{session.name}</span>
-                                    <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
-                                      <span>{session.messageCount} messages</span>
-                                      <span>{session.participantCount} participants</span>
-                                      <span>{new Date(session.createdAt).toLocaleDateString()}</span>
-                                    </div>
-                                  </div>
-                                  <Badge variant="outline" className="text-xs">
-                                    {session.status}
-                                  </Badge>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
               </div>
             </div>
           ) : (

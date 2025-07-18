@@ -541,6 +541,25 @@ export class MCPClient {
         await eventEmitter.experimentExecuted(args.experimentId, result)
       }
       
+      // ADD THESE NEW HANDLERS FOR EXPERIMENT RUN OPERATIONS:
+      if (toolName === 'create_experiment_run' && args.experimentId) {
+        await eventEmitter.experimentStatusChanged(args.experimentId, result.run?.status || 'running', result.run)
+      }
+      
+      if (toolName === 'update_experiment_run' && args.experimentId) {
+        await eventEmitter.experimentUpdated({ experimentId: args.experimentId, ...result })
+        
+        // If status changed, also emit status change event
+        if (args.updates?.status) {
+          await eventEmitter.experimentStatusChanged(args.experimentId, args.updates.status, result.run)
+        }
+      }
+      
+      if (toolName === 'get_experiment_status' && result.currentRun) {
+        // This ensures UI updates when polling for status
+        await eventEmitter.experimentStatusChanged(args.experimentId, result.currentRun.status, result.currentRun)
+      }
+      
       // Error operations
       if (toolName === 'log_api_error') {
         await eventEmitter.apiErrorLogged(args.error)

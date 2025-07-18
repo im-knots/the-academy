@@ -5160,7 +5160,12 @@ export class MCPServer {
       
       if (runResult.success && runResult.run) {
         const currentRun = runResult.run;
-        const updates: any = {};
+        const activeSessions = this.activeExperimentSessions.get(experimentId);
+        const activeCount = activeSessions ? activeSessions.size : 0;
+        
+        const updates: any = {
+          activeSessions: activeCount  // Add this
+        };
         
         if (success) {
           updates.completedSessions = currentRun.completedSessions + 1;
@@ -5176,7 +5181,7 @@ export class MCPServer {
           ];
         }
         
-        // Update via MCP tool
+        // Update via MCP tool (which will now broadcast)
         await this.toolUpdateExperimentRun({
           experimentId,
           updates
@@ -5300,12 +5305,19 @@ export class MCPServer {
                   });
 
       const activeSessions = this.activeExperimentSessions.get(experimentId);
+      const activeSessionCount = activeSessions ? activeSessions.size : 0;
+
+      // Add activeSessions count to the run object
+      const runWithActiveCount = run ? {
+        ...run,
+        activeSessions: activeSessionCount  // Add this field
+      } : null;
 
       return {
         success: true,
         experimentId: experimentId,
         experiment: experiment,
-        currentRun: run,
+        currentRun: runWithActiveCount,  // Use the enhanced run object
         activeSessions: activeSessions ? Array.from(activeSessions) : [],
         message: 'Experiment status retrieved successfully'
       };

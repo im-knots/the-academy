@@ -43,7 +43,6 @@ interface ConversationState {
   participantQueue: string[]
   currentParticipantIndex: number
   messageCount: number
-  maxMessageCount?: number
   abortController?: AbortController
   isGenerating: boolean
   lastGeneratedBy?: string
@@ -71,11 +70,8 @@ export class ServerConversationManager {
     return ServerConversationManager.instance
   }
 
-  async startConversation(sessionId: string, initialPrompt?: string, maxMessageCount?: number): Promise<void> {
+  async startConversation(sessionId: string, initialPrompt?: string): Promise<void> {
     console.log('🚀 Starting server-side conversation for session:', sessionId)
-    if (maxMessageCount) {
-      console.log(`📏 Max message count set to: ${maxMessageCount}`)
-    }
 
     // Cancel any existing conversation for this session
     await this.stopConversation(sessionId)
@@ -116,8 +112,7 @@ export class ServerConversationManager {
       isRunning: true,
       participantQueue: sortedParticipants.map(p => p.id),
       currentParticipantIndex: 0,
-      messageCount: session.messages.length, // Start with existing message count
-      maxMessageCount: maxMessageCount,
+      messageCount: 0,
       abortController,
       isGenerating: false,
       lastGeneratedBy: undefined,
@@ -144,12 +139,6 @@ export class ServerConversationManager {
         participantName: 'Research Moderator',
         participantType: 'moderator'
       })
-      
-      // Update message count
-      const state = this.activeConversations.get(sessionId)
-      if (state) {
-        state.messageCount++
-      }
     }
 
     // Start the conversation loop
@@ -187,14 +176,6 @@ export class ServerConversationManager {
 
         if (!session) {
           console.log('❌ Session not found, stopping conversation')
-          break
-        }
-
-        // CHECK MAX MESSAGE COUNT HERE - BEFORE GENERATING
-        if (conversationState.maxMessageCount && session.messages.length >= conversationState.maxMessageCount) {
-          console.log(`✅ Session ${sessionId}: Reached max message count (${session.messages.length}/${conversationState.maxMessageCount})`)
-          // Stop the conversation gracefully
-          await this.stopConversation(sessionId)
           break
         }
 
@@ -313,14 +294,6 @@ export class ServerConversationManager {
             conversationState.messageCount++
             conversationState.lastGeneratedBy = currentParticipantId
             console.log(`💬 ${currentParticipant.name}: ${response.substring(0, 100)}...`)
-
-            // Check if we've reached the max message count after adding this message
-            if (conversationState.maxMessageCount && conversationState.messageCount >= conversationState.maxMessageCount) {
-              console.log(`✅ Session ${sessionId}: Reached max message count after this message (${conversationState.messageCount}/${conversationState.maxMessageCount})`)
-              await this.updateParticipantStatus(sessionId, currentParticipantId, PARTICIPANT_STATUS.ACTIVE)
-              await this.stopConversation(sessionId)
-              break
-            }
 
             // Update participant status back to active
             await this.updateParticipantStatus(sessionId, currentParticipantId, PARTICIPANT_STATUS.ACTIVE)
@@ -773,8 +746,7 @@ Remember: You are ${participant.name}, not any other participant. Always maintai
       wasInterrupted: conversationState?.wasInterrupted || false,
       interruptedParticipant: conversationState?.interruptedParticipantId && session ? 
         session.participants.find(p => p.id === conversationState.interruptedParticipantId)?.name 
-        : null,
-      maxMessageCount: conversationState?.maxMessageCount || null
+        : null
     }
   }
 
