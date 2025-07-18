@@ -1,7 +1,7 @@
 // src/components/Research/ExperimentsInterface.tsx - Updated with Session Cards
 'use client'
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo, useTransition, startTransition, memo } from 'react'
 import { useMCP } from '@/hooks/useMCP'
 import { MCPClient } from '@/lib/mcp/client'
 import { eventBus, EVENT_TYPES } from '@/lib/events/eventBus'
@@ -17,8 +17,45 @@ import {
   TrendingUp, AlertTriangle, Zap, Users, 
   BarChart3, Settings2, Database, Edit2,
   Download, RefreshCw, ChevronDown, ChevronRight,
-  MessageSquare, Calendar, FileText
+  MessageSquare, Calendar, FileText, Copy
 } from 'lucide-react'
+
+interface SessionDetails {
+  id: string
+  name: string
+  description?: string
+  metadata?: any
+  createdAt: Date | string
+  updatedAt?: Date | string
+  messages: Array<{
+    id: string
+    role: string
+    content: string
+    participantName: string
+    timestamp: Date | string
+  }>
+  participants: Array<{
+    id: string
+    name: string
+    type: string
+    status?: string
+  }>
+  status?: string
+  conversationStatus?: string
+  lastActivity?: Date | string
+  stats?: {
+    messageCount: number
+    participantCount: number
+    duration?: number
+    errorCount?: number
+  }
+  analysisSnapshots?: Array<{
+    id: string
+    timestamp: Date
+    type: string
+    analysis: any
+  }>
+}
 
 interface ExperimentSession {
   id: string
@@ -40,6 +77,8 @@ interface ExperimentSession {
     type: string
     analysis: any
   }>
+  // Add full session details
+  fullDetails?: SessionDetails
 }
 
 interface ExperimentResults {
@@ -65,6 +104,130 @@ interface ExperimentsInterfaceProps {
   onNewExperiment?: () => void
 }
 
+// Memoized session card component to prevent re-renders
+const SessionCard = memo(({ session }: { session: ExperimentSession }) => {
+  // Determine session status color
+  const getSessionStatusColor = (status?: string) => {
+    const normalizedStatus = (status || 'pending').toLowerCase()
+    switch (normalizedStatus) {
+      case 'completed':
+      case 'complete':
+        return 'text-green-600 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700'
+      case 'running':
+      case 'active':
+      case 'in_progress':
+        return 'text-blue-600 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700'
+      case 'failed':
+      case 'error':
+      case 'errored':
+        return 'text-red-600 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700'
+      case 'pending':
+      case 'waiting':
+      case 'queued':
+      default:
+        return 'text-gray-600 bg-gray-50 dark:bg-gray-900/20 border-gray-200 dark:border-gray-700'
+    }
+  }
+
+  const getSessionStatusIcon = (status?: string) => {
+    const normalizedStatus = (status || 'pending').toLowerCase()
+    switch (normalizedStatus) {
+      case 'completed':
+      case 'complete':
+        return <CheckCircle2 className="h-4 w-4" />
+      case 'running':
+      case 'active':
+      case 'in_progress':
+        return <Loader2 className="h-4 w-4 animate-spin" />
+      case 'failed':
+      case 'error':
+      case 'errored':
+        return <AlertCircle className="h-4 w-4" />
+      case 'pending':
+      case 'waiting':
+      case 'queued':
+      default:
+        return <Clock className="h-4 w-4" />
+    }
+  }
+
+  // Use full details if available, otherwise fall back to basic info
+  const details = session.fullDetails
+  const messageCount = details?.stats?.messageCount ?? session.messageCount ?? 0
+  const participantCount = details?.stats?.participantCount ?? session.participantCount ?? 0
+  const status = details?.conversationStatus || details?.status || session.status || 'pending'
+  const analysisCount = details?.analysisSnapshots?.length ?? session.analysisSnapshots?.length ?? 0
+
+  return (
+    <Card className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 transition-all duration-200">
+      <CardContent className="p-4">
+        {/* Session Name and Status */}
+        <div className="flex items-start justify-between mb-3">
+          <h5 className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate flex-1 mr-2">
+            {session.name}
+          </h5>
+          <Badge 
+            variant="outline" 
+            className={`text-xs flex items-center gap-1 ${getSessionStatusColor(status)}`}
+          >
+            {getSessionStatusIcon(status)}
+            <span className="capitalize">
+              {status.replace(/_/g, ' ')}
+            </span>
+          </Badge>
+        </div>
+
+        {/* Session Stats */}
+        <div className="space-y-2 text-xs text-gray-600 dark:text-gray-400">
+          <div className="flex items-center gap-1">
+            <MessageSquare className="h-3 w-3" />
+            <span>{messageCount} messages</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Users className="h-3 w-3" />
+            <span>{participantCount} participants</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <FileText className="h-3 w-3" />
+            <span>{analysisCount} analysis snapshots</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Calendar className="h-3 w-3" />
+            <span>{session.createdAt ? new Date(session.createdAt).toLocaleDateString() : 'Unknown'}</span>
+          </div>
+          {(details?.lastActivity || session.lastActivity) && (
+            <div className="flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              <span>Last: {new Date(details?.lastActivity || session.lastActivity!).toLocaleTimeString()}</span>
+            </div>
+          )}
+          {details?.stats?.errorCount !== undefined && details.stats.errorCount > 0 && (
+            <div className="flex items-center gap-1 text-red-600 dark:text-red-400">
+              <AlertCircle className="h-3 w-3" />
+              <span>{details.stats.errorCount} errors</span>
+            </div>
+          )}
+        </div>
+
+        {/* Participant list if available */}
+        {details?.participants && details.participants.length > 0 && (
+          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex flex-wrap gap-1">
+              {details.participants.map((p) => (
+                <Badge key={p.id} variant="secondary" className="text-xs capitalize">
+                  {p.type}: {p.name}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+})
+
+SessionCard.displayName = 'SessionCard'
+
 export function ExperimentsInterface({ 
   sessionId, 
   experiments, 
@@ -80,12 +243,19 @@ export function ExperimentsInterface({
   const [isLoadingResults, setIsLoadingResults] = useState(false)
   const [isLoadingSessions, setIsLoadingSessions] = useState(false)
   const [lastResultsUpdate, setLastResultsUpdate] = useState<Date | null>(null)
+  const [isDuplicating, setIsDuplicating] = useState(false)
+  
+  // Use React 19's useTransition for smoother updates
+  const [isPending, startTransition] = useTransition()
   
   // MCP client ref for API calls
   const mcpClient = useRef(MCPClient.getInstance())
   
   // Track if we're currently loading to prevent duplicate requests
   const loadingRef = useRef(false)
+  
+  // Use ref for session details cache to avoid state update loops
+  const sessionDetailsCacheRef = useRef<Record<string, SessionDetails>>({})
   
   const {
     executeExperimentViaMCP,
@@ -95,53 +265,190 @@ export function ExperimentsInterface({
     stopExperimentViaMCP,
     getExperimentResultsViaMCP,
     deleteExperimentViaMCP,
-    updateExperimentViaMCP
+    updateExperimentViaMCP,
+    createExperimentViaMCP
   } = useMCP()
 
-  // EVENT-DRIVEN: Load experiment results
+  // Fetch full session details
+  const fetchSessionDetails = useCallback(async (sessionId: string): Promise<SessionDetails | null> => {
+    // Check cache first
+    if (sessionDetailsCacheRef.current[sessionId]) {
+      return sessionDetailsCacheRef.current[sessionId]
+    }
+
+    try {
+      const result = await mcpClient.current.callTool('get_session', { sessionId })
+      if (result.success && result.session) {
+        const details: SessionDetails = {
+          id: result.session.id,
+          name: result.session.name,
+          description: result.session.description,
+          metadata: result.session.metadata,
+          createdAt: result.session.createdAt,
+          updatedAt: result.session.updatedAt,
+          messages: result.session.messages || [],
+          participants: result.session.participants || [],
+          status: result.session.status,
+          conversationStatus: result.session.conversationStatus,
+          lastActivity: result.session.lastActivity,
+          stats: {
+            messageCount: result.session.messages?.length || 0,
+            participantCount: result.session.participants?.length || 0,
+            duration: result.session.duration,
+            errorCount: result.session.errorCount || 0
+          },
+          analysisSnapshots: result.session.analysisSnapshots || []
+        }
+        
+        // Update cache using ref to avoid state updates
+        sessionDetailsCacheRef.current[sessionId] = details
+        
+        return details
+      }
+    } catch (error) {
+      console.error(`Failed to fetch session details for ${sessionId}:`, error)
+    }
+    
+    return null
+  }, [])
+
+  // EVENT-DRIVEN: Load experiment results with session details
   const loadExperimentResults = useCallback(async () => {
     if (!selectedExperiment) return
 
     try {
       const response = await getExperimentResultsViaMCP(selectedExperiment.id)
       console.log('🧪 Raw API response:', response)
-      console.log('🧪 currentStatus structure:', JSON.stringify(response.currentStatus, null, 2))
       
-      // The API returns activeSessions directly in the response
       if (response) {
         // Try to find sessions in various possible locations
-        const sessions = response.activeSessions || response.sessions || response.results?.sessions || []
-        console.log('🧪 Found sessions:', sessions)
-        const adaptedResults = {
-          config: response.experiment || selectedExperiment,
-          run: response.currentRun || response.currentStatus || response.run,
-          sessions: sessions,
-          aggregateStats: {
-            totalSessions: sessions.length,
-            totalMessages: sessions.reduce((sum, s) => sum + (s.messageCount || 0), 0),
-            avgMessagesPerSession: sessions.length > 0 
-              ? (sessions.reduce((sum, s) => sum + (s.messageCount || 0), 0) / sessions.length)
-              : 0,
-            participantStats: {},
-            errorRate: response.currentRun?.errorRate || response.currentStatus?.errorRate || 0,
-            successRate: response.currentRun?.successRate || response.currentStatus?.successRate || 
-              ((response.currentRun?.completedSessions || response.currentStatus?.completedSessions || 0) / 
-               (response.currentRun?.totalSessions || response.currentStatus?.totalSessions || 1)) || 0
+        // The API returns session IDs as strings, not objects
+        const sessionIds = response.activeSessions || response.sessions || response.results?.sessions || []
+        console.log('🧪 Found sessions:', sessionIds)
+        
+        // Convert session IDs to session objects and fetch details if available
+        let sessionsWithDetails = []
+        
+        // Also check if there are completed sessions in the run data
+        const run = response.currentRun || response.currentStatus || response.run
+        
+        // For completed experiments, use sessionIds from the run data
+        if (run?.status === 'completed' && run?.sessionIds && run.sessionIds.length > 0) {
+          console.log('🧪 Using sessionIds from completed run:', run.sessionIds)
+          const sessionIdsToLoad = run.sessionIds
+          
+          sessionsWithDetails = await Promise.all(
+            sessionIdsToLoad.map(async (sessionId: string) => {
+              const details = await fetchSessionDetails(sessionId)
+              if (details) {
+                return {
+                  id: sessionId,
+                  name: details.name,
+                  messageCount: details.stats?.messageCount || 0,
+                  participantCount: details.stats?.participantCount || 0,
+                  status: details.conversationStatus || details.status || 'completed',
+                  createdAt: details.createdAt,
+                  lastActivity: details.lastActivity,
+                  analysisSnapshots: details.analysisSnapshots,
+                  fullDetails: details
+                }
+              } else {
+                return {
+                  id: sessionId,
+                  name: `Session ${sessionId.slice(0, 8)}`,
+                  messageCount: 0,
+                  participantCount: 0,
+                  status: 'completed',
+                  createdAt: new Date(),
+                  fullDetails: null
+                }
+              }
+            })
+          )
+        } else if (sessionIds.length > 0) {
+          // For running experiments, use active sessions
+          console.log('🧪 Loading active sessions')
+          
+          // Check if sessionIds are strings (just IDs) or objects
+          if (typeof sessionIds[0] === 'string') {
+            // They're just IDs, need to fetch full details
+            sessionsWithDetails = await Promise.all(
+              sessionIds.map(async (sessionId: string) => {
+                const details = await fetchSessionDetails(sessionId)
+                if (details) {
+                  return {
+                    id: sessionId,
+                    name: details.name,
+                    messageCount: details.stats?.messageCount || 0,
+                    participantCount: details.stats?.participantCount || 0,
+                    status: details.conversationStatus || details.status,
+                    createdAt: details.createdAt,
+                    lastActivity: details.lastActivity,
+                    analysisSnapshots: details.analysisSnapshots,
+                    fullDetails: details
+                  }
+                } else {
+                  // Fallback if we can't fetch details
+                  return {
+                    id: sessionId,
+                    name: `Session ${sessionId.slice(0, 8)}`,
+                    messageCount: 0,
+                    participantCount: 0,
+                    status: 'unknown',
+                    createdAt: new Date(),
+                    fullDetails: null
+                  }
+                }
+              })
+            )
+          } else {
+            // They're already objects, just enhance with details
+            sessionsWithDetails = await Promise.all(
+              sessionIds.map(async (session: ExperimentSession) => {
+                const details = await fetchSessionDetails(session.id)
+                return {
+                  ...session,
+                  fullDetails: details
+                }
+              })
+            )
           }
         }
-        console.log('🧪 Adapted experiment results:', adaptedResults)
-        setExperimentResults(adaptedResults)
-        setLastResultsUpdate(new Date())
-      } else if (response?.results) {
-        // Handle wrapped response
-        setExperimentResults(response.results)
-      } else {
-        console.warn('🧪 Unexpected API response structure:', response)
+        
+        // Calculate aggregate stats from detailed session data
+        const aggregateStats = {
+          totalSessions: run?.totalSessions || sessionsWithDetails.length,
+          totalMessages: sessionsWithDetails.reduce((sum, s) => 
+            sum + (s.fullDetails?.stats?.messageCount || s.messageCount || 0), 0
+          ),
+          avgMessagesPerSession: sessionsWithDetails.length > 0 
+            ? (sessionsWithDetails.reduce((sum, s) => 
+                sum + (s.fullDetails?.stats?.messageCount || s.messageCount || 0), 0
+              ) / sessionsWithDetails.length)
+            : 0,
+          participantStats: {},
+          errorRate: run?.errorRate || 0,
+          successRate: run?.successRate || 
+            ((run?.completedSessions || 0) / (run?.totalSessions || 1)) || 0
+        }
+        
+        const adaptedResults = {
+          config: response.experiment || selectedExperiment,
+          run: run,
+          sessions: sessionsWithDetails,
+          aggregateStats
+        }
+        
+        // Use startTransition to prevent UI jitter
+        startTransition(() => {
+          setExperimentResults(adaptedResults)
+          setLastResultsUpdate(new Date())
+        })
       }
     } catch (error) {
       console.error('Failed to load experiment results:', error)
     }
-  }, [selectedExperiment, getExperimentResultsViaMCP])
+  }, [selectedExperiment, getExperimentResultsViaMCP, fetchSessionDetails])
 
   // EVENT-DRIVEN: Load experiment status function
   const loadExperimentStatus = useCallback(async () => {
@@ -149,7 +456,11 @@ export function ExperimentsInterface({
 
     console.log(`🧪 Loading experiment status for ${selectedExperiment.id}`)
     loadingRef.current = true
-    setIsLoadingStatus(true)
+    
+    // Don't set loading state for subsequent polls to prevent flickering
+    if (!activeRun) {
+      setIsLoadingStatus(true)
+    }
     
     try {
       const status = await getExperimentStatusViaMCP(selectedExperiment.id)
@@ -169,8 +480,28 @@ export function ExperimentsInterface({
           resumedAt: run.resumedAt ? new Date(run.resumedAt) : undefined,
           completedAt: run.completedAt ? new Date(run.completedAt) : undefined
         }
-        setActiveRun(normalizedRun)
-        console.log('🧪 Updated active run:', normalizedRun)
+        
+        // Only update if something actually changed
+        setActiveRun(prevRun => {
+          if (!prevRun) return normalizedRun
+          
+          // Check if key fields have changed
+          const hasChanged = 
+            prevRun.status !== normalizedRun.status ||
+            prevRun.progress !== normalizedRun.progress ||
+            prevRun.completedSessions !== normalizedRun.completedSessions ||
+            prevRun.failedSessions !== normalizedRun.failedSessions ||
+            prevRun.activeSessions !== normalizedRun.activeSessions ||
+            prevRun.errorRate !== normalizedRun.errorRate
+          
+          if (hasChanged) {
+            console.log('🧪 Run status changed, updating')
+            return normalizedRun
+          }
+          
+          console.log('🧪 No changes in run status, keeping existing')
+          return prevRun
+        })
         
         // Load results if experiment has started (including running experiments)
         if (normalizedRun.status === 'running' || normalizedRun.status === 'completed' || normalizedRun.status === 'failed') {
@@ -180,17 +511,67 @@ export function ExperimentsInterface({
         console.log('🧪 Failed to get status:', status)
       } else {
         console.log('🧪 No run found in status')
-        setActiveRun(null)
-        setExperimentResults(null)
+        // Only clear activeRun if we don't have a completed experiment
+        if (!activeRun || activeRun.status !== 'completed') {
+          startTransition(() => {
+            setActiveRun(null)
+            setExperimentResults(null)
+          })
+        }
       }
     } catch (error) {
       console.error('Failed to load experiment status:', error)
-      setActiveRun(null)
+      // Don't clear activeRun on error if experiment is completed
+      if (!activeRun || activeRun.status !== 'completed') {
+        setActiveRun(null)
+      }
     } finally {
       setIsLoadingStatus(false)
       loadingRef.current = false
     }
-  }, [selectedExperiment, getExperimentStatusViaMCP, loadExperimentResults])
+  }, [selectedExperiment, getExperimentStatusViaMCP, loadExperimentResults, activeRun])
+
+  // Handle duplicate experiment
+  const handleDuplicateExperiment = async () => {
+    if (!selectedExperiment) return
+
+    setIsDuplicating(true)
+    try {
+      // Create a new experiment with the same configuration
+      const newConfig = {
+        ...selectedExperiment,
+        name: `${selectedExperiment.name} (Copy)`,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+      
+      // Remove the ID so a new one is generated
+      delete (newConfig as any).id
+      
+      const result = await createExperimentViaMCP(newConfig)
+      
+      if (result.success) {
+        console.log('✅ Experiment duplicated:', result.experimentId)
+        
+        // Create the experiment in the parent component
+        onCreateExperiment({
+          ...newConfig,
+          id: result.experimentId
+        })
+        
+        // Select the new experiment
+        onSelectExperiment({
+          ...newConfig,
+          id: result.experimentId
+        } as ExperimentConfig)
+      }
+    } catch (error) {
+      console.error('Failed to duplicate experiment:', error)
+      alert('Failed to duplicate experiment. Please try again.')
+    } finally {
+      setIsDuplicating(false)
+    }
+  }
 
   // EVENT-DRIVEN: Handle experiment events
   const handleExperimentEvent = useCallback(async (payload: any) => {
@@ -225,14 +606,8 @@ export function ExperimentsInterface({
     if (selectedExperiment && !loadingRef.current) {
       console.log('🧪 Refreshing experiment status and results due to event')
       await loadExperimentStatus()
-      
-      // Also refresh results to update session cards
-      if (activeRun && (activeRun.status === 'running' || activeRun.status === 'pending')) {
-        console.log('🧪 Also refreshing experiment results due to event')
-        await loadExperimentResults()
-      }
     }
-  }, [selectedExperiment, loadExperimentStatus, loadExperimentResults])
+  }, [selectedExperiment, loadExperimentStatus])
 
   // EVENT-DRIVEN: Subscribe to relevant events via internal pub/sub
   useEffect(() => {
@@ -240,14 +615,16 @@ export function ExperimentsInterface({
 
     console.log(`🧪 ExperimentsInterface: Setting up internal pub/sub event subscriptions for experiment ${selectedExperiment.id}`)
 
+    // Clear session details cache when switching experiments
+    sessionDetailsCacheRef.current = {}
+
     // Initial load
     loadExperimentStatus()
     
-    // Also load results immediately if experiment exists
+    // Load results after a short delay to ensure status is loaded first
     setTimeout(() => {
-      console.log('🧪 Initial load of experiment results after selection')
       loadExperimentResults()
-    }, 500)
+    }, 1000)
 
     // Experiment events - use specific handler
     const unsubscribeExperimentCreated = eventBus.subscribe(EVENT_TYPES.EXPERIMENT_CREATED, handleExperimentEvent)
@@ -276,7 +653,7 @@ export function ExperimentsInterface({
       unsubscribeSessionDeleted()
       unsubscribeMessageCreated()
     }
-  }, [selectedExperiment?.id, loadExperimentStatus, handleExperimentEvent, handleAnyExperimentRelatedEvent])
+  }, [selectedExperiment?.id, handleExperimentEvent, handleAnyExperimentRelatedEvent, loadExperimentStatus, loadExperimentResults])
 
   // EVENT-DRIVEN: Set up periodic status checking only for running experiments
   useEffect(() => {
@@ -314,15 +691,34 @@ export function ExperimentsInterface({
             resumedAt: run.resumedAt ? new Date(run.resumedAt) : undefined,
             completedAt: run.completedAt ? new Date(run.completedAt) : undefined
           }
-          setActiveRun(prevRun => {
-            console.log('🧪 Updating run from:', prevRun, 'to:', normalizedRun)
-            return normalizedRun
-          })
           
-          // Load results if experiment has started (including running experiments)
-          if (normalizedRun.status === 'running' || normalizedRun.status === 'completed' || normalizedRun.status === 'failed') {
-            await loadExperimentResults()
-          }
+          // Only update if something actually changed
+          setActiveRun(prevRun => {
+            if (!prevRun) return normalizedRun
+            
+            // Check if key fields have changed
+            const hasChanged = 
+              prevRun.status !== normalizedRun.status ||
+              prevRun.progress !== normalizedRun.progress ||
+              prevRun.completedSessions !== normalizedRun.completedSessions ||
+              prevRun.failedSessions !== normalizedRun.failedSessions ||
+              prevRun.activeSessions !== normalizedRun.activeSessions ||
+              prevRun.errorRate !== normalizedRun.errorRate
+            
+            if (hasChanged) {
+              console.log('🧪 Updating run from:', prevRun, 'to:', normalizedRun)
+              
+              // If experiment just completed, do one final results load
+              if (prevRun.status === 'running' && normalizedRun.status === 'completed') {
+                console.log('🧪 Experiment completed, loading final results')
+                setTimeout(() => loadExperimentResults(), 500)
+              }
+              
+              return normalizedRun
+            }
+            
+            return prevRun
+          })
         }
       } catch (error) {
         console.error('Failed to poll experiment status:', error)
@@ -332,15 +728,19 @@ export function ExperimentsInterface({
     // Poll every 3 seconds for running experiments
     const interval = setInterval(pollStatus, 3000)
     
-    // Also poll results to keep session cards updated
+    // Also poll results to keep session cards updated (only for running experiments)
     const resultsInterval = setInterval(() => {
-      console.log('🧪 Polling experiment results...')
-      loadExperimentResults()
+      if (activeRun.status === 'running') {
+        console.log('🧪 Polling experiment results...')
+        loadExperimentResults()
+      }
     }, 5000)
 
-    // Initial load of results
-    console.log('🧪 Initial load of experiment results')
-    loadExperimentResults()
+    // Initial load of results only if experiment has started
+    if (activeRun.status === 'running' || activeRun.status === 'completed' || activeRun.status === 'failed') {
+      console.log('🧪 Initial load of experiment results')
+      loadExperimentResults()
+    }
 
     return () => {
       console.log(`🧪 ExperimentsInterface: Cleaning up periodic status check for experiment ${selectedExperiment.id}`)
@@ -384,7 +784,10 @@ export function ExperimentsInterface({
           progress: 0
         }
         console.log('🧪 Setting initial run state:', initialRun)
-        setActiveRun(initialRun)
+        
+        startTransition(() => {
+          setActiveRun(initialRun)
+        })
         
         // Force a status check after a short delay
         setTimeout(() => {
@@ -412,7 +815,10 @@ export function ExperimentsInterface({
       
       // This will emit events automatically via internal pub/sub
       await pauseExperimentViaMCP(selectedExperiment.id)
-      setActiveRun({ ...activeRun, status: 'paused', pausedAt: new Date() })
+      
+      startTransition(() => {
+        setActiveRun({ ...activeRun, status: 'paused', pausedAt: new Date() })
+      })
     } catch (error) {
       console.error('Failed to pause experiment:', error)
       alert('Failed to pause experiment. Please try again.')
@@ -427,7 +833,10 @@ export function ExperimentsInterface({
       
       // This will emit events automatically via internal pub/sub
       await resumeExperimentViaMCP(selectedExperiment.id)
-      setActiveRun({ ...activeRun, status: 'running', resumedAt: new Date() })
+      
+      startTransition(() => {
+        setActiveRun({ ...activeRun, status: 'running', resumedAt: new Date() })
+      })
     } catch (error) {
       console.error('Failed to resume experiment:', error)
       alert('Failed to resume experiment. Please try again.')
@@ -446,7 +855,10 @@ export function ExperimentsInterface({
       
       // This will emit events automatically via internal pub/sub
       await stopExperimentViaMCP(selectedExperiment.id)
-      setActiveRun({ ...activeRun, status: 'failed', completedAt: new Date() })
+      
+      startTransition(() => {
+        setActiveRun({ ...activeRun, status: 'failed', completedAt: new Date() })
+      })
     } catch (error) {
       console.error('Failed to stop experiment:', error)
       alert('Failed to stop experiment. Please try again.')
@@ -550,6 +962,15 @@ export function ExperimentsInterface({
     return `${minutes}m ${seconds}s`
   }
 
+  // Memoize session cards to prevent re-renders
+  const sessionCards = useMemo(() => {
+    if (!experimentResults?.sessions) return null
+    
+    return experimentResults.sessions.map((session) => (
+      <SessionCard key={session.id} session={session} />
+    ))
+  }, [experimentResults?.sessions])
+
   return (
     <>
       <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900">
@@ -602,13 +1023,28 @@ export function ExperimentsInterface({
                       <div className="flex gap-2">
                         {!activeRun || activeRun.status === 'completed' || activeRun.status === 'failed' ? (
                           <>
-                            <Button 
-                              onClick={handleStartExperiment}
-                              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-lg"
-                            >
-                              <Play className="h-4 w-4 mr-1" />
-                              Start Experiment
-                            </Button>
+                            {activeRun?.status === 'completed' ? (
+                              <Button 
+                                onClick={handleDuplicateExperiment}
+                                disabled={isDuplicating}
+                                className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 shadow-lg"
+                              >
+                                {isDuplicating ? (
+                                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                ) : (
+                                  <Copy className="h-4 w-4 mr-1" />
+                                )}
+                                Duplicate Experiment
+                              </Button>
+                            ) : (
+                              <Button 
+                                onClick={handleStartExperiment}
+                                className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-lg"
+                              >
+                                <Play className="h-4 w-4 mr-1" />
+                                Start Experiment
+                              </Button>
+                            )}
                             <Button
                               variant="outline"
                               size="sm"
@@ -672,14 +1108,28 @@ export function ExperimentsInterface({
                   </CardHeader>
                 </Card>
 
-                {/* Run Status */}
-                {(activeRun || isLoadingStatus) && (
+                {/* Run Status - Show loading only for initial load, otherwise show activeRun */}
+                {(isLoadingStatus && !activeRun) ? (
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-lg flex items-center gap-2">
                         <Activity className="h-5 w-5" />
                         Experiment Run Status
-                        {activeRun?.status === 'running' && (
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : activeRun ? (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <Activity className="h-5 w-5" />
+                        Experiment Run Status
+                        {activeRun.status === 'running' && (
                           <Badge variant="secondary" className="ml-2 text-xs">
                             <RefreshCw className="h-3 w-3 mr-1" />
                             Auto-updating
@@ -688,94 +1138,88 @@ export function ExperimentsInterface({
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      {isLoadingStatus ? (
-                        <div className="flex items-center justify-center py-8">
-                          <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                      <div className="space-y-4">
+                        {/* Status Badge */}
+                        <div className="flex items-center justify-between">
+                          <Badge 
+                            variant="outline" 
+                            className={`px-3 py-1 flex items-center gap-2 ${getStatusColor(activeRun.status)}`}
+                          >
+                            {getStatusIcon(activeRun.status)}
+                            {activeRun.status.charAt(0).toUpperCase() + activeRun.status.slice(1)}
+                          </Badge>
+                          
+                          <div className="text-sm text-gray-600 dark:text-gray-400">
+                            Duration: {formatDuration(activeRun.startedAt, activeRun.completedAt)}
+                          </div>
                         </div>
-                      ) : activeRun && (
-                        <div className="space-y-4">
-                          {/* Status Badge */}
-                          <div className="flex items-center justify-between">
-                            <Badge 
-                              variant="outline" 
-                              className={`px-3 py-1 flex items-center gap-2 ${getStatusColor(activeRun.status)}`}
-                            >
-                              {getStatusIcon(activeRun.status)}
-                              {activeRun.status.charAt(0).toUpperCase() + activeRun.status.slice(1)}
-                            </Badge>
-                            
-                            <div className="text-sm text-gray-600 dark:text-gray-400">
-                              Duration: {formatDuration(activeRun.startedAt, activeRun.completedAt)}
-                            </div>
-                          </div>
 
-                          {/* Progress Bar */}
-                          <div>
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="text-sm font-medium">Progress</span>
-                              <span className="text-sm text-gray-600 dark:text-gray-400">
-                                {activeRun.completedSessions + activeRun.failedSessions} / {activeRun.totalSessions} sessions
-                              </span>
-                            </div>
-                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                              <div 
-                                className="bg-gradient-to-r from-blue-500 to-green-600 h-2 rounded-full transition-all duration-300"
-                                style={{ width: `${activeRun.progress}%` }}
-                              />
-                            </div>
+                        {/* Progress Bar */}
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium">Progress</span>
+                            <span className="text-sm text-gray-600 dark:text-gray-400">
+                              {(activeRun.completedSessions || 0) + (activeRun.failedSessions || 0)} / {activeRun.totalSessions || 0} sessions
+                            </span>
                           </div>
-
-                          {/* Stats Grid */}
-                          <div className="grid grid-cols-4 gap-4">
-                            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                              <div className="text-2xl font-bold text-green-600">{activeRun.completedSessions}</div>
-                              <div className="text-xs text-gray-600 dark:text-gray-400">Completed</div>
-                            </div>
-                            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                              <div className="text-2xl font-bold text-blue-600">{activeRun.activeSessions}</div>
-                              <div className="text-xs text-gray-600 dark:text-gray-400">Active</div>
-                            </div>
-                            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                              <div className="text-2xl font-bold text-red-600">{activeRun.failedSessions}</div>
-                              <div className="text-xs text-gray-600 dark:text-gray-400">Failed</div>
-                            </div>
-                            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                              <div className="text-2xl font-bold text-orange-600">
-                                {(activeRun.errorRate * 100).toFixed(1)}%
-                              </div>
-                              <div className="text-xs text-gray-600 dark:text-gray-400">Error Rate</div>
-                            </div>
+                          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                            <div 
+                              className="bg-gradient-to-r from-blue-500 to-green-600 h-2 rounded-full transition-all duration-300"
+                              style={{ width: `${activeRun.progress || 0}%` }}
+                            />
                           </div>
+                        </div>
 
-                          {/* Errors */}
-                          {activeRun.errors.length > 0 && (
-                            <div className="mt-4">
-                              <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-                                <AlertTriangle className="h-4 w-4 text-orange-600" />
-                                Recent Errors
-                              </h4>
-                              <div className="space-y-2 max-h-32 overflow-y-auto">
-                                {activeRun.errors.slice(0, 3).map((error, idx) => (
-                                  <div key={idx} className="bg-red-50 dark:bg-red-900/20 rounded p-2 text-xs">
-                                    <div className="flex items-center justify-between">
-                                      <span className="font-medium text-red-700 dark:text-red-400">
-                                        {error.type} ({error.count}x)
-                                      </span>
-                                      <span className="text-red-600 dark:text-red-500">
-                                        {new Date(error.lastOccurred).toLocaleTimeString()}
-                                      </span>
-                                    </div>
-                                    <p className="text-red-600 dark:text-red-400 mt-1">{error.message}</p>
+                        {/* Stats Grid */}
+                        <div className="grid grid-cols-4 gap-4">
+                          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
+                            <div className="text-2xl font-bold text-green-600">{activeRun.completedSessions || 0}</div>
+                            <div className="text-xs text-gray-600 dark:text-gray-400">Completed</div>
+                          </div>
+                          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
+                            <div className="text-2xl font-bold text-blue-600">{activeRun.activeSessions || 0}</div>
+                            <div className="text-xs text-gray-600 dark:text-gray-400">Active</div>
+                          </div>
+                          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
+                            <div className="text-2xl font-bold text-red-600">{activeRun.failedSessions || 0}</div>
+                            <div className="text-xs text-gray-600 dark:text-gray-400">Failed</div>
+                          </div>
+                          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
+                            <div className="text-2xl font-bold text-orange-600">
+                              {((activeRun.errorRate || 0) * 100).toFixed(1)}%
+                            </div>
+                            <div className="text-xs text-gray-600 dark:text-gray-400">Error Rate</div>
+                          </div>
+                        </div>
+
+                        {/* Errors */}
+                        {activeRun.errors && activeRun.errors.length > 0 && (
+                          <div className="mt-4">
+                            <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                              <AlertTriangle className="h-4 w-4 text-orange-600" />
+                              Recent Errors
+                            </h4>
+                            <div className="space-y-2 max-h-32 overflow-y-auto">
+                              {activeRun.errors.slice(0, 3).map((error, idx) => (
+                                <div key={idx} className="bg-red-50 dark:bg-red-900/20 rounded p-2 text-xs">
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-medium text-red-700 dark:text-red-400">
+                                      {error.type} ({error.count}x)
+                                    </span>
+                                    <span className="text-red-600 dark:text-red-500">
+                                      {new Date(error.lastOccurred).toLocaleTimeString()}
+                                    </span>
                                   </div>
-                                ))}
-                              </div>
+                                  <p className="text-red-600 dark:text-red-400 mt-1">{error.message}</p>
+                                </div>
+                              ))}
                             </div>
-                          )}
-                        </div>
-                      )}
+                          </div>
+                        )}
+                      </div>
                     </CardContent>
                   </Card>
-                )}
+                ) : null}
 
                 {/* Session Results or Placeholder */}
                 {experimentResults && (
@@ -802,9 +1246,9 @@ export function ExperimentsInterface({
                               console.log('🧪 Manual refresh triggered')
                               loadExperimentResults()
                             }}
-                            disabled={isLoadingResults}
+                            disabled={isLoadingResults || isPending}
                           >
-                            <RefreshCw className={`h-4 w-4 ${isLoadingResults ? 'animate-spin' : ''}`} />
+                            <RefreshCw className={`h-4 w-4 ${isLoadingResults || isPending ? 'animate-spin' : ''}`} />
                           </Button>
                         </div>
                       </CardTitle>
@@ -874,100 +1318,7 @@ export function ExperimentsInterface({
                             </h4>
                             <div className="max-h-[600px] overflow-y-auto">
                               <div className="grid grid-cols-4 gap-4">
-                                {experimentResults.sessions.map((session) => {
-                                  // Determine session status color
-                                  const getSessionStatusColor = (status?: string) => {
-                                    const normalizedStatus = (status || 'pending').toLowerCase()
-                                    switch (normalizedStatus) {
-                                      case 'completed':
-                                      case 'complete':
-                                        return 'text-green-600 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700'
-                                      case 'running':
-                                      case 'active':
-                                      case 'in_progress':
-                                        return 'text-blue-600 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700'
-                                      case 'failed':
-                                      case 'error':
-                                      case 'errored':
-                                        return 'text-red-600 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700'
-                                      case 'pending':
-                                      case 'waiting':
-                                      case 'queued':
-                                      default:
-                                        return 'text-gray-600 bg-gray-50 dark:bg-gray-900/20 border-gray-200 dark:border-gray-700'
-                                    }
-                                  }
-
-                                  const getSessionStatusIcon = (status?: string) => {
-                                    const normalizedStatus = (status || 'pending').toLowerCase()
-                                    switch (normalizedStatus) {
-                                      case 'completed':
-                                      case 'complete':
-                                        return <CheckCircle2 className="h-4 w-4" />
-                                      case 'running':
-                                      case 'active':
-                                      case 'in_progress':
-                                        return <Loader2 className="h-4 w-4 animate-spin" />
-                                      case 'failed':
-                                      case 'error':
-                                      case 'errored':
-                                        return <AlertCircle className="h-4 w-4" />
-                                      case 'pending':
-                                      case 'waiting':
-                                      case 'queued':
-                                      default:
-                                        return <Clock className="h-4 w-4" />
-                                    }
-                                  }
-
-                                  return (
-                                    <Card key={session.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                                      <CardContent className="p-4">
-                                        {/* Session Name and Status */}
-                                        <div className="flex items-start justify-between mb-3">
-                                          <h5 className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate flex-1 mr-2">
-                                            {session.name}
-                                          </h5>
-                                          <Badge 
-                                            variant="outline" 
-                                            className={`text-xs flex items-center gap-1 ${getSessionStatusColor(session.status || 'pending')}`}
-                                          >
-                                            {getSessionStatusIcon(session.status || 'pending')}
-                                            <span className="capitalize">
-                                              {(session.status || 'pending').replace(/_/g, ' ')}
-                                            </span>
-                                          </Badge>
-                                        </div>
-
-                                        {/* Session Stats */}
-                                        <div className="space-y-2 text-xs text-gray-600 dark:text-gray-400">
-                                          <div className="flex items-center gap-1">
-                                            <MessageSquare className="h-3 w-3" />
-                                            <span>{session.messageCount || 0} messages</span>
-                                          </div>
-                                          <div className="flex items-center gap-1">
-                                            <Users className="h-3 w-3" />
-                                            <span>{session.participantCount || 0} participants</span>
-                                          </div>
-                                          <div className="flex items-center gap-1">
-                                            <FileText className="h-3 w-3" />
-                                            <span>{session.analysisSnapshots?.length || 0} analysis snapshots</span>
-                                          </div>
-                                          <div className="flex items-center gap-1">
-                                            <Calendar className="h-3 w-3" />
-                                            <span>{session.createdAt ? new Date(session.createdAt).toLocaleDateString() : 'Unknown'}</span>
-                                          </div>
-                                          {session.lastActivity && (
-                                            <div className="flex items-center gap-1">
-                                              <Clock className="h-3 w-3" />
-                                              <span>Last: {new Date(session.lastActivity).toLocaleTimeString()}</span>
-                                            </div>
-                                          )}
-                                        </div>
-                                      </CardContent>
-                                    </Card>
-                                  )
-                                })}
+                                {sessionCards}
                               </div>
                             </div>
                           </div>
