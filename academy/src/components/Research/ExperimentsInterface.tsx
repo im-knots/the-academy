@@ -1,4 +1,4 @@
-// src/components/Research/ExperimentsInterface.tsx - Updated with Session Cards
+// src/components/Research/ExperimentsInterface.tsx - Fixed with Event-Driven Updates
 'use client'
 
 import { useState, useEffect, useRef, useCallback, useMemo, useTransition, startTransition, memo } from 'react'
@@ -241,7 +241,6 @@ export function ExperimentsInterface({
   const [experimentResults, setExperimentResults] = useState<ExperimentResults | null>(null)
   const [isLoadingStatus, setIsLoadingStatus] = useState(false)
   const [isLoadingResults, setIsLoadingResults] = useState(false)
-  const [isLoadingSessions, setIsLoadingSessions] = useState(false)
   const [lastResultsUpdate, setLastResultsUpdate] = useState<Date | null>(null)
   const [isDuplicating, setIsDuplicating] = useState(false)
   
@@ -254,8 +253,14 @@ export function ExperimentsInterface({
   // Track if we're currently loading to prevent duplicate requests
   const loadingRef = useRef(false)
   
-  // Use ref for session details cache to avoid state update loops
-  const sessionDetailsCacheRef = useRef<Record<string, SessionDetails>>({})
+  // Track last selected experiment ID to detect changes
+  const lastSelectedExperimentIdRef = useRef<string | null>(null)
+  
+  // Track polling interval to prevent duplicates
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  
+  // Cache completed experiment results to prevent clearing
+  const completedResultsCacheRef = useRef<Record<string, ExperimentResults>>({})
   
   const {
     executeExperimentViaMCP,
@@ -271,11 +276,6 @@ export function ExperimentsInterface({
 
   // Fetch full session details
   const fetchSessionDetails = useCallback(async (sessionId: string): Promise<SessionDetails | null> => {
-    // Check cache first
-    if (sessionDetailsCacheRef.current[sessionId]) {
-      return sessionDetailsCacheRef.current[sessionId]
-    }
-
     try {
       const result = await mcpClient.current.callTool('get_session', { sessionId })
       if (result.success && result.session) {
@@ -300,9 +300,6 @@ export function ExperimentsInterface({
           analysisSnapshots: result.session.analysisSnapshots || []
         }
         
-        // Update cache using ref to avoid state updates
-        sessionDetailsCacheRef.current[sessionId] = details
-        
         return details
       }
     } catch (error) {
@@ -312,120 +309,151 @@ export function ExperimentsInterface({
     return null
   }, [])
 
+  // EVENT-DRIVEN: Update a single session's details
+  const updateSingleSessionDetails = useCallback(async (sessionId: string) => {
+    if (!experimentResults) return
+    
+    console.log('🧪 Updating single session details:', sessionId)
+    
+    const details = await fetchSessionDetails(sessionId)
+    if (!details) return
+    
+    setExperimentResults(prev => {
+      if (!prev) return prev
+      
+      const updatedSessions = prev.sessions.map(session => {
+        if (session.id === sessionId) {
+          // Preserve the existing status unless we have a new one from details
+          const currentStatus = session.status
+          const newStatus = details.conversationStatus || details.status
+          
+          return {
+            ...session,
+            messageCount: details.stats?.messageCount || 0,
+            participantCount: details.stats?.participantCount || 0,
+            // Only update status if we have a meaningful new status
+            status: newStatus && newStatus !== 'unknown' ? newStatus : currentStatus,
+            lastActivity: details.lastActivity,
+            analysisSnapshots: details.analysisSnapshots,
+            fullDetails: details
+          }
+        }
+        return session
+      })
+      
+      // Recalculate aggregate stats
+      const totalMessages = updatedSessions.reduce((sum, s) => 
+        sum + (s.fullDetails?.stats?.messageCount || s.messageCount || 0), 0
+      )
+      
+      const aggregateStats = {
+        ...prev.aggregateStats,
+        totalMessages,
+        avgMessagesPerSession: updatedSessions.length > 0 ? totalMessages / updatedSessions.length : 0
+      }
+      
+      const updated = {
+        ...prev,
+        sessions: updatedSessions,
+        aggregateStats
+      }
+      
+      // Cache if completed
+      if (prev.run?.status === 'completed' && selectedExperiment) {
+        completedResultsCacheRef.current[selectedExperiment.id] = updated
+      }
+      
+      return updated
+    })
+  }, [experimentResults, fetchSessionDetails, selectedExperiment])
+
   // EVENT-DRIVEN: Load experiment results with session details
-  const loadExperimentResults = useCallback(async () => {
+  const loadExperimentResults = useCallback(async (forceRefresh = false) => {
     if (!selectedExperiment) return
+
+    // Check cache first for completed experiments
+    if (!forceRefresh && completedResultsCacheRef.current[selectedExperiment.id]) {
+      console.log('🧪 Using cached results for completed experiment')
+      setExperimentResults(completedResultsCacheRef.current[selectedExperiment.id])
+      setLastResultsUpdate(new Date())
+      return
+    }
 
     try {
       const response = await getExperimentResultsViaMCP(selectedExperiment.id)
       console.log('🧪 Raw API response:', response)
       
       if (response) {
-        // Try to find sessions in various possible locations
-        // The API returns session IDs as strings, not objects
-        const sessionIds = response.activeSessions || response.sessions || response.results?.sessions || []
-        console.log('🧪 Found sessions:', sessionIds)
-        
-        // Convert session IDs to session objects and fetch details if available
-        let sessionsWithDetails = []
-        
-        // Also check if there are completed sessions in the run data
         const run = response.currentRun || response.currentStatus || response.run
         
-        // For completed experiments, use sessionIds from the run data
-        if (run?.status === 'completed' && run?.sessionIds && run.sessionIds.length > 0) {
-          console.log('🧪 Using sessionIds from completed run:', run.sessionIds)
-          const sessionIdsToLoad = run.sessionIds
-          
-          sessionsWithDetails = await Promise.all(
-            sessionIdsToLoad.map(async (sessionId: string) => {
-              const details = await fetchSessionDetails(sessionId)
-              if (details) {
-                return {
-                  id: sessionId,
-                  name: details.name,
-                  messageCount: details.stats?.messageCount || 0,
-                  participantCount: details.stats?.participantCount || 0,
-                  status: details.conversationStatus || details.status || 'completed',
-                  createdAt: details.createdAt,
-                  lastActivity: details.lastActivity,
-                  analysisSnapshots: details.analysisSnapshots,
-                  fullDetails: details
-                }
-              } else {
-                return {
-                  id: sessionId,
-                  name: `Session ${sessionId.slice(0, 8)}`,
-                  messageCount: 0,
-                  participantCount: 0,
-                  status: 'completed',
-                  createdAt: new Date(),
-                  fullDetails: null
-                }
-              }
-            })
-          )
-        } else if (sessionIds.length > 0) {
-          // For running experiments, use active sessions
-          console.log('🧪 Loading active sessions')
-          
-          // Check if sessionIds are strings (just IDs) or objects
-          if (typeof sessionIds[0] === 'string') {
-            // They're just IDs, need to fetch full details
-            sessionsWithDetails = await Promise.all(
-              sessionIds.map(async (sessionId: string) => {
-                const details = await fetchSessionDetails(sessionId)
-                if (details) {
-                  return {
-                    id: sessionId,
-                    name: details.name,
-                    messageCount: details.stats?.messageCount || 0,
-                    participantCount: details.stats?.participantCount || 0,
-                    status: details.conversationStatus || details.status,
-                    createdAt: details.createdAt,
-                    lastActivity: details.lastActivity,
-                    analysisSnapshots: details.analysisSnapshots,
-                    fullDetails: details
-                  }
-                } else {
-                  // Fallback if we can't fetch details
-                  return {
-                    id: sessionId,
-                    name: `Session ${sessionId.slice(0, 8)}`,
-                    messageCount: 0,
-                    participantCount: 0,
-                    status: 'unknown',
-                    createdAt: new Date(),
-                    fullDetails: null
-                  }
-                }
-              })
-            )
-          } else {
-            // They're already objects, just enhance with details
-            sessionsWithDetails = await Promise.all(
-              sessionIds.map(async (session: ExperimentSession) => {
-                const details = await fetchSessionDetails(session.id)
-                return {
-                  ...session,
-                  fullDetails: details
-                }
-              })
-            )
-          }
+        // IMPORTANT: We use different data for different purposes:
+        // - run.sessionIds: Contains ALL sessions created during the experiment (for display)
+        // - response.activeSessions: Contains only currently active sessions (for status)
+        
+        // Determine which session IDs to use
+        let sessionIdsToLoad: string[] = []
+        
+        // Always use run.sessionIds as the primary source - it contains ALL sessions
+        if (run?.sessionIds && run.sessionIds.length > 0) {
+          console.log('🧪 Using sessionIds from run data (all sessions):', run.sessionIds)
+          sessionIdsToLoad = run.sessionIds
+        } else if (response.sessions && response.sessions.length > 0) {
+          // Fallback to sessions in response
+          console.log('🧪 Using sessions from response:', response.sessions)
+          sessionIdsToLoad = typeof response.sessions[0] === 'string' 
+            ? response.sessions 
+            : response.sessions.map((s: any) => s.id)
         }
         
+        // Get active sessions for status tracking (not for display)
+        const activeSessionIds = response.activeSessions || []
+        console.log('🧪 Active sessions for status:', activeSessionIds.length)
+        console.log('🧪 Total sessions to load:', sessionIdsToLoad.length)
+        
+        // Fetch details for all sessions
+        const sessionsWithDetails = await Promise.all(
+          sessionIdsToLoad.map(async (sessionId: string) => {
+            const details = await fetchSessionDetails(sessionId)
+            
+            // Determine if this session is currently active
+            const isActive = activeSessionIds.includes(sessionId)
+            
+            if (details) {
+              return {
+                id: sessionId,
+                name: details.name,
+                messageCount: details.stats?.messageCount || 0,
+                participantCount: details.stats?.participantCount || 0,
+                // Use active status if session is in activeSessions, otherwise use actual status
+                status: isActive ? 'active' : (details.conversationStatus || details.status || 'completed'),
+                createdAt: details.createdAt,
+                lastActivity: details.lastActivity,
+                analysisSnapshots: details.analysisSnapshots,
+                fullDetails: details
+              }
+            } else {
+              return {
+                id: sessionId,
+                name: `Session ${sessionId.slice(0, 8)}`,
+                messageCount: 0,
+                participantCount: 0,
+                status: isActive ? 'active' : 'completed',
+                createdAt: new Date(),
+                fullDetails: null
+              }
+            }
+          })
+        )
+        
         // Calculate aggregate stats from detailed session data
+        const totalMessages = sessionsWithDetails.reduce((sum, s) => 
+          sum + (s.fullDetails?.stats?.messageCount || s.messageCount || 0), 0
+        )
+        
         const aggregateStats = {
           totalSessions: run?.totalSessions || sessionsWithDetails.length,
-          totalMessages: sessionsWithDetails.reduce((sum, s) => 
-            sum + (s.fullDetails?.stats?.messageCount || s.messageCount || 0), 0
-          ),
-          avgMessagesPerSession: sessionsWithDetails.length > 0 
-            ? (sessionsWithDetails.reduce((sum, s) => 
-                sum + (s.fullDetails?.stats?.messageCount || s.messageCount || 0), 0
-              ) / sessionsWithDetails.length)
-            : 0,
+          totalMessages,
+          avgMessagesPerSession: sessionsWithDetails.length > 0 ? totalMessages / sessionsWithDetails.length : 0,
           participantStats: {},
           errorRate: run?.errorRate || 0,
           successRate: run?.successRate || 
@@ -437,6 +465,11 @@ export function ExperimentsInterface({
           run: run,
           sessions: sessionsWithDetails,
           aggregateStats
+        }
+        
+        // Cache if completed
+        if (run?.status === 'completed') {
+          completedResultsCacheRef.current[selectedExperiment.id] = adaptedResults
         }
         
         // Use startTransition to prevent UI jitter
@@ -485,6 +518,12 @@ export function ExperimentsInterface({
         setActiveRun(prevRun => {
           if (!prevRun) return normalizedRun
           
+          // Preserve sessionIds from previous run if current run doesn't have them
+          // This prevents losing sessions when experiment completes
+          if (prevRun.sessionIds?.length > 0 && (!normalizedRun.sessionIds || normalizedRun.sessionIds.length === 0)) {
+            normalizedRun.sessionIds = prevRun.sessionIds
+          }
+          
           // Check if key fields have changed
           const hasChanged = 
             prevRun.status !== normalizedRun.status ||
@@ -492,39 +531,40 @@ export function ExperimentsInterface({
             prevRun.completedSessions !== normalizedRun.completedSessions ||
             prevRun.failedSessions !== normalizedRun.failedSessions ||
             prevRun.activeSessions !== normalizedRun.activeSessions ||
-            prevRun.errorRate !== normalizedRun.errorRate
+            prevRun.errorRate !== normalizedRun.errorRate ||
+            prevRun.sessionIds?.length !== normalizedRun.sessionIds?.length
           
           if (hasChanged) {
-            console.log('🧪 Run status changed, updating')
+            console.log('🧪 Run status changed, updating', {
+              oldStatus: prevRun.status,
+              newStatus: normalizedRun.status,
+              sessionIds: normalizedRun.sessionIds?.length
+            })
+            
+            // If experiment just completed, load final results
+            if (prevRun.status === 'running' && normalizedRun.status === 'completed') {
+              console.log('🧪 Experiment completed, loading final results with all sessions')
+              // Force refresh to get all sessions from sessionIds
+              setTimeout(() => loadExperimentResults(true), 500)
+            }
+            
             return normalizedRun
           }
           
-          console.log('🧪 No changes in run status, keeping existing')
           return prevRun
         })
         
-        // Load results if experiment has started (including running experiments)
+        // Load results if experiment has started
         if (normalizedRun.status === 'running' || normalizedRun.status === 'completed' || normalizedRun.status === 'failed') {
           await loadExperimentResults()
         }
-      } else if (status.success === false) {
-        console.log('🧪 Failed to get status:', status)
       } else {
         console.log('🧪 No run found in status')
-        // Only clear activeRun if we don't have a completed experiment
-        if (!activeRun || activeRun.status !== 'completed') {
-          startTransition(() => {
-            setActiveRun(null)
-            setExperimentResults(null)
-          })
-        }
+        setActiveRun(null)
       }
     } catch (error) {
       console.error('Failed to load experiment status:', error)
-      // Don't clear activeRun on error if experiment is completed
-      if (!activeRun || activeRun.status !== 'completed') {
-        setActiveRun(null)
-      }
+      setActiveRun(null)
     } finally {
       setIsLoadingStatus(false)
       loadingRef.current = false
@@ -598,16 +638,43 @@ export function ExperimentsInterface({
     }
   }, [selectedExperiment?.id, loadExperimentStatus])
 
-  // EVENT-DRIVEN: Handle any event that might affect experiment status
-  const handleAnyExperimentRelatedEvent = useCallback(async (payload: any) => {
-    console.log('🧪 ExperimentsInterface: Event received that might affect experiment:', payload)
+  // EVENT-DRIVEN: Handle message events for live updates
+  const handleMessageEvent = useCallback(async (payload: any) => {
+    console.log('🧪 ExperimentsInterface: Message event received:', payload)
     
-    // For any event, refresh both status and results if we have an active experiment
+    // Check if this message is for one of our experiment sessions
+    if (experimentResults && payload?.data?.sessionId) {
+      const sessionId = payload.data.sessionId
+      const existingSession = experimentResults.sessions.find(s => s.id === sessionId)
+      
+      if (existingSession) {
+        console.log('🧪 Message event for our session, updating details')
+        // Update just this session's details
+        await updateSingleSessionDetails(sessionId)
+      }
+    }
+  }, [experimentResults, updateSingleSessionDetails])
+
+  // EVENT-DRIVEN: Handle session updates
+  const handleSessionEvent = useCallback(async (payload: any) => {
+    console.log('🧪 ExperimentsInterface: Session event received:', payload)
+    
+    // If we have a sessionId and it's in our experiment results, update it
+    if (experimentResults && payload?.data?.sessionId) {
+      const sessionId = payload.data.sessionId
+      const existingSession = experimentResults.sessions.find(s => s.id === sessionId)
+      
+      if (existingSession) {
+        console.log('🧪 Session event for our experiment session, updating')
+        await updateSingleSessionDetails(sessionId)
+      }
+    }
+    
+    // Also refresh status in case sessions were added/removed
     if (selectedExperiment && !loadingRef.current) {
-      console.log('🧪 Refreshing experiment status and results due to event')
       await loadExperimentStatus()
     }
-  }, [selectedExperiment, loadExperimentStatus])
+  }, [experimentResults, selectedExperiment, updateSingleSessionDetails, loadExperimentStatus])
 
   // EVENT-DRIVEN: Subscribe to relevant events via internal pub/sub
   useEffect(() => {
@@ -615,16 +682,25 @@ export function ExperimentsInterface({
 
     console.log(`🧪 ExperimentsInterface: Setting up internal pub/sub event subscriptions for experiment ${selectedExperiment.id}`)
 
-    // Clear session details cache when switching experiments
-    sessionDetailsCacheRef.current = {}
-
-    // Initial load
-    loadExperimentStatus()
-    
-    // Load results after a short delay to ensure status is loaded first
-    setTimeout(() => {
-      loadExperimentResults()
-    }, 1000)
+    // Check if experiment changed
+    if (lastSelectedExperimentIdRef.current !== selectedExperiment.id) {
+      console.log('🧪 Experiment changed, resetting state')
+      // Reset state when switching experiments
+      setActiveRun(null)
+      setExperimentResults(null)
+      setLastResultsUpdate(null)
+      lastSelectedExperimentIdRef.current = selectedExperiment.id
+      
+      // Initial load with delay to prevent overwhelming the server
+      setTimeout(() => {
+        loadExperimentStatus()
+      }, 500)
+      
+      // Load results after status with more delay
+      setTimeout(() => {
+        loadExperimentResults()
+      }, 2000)
+    }
 
     // Experiment events - use specific handler
     const unsubscribeExperimentCreated = eventBus.subscribe(EVENT_TYPES.EXPERIMENT_CREATED, handleExperimentEvent)
@@ -633,13 +709,13 @@ export function ExperimentsInterface({
     const unsubscribeExperimentExecuted = eventBus.subscribe(EVENT_TYPES.EXPERIMENT_EXECUTED, handleExperimentEvent)
     const unsubscribeExperimentStatusChanged = eventBus.subscribe(EVENT_TYPES.EXPERIMENT_STATUS_CHANGED, handleExperimentEvent)
     
-    // Session events - use generic handler since they might be part of experiment
-    const unsubscribeSessionCreated = eventBus.subscribe(EVENT_TYPES.SESSION_CREATED, handleAnyExperimentRelatedEvent)
-    const unsubscribeSessionUpdated = eventBus.subscribe(EVENT_TYPES.SESSION_UPDATED, handleAnyExperimentRelatedEvent)
-    const unsubscribeSessionDeleted = eventBus.subscribe(EVENT_TYPES.SESSION_DELETED, handleAnyExperimentRelatedEvent)
+    // Session events - for tracking new sessions
+    const unsubscribeSessionCreated = eventBus.subscribe(EVENT_TYPES.SESSION_CREATED, handleSessionEvent)
+    const unsubscribeSessionUpdated = eventBus.subscribe(EVENT_TYPES.SESSION_UPDATED, handleSessionEvent)
+    const unsubscribeSessionDeleted = eventBus.subscribe(EVENT_TYPES.SESSION_DELETED, handleSessionEvent)
     
-    // Message events - also refresh on new messages
-    const unsubscribeMessageCreated = eventBus.subscribe(EVENT_TYPES.MESSAGE_CREATED, handleAnyExperimentRelatedEvent)
+    // Message events - for live updates
+    const unsubscribeMessageSent = eventBus.subscribe(EVENT_TYPES.MESSAGE_SENT, handleMessageEvent)
 
     return () => {
       console.log(`🧪 ExperimentsInterface: Cleaning up internal pub/sub event subscriptions for experiment ${selectedExperiment.id}`)
@@ -651,15 +727,24 @@ export function ExperimentsInterface({
       unsubscribeSessionCreated()
       unsubscribeSessionUpdated()
       unsubscribeSessionDeleted()
-      unsubscribeMessageCreated()
+      unsubscribeMessageSent()
     }
-  }, [selectedExperiment?.id, handleExperimentEvent, handleAnyExperimentRelatedEvent, loadExperimentStatus, loadExperimentResults])
+  }, [selectedExperiment?.id, handleExperimentEvent, handleSessionEvent, handleMessageEvent, loadExperimentStatus, loadExperimentResults])
 
-  // EVENT-DRIVEN: Set up periodic status checking only for running experiments
+  // EVENT-DRIVEN: Minimal status polling only for running experiments
   useEffect(() => {
+    // Clear any existing interval first
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current)
+      pollingIntervalRef.current = null
+    }
+
+    // Stop all polling for completed, failed, or stopped experiments
     if (!selectedExperiment || !activeRun || 
-        (activeRun.status !== 'running' && activeRun.status !== 'pending')) {
-      console.log('🧪 No periodic polling needed:', {
+        activeRun.status === 'completed' || 
+        activeRun.status === 'failed' || 
+        activeRun.status === 'stopped') {
+      console.log('🧪 No status polling needed - experiment not running:', {
         hasExperiment: !!selectedExperiment,
         hasActiveRun: !!activeRun,
         status: activeRun?.status
@@ -667,87 +752,32 @@ export function ExperimentsInterface({
       return
     }
 
-    console.log(`🧪 ExperimentsInterface: Setting up periodic status check for running experiment ${selectedExperiment.id}`)
-
-    // For running experiments, we still need periodic checks since experiment status
-    // updates happen externally and may not trigger MCP tool calls
-    const pollStatus = async () => {
-      console.log('🧪 Polling experiment status...')
-      try {
-        const status = await getExperimentStatusViaMCP(selectedExperiment.id)
-        console.log('🧪 Polled status:', status)
-        
-        if (status.run || status.currentRun) {
-          const run = status.run || status.currentRun
-          // Ensure run has all required properties with defaults
-          const normalizedRun = {
-            ...run,
-            errors: run.errors || [],
-            sessionIds: run.sessionIds || [],
-            errorRate: run.errorRate || 0,
-            // Convert date strings to Date objects
-            startedAt: run.startedAt ? new Date(run.startedAt) : new Date(),
-            pausedAt: run.pausedAt ? new Date(run.pausedAt) : undefined,
-            resumedAt: run.resumedAt ? new Date(run.resumedAt) : undefined,
-            completedAt: run.completedAt ? new Date(run.completedAt) : undefined
-          }
-          
-          // Only update if something actually changed
-          setActiveRun(prevRun => {
-            if (!prevRun) return normalizedRun
-            
-            // Check if key fields have changed
-            const hasChanged = 
-              prevRun.status !== normalizedRun.status ||
-              prevRun.progress !== normalizedRun.progress ||
-              prevRun.completedSessions !== normalizedRun.completedSessions ||
-              prevRun.failedSessions !== normalizedRun.failedSessions ||
-              prevRun.activeSessions !== normalizedRun.activeSessions ||
-              prevRun.errorRate !== normalizedRun.errorRate
-            
-            if (hasChanged) {
-              console.log('🧪 Updating run from:', prevRun, 'to:', normalizedRun)
-              
-              // If experiment just completed, do one final results load
-              if (prevRun.status === 'running' && normalizedRun.status === 'completed') {
-                console.log('🧪 Experiment completed, loading final results')
-                setTimeout(() => loadExperimentResults(), 500)
-              }
-              
-              return normalizedRun
-            }
-            
-            return prevRun
-          })
-        }
-      } catch (error) {
-        console.error('Failed to poll experiment status:', error)
-      }
+    // Only poll for pending or running experiments
+    if (activeRun.status !== 'running' && activeRun.status !== 'pending') {
+      console.log('🧪 No polling needed for status:', activeRun.status)
+      return
     }
 
-    // Poll every 3 seconds for running experiments
-    const interval = setInterval(pollStatus, 3000)
-    
-    // Also poll results to keep session cards updated (only for running experiments)
-    const resultsInterval = setInterval(() => {
-      if (activeRun.status === 'running') {
-        console.log('🧪 Polling experiment results...')
-        loadExperimentResults()
-      }
-    }, 5000)
+    console.log(`🧪 ExperimentsInterface: Setting up minimal status polling for ${activeRun.status} experiment ${selectedExperiment.id}`)
 
-    // Initial load of results only if experiment has started
-    if (activeRun.status === 'running' || activeRun.status === 'completed' || activeRun.status === 'failed') {
-      console.log('🧪 Initial load of experiment results')
-      loadExperimentResults()
-    }
+    // Only poll status every 10 seconds for running experiments
+    // Most updates come from events
+    pollingIntervalRef.current = setInterval(() => {
+      // Double check status before polling
+      if (activeRun.status === 'running' || activeRun.status === 'pending') {
+        console.log('🧪 Status poll check for', activeRun.status, 'experiment')
+        loadExperimentStatus()
+      }
+    }, 10000) // 10 seconds - much less aggressive
 
     return () => {
-      console.log(`🧪 ExperimentsInterface: Cleaning up periodic status check for experiment ${selectedExperiment.id}`)
-      clearInterval(interval)
-      clearInterval(resultsInterval)
+      console.log(`🧪 ExperimentsInterface: Cleaning up status polling for experiment ${selectedExperiment.id}`)
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current)
+        pollingIntervalRef.current = null
+      }
     }
-  }, [selectedExperiment?.id, activeRun?.status, getExperimentStatusViaMCP, loadExperimentResults])
+  }, [selectedExperiment?.id, activeRun?.status])
 
   const handleNewExperiment = () => {
     if (onNewExperiment) {
@@ -763,6 +793,9 @@ export function ExperimentsInterface({
     try {
       console.log('🧪 ExperimentsInterface: Starting experiment, will emit events automatically via internal pub/sub')
       
+      // Clear any cached results for this experiment
+      delete completedResultsCacheRef.current[selectedExperiment.id]
+      
       // This will emit events automatically via internal pub/sub
       const result = await executeExperimentViaMCP(selectedExperiment.id, selectedExperiment)
       console.log('🧪 Experiment start result:', result)
@@ -772,7 +805,7 @@ export function ExperimentsInterface({
         const initialRun = {
           id: result.runId,
           configId: selectedExperiment.id,
-          status: 'pending' as const,
+          status: 'running' as const, // Set to running immediately
           startedAt: new Date(),
           totalSessions: selectedExperiment.totalSessions,
           completedSessions: 0,
@@ -785,9 +818,7 @@ export function ExperimentsInterface({
         }
         console.log('🧪 Setting initial run state:', initialRun)
         
-        startTransition(() => {
-          setActiveRun(initialRun)
-        })
+        setActiveRun(initialRun)
         
         // Force a status check after a short delay
         setTimeout(() => {
@@ -799,7 +830,7 @@ export function ExperimentsInterface({
         setTimeout(() => {
           console.log('🧪 Loading initial experiment results')
           loadExperimentResults()
-        }, 1500)
+        }, 2000)
       }
     } catch (error) {
       console.error('Failed to start experiment:', error)
@@ -1131,8 +1162,8 @@ export function ExperimentsInterface({
                         Experiment Run Status
                         {activeRun.status === 'running' && (
                           <Badge variant="secondary" className="ml-2 text-xs">
-                            <RefreshCw className="h-3 w-3 mr-1" />
-                            Auto-updating
+                            <Zap className="h-3 w-3 mr-1" />
+                            Event-Driven Updates
                           </Badge>
                         )}
                       </CardTitle>
@@ -1221,7 +1252,7 @@ export function ExperimentsInterface({
                   </Card>
                 ) : null}
 
-                {/* Session Results or Placeholder */}
+                {/* Session Results - Always show if we have experiment results */}
                 {experimentResults && (
                   <Card>
                     <CardHeader>
@@ -1244,7 +1275,7 @@ export function ExperimentsInterface({
                             size="sm"
                             onClick={() => {
                               console.log('🧪 Manual refresh triggered')
-                              loadExperimentResults()
+                              loadExperimentResults(true)
                             }}
                             disabled={isLoadingResults || isPending}
                           >
