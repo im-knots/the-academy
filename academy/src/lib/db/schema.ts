@@ -13,7 +13,7 @@ import { relations } from 'drizzle-orm'
 
 // Enums
 export const sessionStatusEnum = pgEnum('session_status', ['active', 'inactive', 'paused', 'completed'])
-export const participantStatusEnum = pgEnum('participant_status', ['active', 'inactive', 'typing', 'thinking'])
+export const participantStatusEnum = pgEnum('participant_status', ['idle', 'active', 'thinking', 'error'])
 export const experimentStatusEnum = pgEnum('experiment_status', ['pending', 'running', 'paused', 'completed', 'failed', 'stopped'])
 export const experimentRunStatusEnum = pgEnum('experiment_run_status', ['running', 'paused', 'completed', 'failed', 'stopped'])
 

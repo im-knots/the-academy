@@ -1,9 +1,24 @@
-// src/lib/mcp/conversation-manager.ts
+// src/lib/ai/conversation-manager.ts
 // Server-side conversation manager (NO 'use client' directive)
 
 import { db } from '../db/client'
 import { sessions, messages, participants } from '../db/schema'
 import { eq, and, desc } from 'drizzle-orm'
+
+// Add participant status constants
+interface ParticipantStatus {
+  IDLE: 'idle'
+  ACTIVE: 'active'
+  THINKING: 'thinking'
+  ERROR: 'error'
+}
+
+const PARTICIPANT_STATUS: ParticipantStatus = {
+  IDLE: 'idle',
+  ACTIVE: 'active',
+  THINKING: 'thinking',
+  ERROR: 'error'
+}
 
 interface ConversationContext {
   sessionId: string
@@ -28,6 +43,7 @@ interface ConversationState {
   participantQueue: string[]
   currentParticipantIndex: number
   messageCount: number
+  maxMessageCount?: number
   abortController?: AbortController
   isGenerating: boolean
   lastGeneratedBy?: string
@@ -36,6 +52,7 @@ interface ConversationState {
   interruptedParticipantId?: string
   interruptedAt: Date | null
   resumeFromParticipant?: string
+  cleanupInProgress?: boolean
 }
 
 export class ServerConversationManager {
@@ -54,8 +71,11 @@ export class ServerConversationManager {
     return ServerConversationManager.instance
   }
 
-  async startConversation(sessionId: string, initialPrompt?: string): Promise<void> {
+  async startConversation(sessionId: string, initialPrompt?: string, maxMessageCount?: number): Promise<void> {
     console.log('🚀 Starting server-side conversation for session:', sessionId)
+    if (maxMessageCount) {
+      console.log(`📏 Max message count set to: ${maxMessageCount}`)
+    }
 
     // Cancel any existing conversation for this session
     await this.stopConversation(sessionId)
@@ -86,12 +106,18 @@ export class ServerConversationManager {
       new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     )
 
+    // Set all AI participants to active status when starting
+    for (const participant of aiParticipants) {
+      await this.updateParticipantStatus(sessionId, participant.id, PARTICIPANT_STATUS.ACTIVE)
+    }
+
     // Initialize conversation state
     this.activeConversations.set(sessionId, {
       isRunning: true,
       participantQueue: sortedParticipants.map(p => p.id),
       currentParticipantIndex: 0,
-      messageCount: 0,
+      messageCount: session.messages.length, // Start with existing message count
+      maxMessageCount: maxMessageCount,
       abortController,
       isGenerating: false,
       lastGeneratedBy: undefined,
@@ -99,7 +125,8 @@ export class ServerConversationManager {
       wasInterrupted: false,
       interruptedParticipantId: undefined,
       interruptedAt: null,
-      resumeFromParticipant: undefined
+      resumeFromParticipant: undefined,
+      cleanupInProgress: false
     })
 
     console.log('📋 Sequential participant order:', sortedParticipants.map(p => `${p.name} (${p.type})`).join(' → '))
@@ -117,6 +144,12 @@ export class ServerConversationManager {
         participantName: 'Research Moderator',
         participantType: 'moderator'
       })
+      
+      // Update message count
+      const state = this.activeConversations.get(sessionId)
+      if (state) {
+        state.messageCount++
+      }
     }
 
     // Start the conversation loop
@@ -131,6 +164,12 @@ export class ServerConversationManager {
 
     while (conversationState.isRunning && !conversationState.abortController?.signal.aborted) {
       try {
+        // Check if cleanup is in progress
+        if (conversationState.cleanupInProgress) {
+          console.log('🧹 Cleanup in progress, exiting conversation loop')
+          break
+        }
+
         // Prevent overlapping generations
         if (conversationState.isGenerating || conversationState.generationLock.size > 0) {
           await new Promise(resolve => setTimeout(resolve, 1000))
@@ -151,15 +190,23 @@ export class ServerConversationManager {
           break
         }
 
+        // CHECK MAX MESSAGE COUNT HERE - BEFORE GENERATING
+        if (conversationState.maxMessageCount && session.messages.length >= conversationState.maxMessageCount) {
+          console.log(`✅ Session ${sessionId}: Reached max message count (${session.messages.length}/${conversationState.maxMessageCount})`)
+          // Stop the conversation gracefully
+          await this.stopConversation(sessionId)
+          break
+        }
+
         if (session.status === 'paused' || session.status === 'completed') {
           console.log('⏸️ Session paused or completed, waiting...')
           await new Promise(resolve => setTimeout(resolve, 2000))
           continue
         }
 
-        // Check if we have enough participants
+        // Check if we have enough participants (exclude error state participants)
         const activeAIParticipants = session.participants.filter(p => 
-          p.type !== 'moderator' && p.status === 'active'
+          p.type !== 'moderator' && p.status !== PARTICIPANT_STATUS.ERROR
         )
         
         if (activeAIParticipants.length < 2) {
@@ -198,7 +245,7 @@ export class ServerConversationManager {
         }
 
         // Skip if participant is in error state
-        if (currentParticipant.status === 'inactive') {
+        if (currentParticipant.status === PARTICIPANT_STATUS.ERROR) {
           console.log(`⚠️ Skipping participant ${currentParticipant.name} due to error state`)
           this.moveToNextParticipant(sessionId)
           await new Promise(resolve => setTimeout(resolve, 3000))
@@ -229,10 +276,24 @@ export class ServerConversationManager {
         conversationState.isGenerating = true
         conversationState.generationLock.add(currentParticipantId)
         
-        // Update participant status in database
-        await this.updateParticipantStatus(sessionId, currentParticipantId, 'thinking')
+        // Update participant status to thinking
+        await this.updateParticipantStatus(sessionId, currentParticipantId, PARTICIPANT_STATUS.THINKING)
+
+        // Check again if we should continue
+        if (!conversationState.isRunning || conversationState.cleanupInProgress || conversationState.abortController?.signal.aborted) {
+          console.log(`🛑 Conversation stopped after marking ${currentParticipant.name} as thinking`)
+          await this.updateParticipantStatus(sessionId, currentParticipantId, PARTICIPANT_STATUS.IDLE)
+          break
+        }
 
         try {
+          // Check if conversation was stopped while waiting
+          if (!conversationState.isRunning || conversationState.cleanupInProgress || conversationState.abortController?.signal.aborted) {
+            console.log(`🛑 Conversation stopped before generating response for ${currentParticipant.name}`)
+            await this.updateParticipantStatus(sessionId, currentParticipantId, PARTICIPANT_STATUS.IDLE)
+            break
+          }
+
           // Generate response via AI provider tools
           const response = await this.generateAIResponse(
             sessionId, 
@@ -253,8 +314,16 @@ export class ServerConversationManager {
             conversationState.lastGeneratedBy = currentParticipantId
             console.log(`💬 ${currentParticipant.name}: ${response.substring(0, 100)}...`)
 
+            // Check if we've reached the max message count after adding this message
+            if (conversationState.maxMessageCount && conversationState.messageCount >= conversationState.maxMessageCount) {
+              console.log(`✅ Session ${sessionId}: Reached max message count after this message (${conversationState.messageCount}/${conversationState.maxMessageCount})`)
+              await this.updateParticipantStatus(sessionId, currentParticipantId, PARTICIPANT_STATUS.ACTIVE)
+              await this.stopConversation(sessionId)
+              break
+            }
+
             // Update participant status back to active
-            await this.updateParticipantStatus(sessionId, currentParticipantId, 'active')
+            await this.updateParticipantStatus(sessionId, currentParticipantId, PARTICIPANT_STATUS.ACTIVE)
 
             // Move to next participant
             this.moveToNextParticipant(sessionId)
@@ -267,9 +336,11 @@ export class ServerConversationManager {
               conversationState.wasInterrupted = true
               conversationState.interruptedParticipantId = currentParticipantId
               conversationState.interruptedAt = new Date()
-              await this.updateParticipantStatus(sessionId, currentParticipantId, 'inactive')
+              // When aborted, set to idle (not error)
+              await this.updateParticipantStatus(sessionId, currentParticipantId, PARTICIPANT_STATUS.IDLE)
             } else {
-              await this.updateParticipantStatus(sessionId, currentParticipantId, 'inactive')
+              // Only set to error if it's an actual error (not abort)
+              await this.updateParticipantStatus(sessionId, currentParticipantId, PARTICIPANT_STATUS.ERROR)
               this.moveToNextParticipant(sessionId)
             }
           }
@@ -283,12 +354,14 @@ export class ServerConversationManager {
               conversationState.wasInterrupted = true
               conversationState.interruptedParticipantId = currentParticipantId
               conversationState.interruptedAt = new Date()
-              await this.updateParticipantStatus(sessionId, currentParticipantId, 'inactive')
+              // When cancelled/aborted, set to idle
+              await this.updateParticipantStatus(sessionId, currentParticipantId, PARTICIPANT_STATUS.IDLE)
               break
             }
           }
           
-          await this.updateParticipantStatus(sessionId, currentParticipantId, 'inactive')
+          // Only set to error for actual errors
+          await this.updateParticipantStatus(sessionId, currentParticipantId, PARTICIPANT_STATUS.ERROR)
           this.moveToNextParticipant(sessionId)
           await new Promise(resolve => setTimeout(resolve, 5000))
         } finally {
@@ -346,6 +419,12 @@ export class ServerConversationManager {
         throw new Error('Request was aborted before starting')
       }
 
+      // Check if cleanup is in progress
+      const conversationState = this.activeConversations.get(sessionId)
+      if (conversationState?.cleanupInProgress || !conversationState?.isRunning) {
+        throw new Error('Conversation stopped or cleanup in progress')
+      }
+
       // Build conversation context
       const context = await this.buildConversationContext(sessionId, participant)
       
@@ -387,6 +466,11 @@ export class ServerConversationManager {
         participantId: participant.id
       }
 
+      // Check abort signal again before API call
+      if (abortSignal?.aborted) {
+        throw new Error('Request was aborted')
+      }
+
       console.log(`🌐 Calling server AI tool ${toolName} for ${participant.name}`)
 
       // Call the AI provider tool directly through the server
@@ -400,6 +484,11 @@ export class ServerConversationManager {
       return result.content
 
     } catch (error) {
+      // Add specific handling for abort errors
+      if (error instanceof Error && (error.name === 'AbortError' || error.message.includes('abort'))) {
+        console.log(`🛑 API call aborted for ${participant.name}`)
+        throw error
+      }
       console.error(`Error generating server response for ${participant.name}:`, error)
       throw error
     }
@@ -548,6 +637,21 @@ Remember: You are ${participant.name}, not any other participant. Always maintai
       console.log('⏸️ Paused server conversation for session:', sessionId)
     }
     
+    // Get session to update all participants to idle
+    const session = await db.query.sessions.findFirst({
+      where: eq(sessions.id, sessionId),
+      with: { participants: true }
+    })
+    
+    if (session) {
+      // Set all AI participants to idle when paused
+      for (const participant of session.participants) {
+        if (participant.type !== 'moderator') {
+          await this.updateParticipantStatus(sessionId, participant.id, PARTICIPANT_STATUS.IDLE)
+        }
+      }
+    }
+    
     // Update session status in database
     await db.update(sessions)
       .set({ status: 'paused' })
@@ -564,6 +668,21 @@ Remember: You are ${participant.name}, not any other participant. Always maintai
       
       console.log('▶️ Resumed server conversation for session:', sessionId)
       
+      // Get session to update all participants to active
+      const session = await db.query.sessions.findFirst({
+        where: eq(sessions.id, sessionId),
+        with: { participants: true }
+      })
+      
+      if (session) {
+        // Set all non-error AI participants back to active when resumed
+        for (const participant of session.participants) {
+          if (participant.type !== 'moderator' && participant.status !== PARTICIPANT_STATUS.ERROR) {
+            await this.updateParticipantStatus(sessionId, participant.id, PARTICIPANT_STATUS.ACTIVE)
+          }
+        }
+      }
+      
       // Restart the conversation loop
       setTimeout(() => this.runConversationLoop(sessionId), 1000)
     }
@@ -577,17 +696,50 @@ Remember: You are ${participant.name}, not any other participant. Always maintai
   async stopConversation(sessionId: string): Promise<void> {
     const conversationState = this.activeConversations.get(sessionId)
     if (conversationState) {
+      // Mark cleanup in progress to prevent new operations
+      conversationState.cleanupInProgress = true
       conversationState.isRunning = false
+      
+      // Abort any pending operations
       conversationState.abortController?.abort()
+      
+      // Wait longer for abort to propagate and pending operations to complete
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
+      // Get session to update all participants to idle
+      const session = await db.query.sessions.findFirst({
+        where: eq(sessions.id, sessionId),
+        with: { participants: true }
+      })
+      
+      if (session) {
+        // Set all AI participants to idle when stopped
+        for (const participant of session.participants) {
+          if (participant.type !== 'moderator') {
+            try {
+              await this.updateParticipantStatus(sessionId, participant.id, PARTICIPANT_STATUS.IDLE)
+            } catch (error) {
+              // Ignore errors during cleanup
+              console.warn(`Failed to update participant ${participant.id} status during cleanup:`, error)
+            }
+          }
+        }
+      }
+      
+      // Clear all state
       conversationState.generationLock.clear()
       this.activeConversations.delete(sessionId)
       console.log('🛑 Stopped server conversation for session:', sessionId)
     }
     
     // Update session status in database
-    await db.update(sessions)
-      .set({ status: 'completed' })
-      .where(eq(sessions.id, sessionId))
+    try {
+      await db.update(sessions)
+        .set({ status: 'completed' })
+        .where(eq(sessions.id, sessionId))
+    } catch (error) {
+      console.warn('Failed to update session status during cleanup:', error)
+    }
   }
 
   isConversationActive(sessionId: string): boolean {
@@ -621,7 +773,20 @@ Remember: You are ${participant.name}, not any other participant. Always maintai
       wasInterrupted: conversationState?.wasInterrupted || false,
       interruptedParticipant: conversationState?.interruptedParticipantId && session ? 
         session.participants.find(p => p.id === conversationState.interruptedParticipantId)?.name 
-        : null
+        : null,
+      maxMessageCount: conversationState?.maxMessageCount || null
+    }
+  }
+
+  // Add cleanup method for experiments
+  async cleanupExperimentSessions(experimentId: string): Promise<void> {
+    console.log(`🧹 Cleaning up all sessions for experiment ${experimentId}`)
+    
+    // Get all active conversations and stop them
+    const sessionIds = Array.from(this.activeConversations.keys())
+    
+    for (const sessionId of sessionIds) {
+      await this.stopConversation(sessionId)
     }
   }
 }

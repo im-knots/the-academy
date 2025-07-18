@@ -34,7 +34,13 @@ export class MCPServer {
     baseDelay: 1000, // 1 second
     maxDelay: 8000,  // 8 seconds max
     retryCondition: (error: any) => {
-      // Enhanced retry logic to match the client - catches more network errors
+      // Don't retry on abort errors - these are intentional
+      if (error?.name === 'AbortError' || error?.code === 20) {
+        console.log('🛑 Request was aborted intentionally, not retrying');
+        return false;
+      }
+      
+      // Enhanced retry logic for network errors
       const errorStr = error?.message?.toLowerCase() || '';
       const isNetworkError = (
         errorStr.includes('network') ||
@@ -45,7 +51,6 @@ export class MCPServer {
         errorStr.includes('fetch') ||
         errorStr.includes('failed to fetch') ||
         errorStr.includes('connection') ||
-        errorStr.includes('abort') ||
         error?.code === 'ECONNRESET' ||
         error?.code === 'ENOTFOUND' ||
         error?.code === 'ECONNREFUSED' ||
@@ -65,6 +70,7 @@ export class MCPServer {
       return shouldRetry;
     }
   };
+
   private initialized = false
 
   async initialize(): Promise<void> {
@@ -111,6 +117,13 @@ export class MCPServer {
         return await operation();
       } catch (error) {
         lastError = error;
+        
+        // Check if this is an abort error - don't retry these
+        if (error instanceof Error && (error.name === 'AbortError' || (error as any).code === 20)) {
+          console.log(`🛑 ${context.provider.toUpperCase()} API call was aborted - not retrying`);
+          throw error; // Throw immediately without retrying
+        }
+        
         console.error(`❌ ${context.provider.toUpperCase()} API attempt ${attempt} failed:`, error);
 
         // Log error for export
@@ -125,7 +138,21 @@ export class MCPServer {
           sessionId: context.sessionId,
           participantId: context.participantId
         };
-        this.errors.push(apiError);
+        
+        // Save to database
+        try {
+          await db.insert(apiErrors).values({
+            provider: apiError.provider,
+            operation: apiError.operation,
+            error: apiError.error,
+            attempt: apiError.attempt,
+            maxAttempts: apiError.maxAttempts,
+            sessionId: apiError.sessionId,
+            participantId: apiError.participantId
+          });
+        } catch (dbError) {
+          console.error('Failed to save API error to database:', dbError);
+        }
 
         // Check if we should retry
         if (attempt <= finalConfig.maxRetries && finalConfig.retryCondition?.(error)) {
@@ -904,7 +931,8 @@ export class MCPServer {
           type: 'object',
           properties: {
             sessionId: { type: 'string', description: 'Session ID' },
-            initialPrompt: { type: 'string', description: 'Initial prompt' }
+            initialPrompt: { type: 'string', description: 'Initial prompt' },
+            maxMessageCount: { type: 'number', description: 'Maximum number of messages before stopping' }
           },
           required: ['sessionId']
         }
@@ -3603,7 +3631,7 @@ export class MCPServer {
 
   private async toolStartConversation(args: any): Promise<any> {
     try {
-      const { sessionId, initialPrompt } = args
+      const { sessionId, initialPrompt, maxMessageCount } = args  // Add maxMessageCount
       
       if (!sessionId) {
         throw new Error('Session ID is required')
@@ -3617,14 +3645,15 @@ export class MCPServer {
         throw new Error(`Session ${sessionId} not found`)
       }
 
-      // Start the conversation using the server-side conversation manager
-      await this.conversationManager.startConversation(sessionId, initialPrompt)
+      // Start the conversation using the server-side conversation manager with maxMessageCount
+      await this.conversationManager.startConversation(sessionId, initialPrompt, maxMessageCount)
 
       return {
         success: true,
         sessionId: sessionId,
         status: 'active',
         initialPrompt: initialPrompt || null,
+        maxMessageCount: maxMessageCount || null,
         message: 'Conversation started successfully using server-side management'
       }
     } catch (error) {
@@ -4843,6 +4872,11 @@ export class MCPServer {
       const experimentConfig = experiment.config;
       console.log('🔬 Starting experiment execution:', experimentConfig.name);
 
+      // Initialize session tracking for this experiment
+      if (!this.activeExperimentSessions.has(experimentId)) {
+        this.activeExperimentSessions.set(experimentId, new Set());
+      }
+
       // Generate session batches using the same logic as client
       const batches = this.generateBatches(experimentConfig);
       const createdSessionIds: string[] = [];
@@ -4876,6 +4910,13 @@ export class MCPServer {
             
             const sessionId = createResult.sessionId;
             createdSessionIds.push(sessionId);
+            
+            // Track this session as part of the experiment
+            const experimentSessions = this.activeExperimentSessions.get(experimentId);
+            if (experimentSessions) {
+              experimentSessions.add(sessionId);
+            }
+            
             console.log(`✅ Session created: ${sessionId}`);
             
             // Step 2: Configure session via MCP tool
@@ -4895,7 +4936,8 @@ export class MCPServer {
             
             const startResult = await this.toolStartConversation({
               sessionId,
-              initialPrompt: initialPrompt
+              initialPrompt: initialPrompt,
+              maxMessageCount: experimentConfig.maxMessageCount || 20  // Add this
             });
             
             if (!startResult.success) {
@@ -4967,6 +5009,9 @@ export class MCPServer {
         }
       });
 
+      // Clean up session tracking
+      this.activeExperimentSessions.delete(experimentId);
+
       console.log(`\n🎉 Experiment ${experimentConfig.name} completed!`);
       
     } catch (error) {
@@ -4981,6 +5026,9 @@ export class MCPServer {
           error: error instanceof Error ? error.message : 'Unknown error'
         }
       });
+
+      // Clean up session tracking on failure
+      this.activeExperimentSessions.delete(experimentId);
     }
   }
 
@@ -5357,16 +5405,26 @@ export class MCPServer {
         .set({ status: 'stopped' })
         .where(eq(experiments.id, experimentId));
 
-      // Clean up
-      this.experimentRuns.delete(experimentId);
+      // Clean up active sessions
       const activeSessions = this.activeExperimentSessions.get(experimentId);
       if (activeSessions) {
-        // Stop all active sessions
+        console.log(`🧹 Stopping ${activeSessions.size} active sessions for experiment ${experimentId}`);
+        
+        // Stop all active sessions for this experiment
         for (const sessionId of activeSessions) {
-          await this.toolStopConversation({ sessionId });
+          try {
+            await this.conversationManager.stopConversation(sessionId);
+          } catch (error) {
+            console.error(`Failed to stop session ${sessionId}:`, error);
+          }
         }
+        
+        // Clear the tracking
         this.activeExperimentSessions.delete(experimentId);
       }
+
+      // Clean up local state
+      this.experimentRuns.delete(experimentId);
 
       return {
         success: true,
