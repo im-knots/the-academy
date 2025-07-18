@@ -251,6 +251,14 @@ docker run -d \
   -e MISTRAL_API_KEY=your_mistral_api_key_here \
   -e COHERE_API_KEY=your_cohere_api_key_here \
   -e NODE_ENV=production \
+  -e POSTGRES_HOST=localhost \
+  -e POSTGRES_PORT=5432 \
+  -e POSTGRES_USER=academy_user \
+  -e POSTGRES_PASSWORD=academy_password \
+  -e POSTGRES_DB=academy_db \
+  -e DATABASE_URL=postgresql://academy_user:academy_password@localhost:5432/academy_db \
+  -e PGADMIN_EMAIL=admin@academy.local \
+  -e PGADMIN_PASSWORD=admin \
   --restart unless-stopped \
   the-academy
 ```
@@ -278,6 +286,14 @@ GOOGLE_AI_API_KEY=your_google_ai_api_key_here
 DEEPSEEK_API_KEY=your_deepseek_api_key_here 
 MISTRAL_API_KEY=your_mistral_api_key_here 
 COHERE_API_KEY=your_cohere_api_key_here 
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_USER=academy_user
+POSTGRES_PASSWORD=academy_password
+POSTGRES_DB=academy_db
+DATABASE_URL=postgresql://academy_user:academy_password@localhost:5432/academy_db
+PGADMIN_EMAIL=admin@academy.local
+PGADMIN_PASSWORD=admin
 ```
 
 #### Launch
