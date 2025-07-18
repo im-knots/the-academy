@@ -4648,10 +4648,17 @@ export class MCPServer {
 
       this.experimentConfigs.set(experiment.id, config);
 
+      // Return flattened structure to match toolGetExperiments
       return {
         success: true,
         experimentId: experiment.id,
-        experiment: experiment,
+        experiment: {
+          ...config,  // Flatten config properties to match toolGetExperiments
+          id: experiment.id,
+          status: experiment.status,
+          createdAt: experiment.createdAt,
+          updatedAt: experiment.updatedAt
+        },
         message: `Experiment "${config.name}" created successfully`
       };
     } catch (error) {
@@ -5044,14 +5051,26 @@ export class MCPServer {
     const concurrentSessions = experimentConfig.concurrentSessions || 3;
     const batches = [];
     
+    // Get current date in YYYY-MM-DD format
+    const currentDate = new Date();
+    const dateStr = currentDate.toISOString().split('T')[0]; // This gives YYYY-MM-DD
+    
     let sessionNumber = 1;
     for (let i = 0; i < totalSessions; i += concurrentSessions) {
       const batchSessions = [];
       const batchSize = Math.min(concurrentSessions, totalSessions - i);
       
       for (let j = 0; j < batchSize; j++) {
-        const sessionName = experimentConfig.sessionNamePattern?.replace('{index}', String(sessionNumber)) || 
-                          `${experimentConfig.name} - Session ${sessionNumber}`;
+        // Replace both <date> and <n> placeholders
+        let sessionName = experimentConfig.sessionNamePattern;
+        
+        if (sessionName) {
+          sessionName = sessionName
+            .replace('<date>', dateStr)
+            .replace('<n>', String(sessionNumber));
+        } else {
+          sessionName = `${experimentConfig.name} - Session ${sessionNumber}`;
+        }
         
         batchSessions.push({
           sessionNumber,

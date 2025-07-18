@@ -660,7 +660,11 @@ export function CreateExperimentModal({ isOpen, onClose, onSave }: CreateExperim
                   <input
                     type="number"
                     value={(formData.errorRateThreshold || 0) * 100}
-                    onChange={(e) => setFormData(prev => ({ ...prev, errorRateThreshold: parseFloat(e.target.value) / 100 }))}
+                    onChange={(e) => {
+                      const parsedValue = parseFloat(e.target.value);
+                      const validValue = isNaN(parsedValue) ? 0 : parsedValue;
+                      setFormData(prev => ({ ...prev, errorRateThreshold: validValue / 100 }));
+                    }}
                     min="0"
                     max="100"
                     step="0.1"
