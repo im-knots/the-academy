@@ -1,7 +1,7 @@
-// src/components/Research/ExperimentsInterface.tsx - Updated with Single Run and Session Dropdown
+// src/components/Research/ExperimentsInterface.tsx - Updated with Session Cards
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useMCP } from '@/hooks/useMCP'
 import { MCPClient } from '@/lib/mcp/client'
 import { eventBus, EVENT_TYPES } from '@/lib/events/eventBus'
@@ -23,11 +23,11 @@ import {
 interface ExperimentSession {
   id: string
   name: string
-  messageCount: number
-  participantCount: number
-  status: string
-  createdAt: Date
-  lastActivity: Date
+  messageCount?: number
+  participantCount?: number
+  status?: string
+  createdAt: Date | string
+  lastActivity?: Date | string
   messages?: Array<{
     role: string
     content: string
@@ -77,8 +77,9 @@ export function ExperimentsInterface({
   const [activeRun, setActiveRun] = useState<ExperimentRun | null>(null)
   const [experimentResults, setExperimentResults] = useState<ExperimentResults | null>(null)
   const [isLoadingStatus, setIsLoadingStatus] = useState(false)
-  const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set())
-  const [showSessionsDropdown, setShowSessionsDropdown] = useState(false)
+  const [isLoadingResults, setIsLoadingResults] = useState(false)
+  const [isLoadingSessions, setIsLoadingSessions] = useState(false)
+  const [lastResultsUpdate, setLastResultsUpdate] = useState<Date | null>(null)
   
   // MCP client ref for API calls
   const mcpClient = useRef(MCPClient.getInstance())
@@ -102,9 +103,41 @@ export function ExperimentsInterface({
     if (!selectedExperiment) return
 
     try {
-      const results = await getExperimentResultsViaMCP(selectedExperiment.id)
-      console.log('🧪 Loaded experiment results:', results)
-      setExperimentResults(results.results)
+      const response = await getExperimentResultsViaMCP(selectedExperiment.id)
+      console.log('🧪 Raw API response:', response)
+      console.log('🧪 currentStatus structure:', JSON.stringify(response.currentStatus, null, 2))
+      
+      // The API returns activeSessions directly in the response
+      if (response) {
+        // Try to find sessions in various possible locations
+        const sessions = response.activeSessions || response.sessions || response.results?.sessions || []
+        console.log('🧪 Found sessions:', sessions)
+        const adaptedResults = {
+          config: response.experiment || selectedExperiment,
+          run: response.currentRun || response.currentStatus || response.run,
+          sessions: sessions,
+          aggregateStats: {
+            totalSessions: sessions.length,
+            totalMessages: sessions.reduce((sum, s) => sum + (s.messageCount || 0), 0),
+            avgMessagesPerSession: sessions.length > 0 
+              ? (sessions.reduce((sum, s) => sum + (s.messageCount || 0), 0) / sessions.length)
+              : 0,
+            participantStats: {},
+            errorRate: response.currentRun?.errorRate || response.currentStatus?.errorRate || 0,
+            successRate: response.currentRun?.successRate || response.currentStatus?.successRate || 
+              ((response.currentRun?.completedSessions || response.currentStatus?.completedSessions || 0) / 
+               (response.currentRun?.totalSessions || response.currentStatus?.totalSessions || 1)) || 0
+          }
+        }
+        console.log('🧪 Adapted experiment results:', adaptedResults)
+        setExperimentResults(adaptedResults)
+        setLastResultsUpdate(new Date())
+      } else if (response?.results) {
+        // Handle wrapped response
+        setExperimentResults(response.results)
+      } else {
+        console.warn('🧪 Unexpected API response structure:', response)
+      }
     } catch (error) {
       console.error('Failed to load experiment results:', error)
     }
@@ -139,8 +172,8 @@ export function ExperimentsInterface({
         setActiveRun(normalizedRun)
         console.log('🧪 Updated active run:', normalizedRun)
         
-        // Load results if experiment is completed
-        if (normalizedRun.status === 'completed' || normalizedRun.status === 'failed') {
+        // Load results if experiment has started (including running experiments)
+        if (normalizedRun.status === 'running' || normalizedRun.status === 'completed' || normalizedRun.status === 'failed') {
           await loadExperimentResults()
         }
       } else if (status.success === false) {
@@ -188,12 +221,18 @@ export function ExperimentsInterface({
   const handleAnyExperimentRelatedEvent = useCallback(async (payload: any) => {
     console.log('🧪 ExperimentsInterface: Event received that might affect experiment:', payload)
     
-    // For any event, just refresh the status if we have an active experiment
+    // For any event, refresh both status and results if we have an active experiment
     if (selectedExperiment && !loadingRef.current) {
-      console.log('🧪 Refreshing experiment status due to event')
+      console.log('🧪 Refreshing experiment status and results due to event')
       await loadExperimentStatus()
+      
+      // Also refresh results to update session cards
+      if (activeRun && (activeRun.status === 'running' || activeRun.status === 'pending')) {
+        console.log('🧪 Also refreshing experiment results due to event')
+        await loadExperimentResults()
+      }
     }
-  }, [selectedExperiment, loadExperimentStatus])
+  }, [selectedExperiment, loadExperimentStatus, loadExperimentResults])
 
   // EVENT-DRIVEN: Subscribe to relevant events via internal pub/sub
   useEffect(() => {
@@ -203,6 +242,12 @@ export function ExperimentsInterface({
 
     // Initial load
     loadExperimentStatus()
+    
+    // Also load results immediately if experiment exists
+    setTimeout(() => {
+      console.log('🧪 Initial load of experiment results after selection')
+      loadExperimentResults()
+    }, 500)
 
     // Experiment events - use specific handler
     const unsubscribeExperimentCreated = eventBus.subscribe(EVENT_TYPES.EXPERIMENT_CREATED, handleExperimentEvent)
@@ -274,8 +319,8 @@ export function ExperimentsInterface({
             return normalizedRun
           })
           
-          // Load results if experiment completed or failed
-          if (normalizedRun.status === 'completed' || normalizedRun.status === 'failed') {
+          // Load results if experiment has started (including running experiments)
+          if (normalizedRun.status === 'running' || normalizedRun.status === 'completed' || normalizedRun.status === 'failed') {
             await loadExperimentResults()
           }
         }
@@ -286,10 +331,21 @@ export function ExperimentsInterface({
 
     // Poll every 3 seconds for running experiments
     const interval = setInterval(pollStatus, 3000)
+    
+    // Also poll results to keep session cards updated
+    const resultsInterval = setInterval(() => {
+      console.log('🧪 Polling experiment results...')
+      loadExperimentResults()
+    }, 5000)
+
+    // Initial load of results
+    console.log('🧪 Initial load of experiment results')
+    loadExperimentResults()
 
     return () => {
       console.log(`🧪 ExperimentsInterface: Cleaning up periodic status check for experiment ${selectedExperiment.id}`)
       clearInterval(interval)
+      clearInterval(resultsInterval)
     }
   }, [selectedExperiment?.id, activeRun?.status, getExperimentStatusViaMCP, loadExperimentResults])
 
@@ -335,6 +391,12 @@ export function ExperimentsInterface({
           console.log('🧪 Force loading experiment status after start')
           loadExperimentStatus()
         }, 1000)
+        
+        // Also load results immediately to show session cards
+        setTimeout(() => {
+          console.log('🧪 Loading initial experiment results')
+          loadExperimentResults()
+        }, 1500)
       }
     } catch (error) {
       console.error('Failed to start experiment:', error)
@@ -437,18 +499,6 @@ export function ExperimentsInterface({
     }
   }
 
-  const toggleSessionExpanded = (sessionId: string) => {
-    setExpandedSessions(prev => {
-      const next = new Set(prev)
-      if (next.has(sessionId)) {
-        next.delete(sessionId)
-      } else {
-        next.add(sessionId)
-      }
-      return next
-    })
-  }
-
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'running': 
@@ -528,11 +578,12 @@ export function ExperimentsInterface({
         </div>
 
         {/* Main Content */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col overflow-hidden">
           {selectedExperiment ? (
             /* Selected Experiment View */
-            <div className="flex-1 overflow-y-auto p-6">
-              <div className="max-w-6xl mx-auto space-y-6">
+            <div className="flex-1 overflow-hidden flex flex-col">
+              <div className="flex-1 overflow-y-auto p-6">
+                <div className="max-w-6xl mx-auto space-y-6 pb-8">
                 {/* Experiment Header */}
                 <Card className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 shadow-xl border-0">
                   <CardHeader>
@@ -726,181 +777,208 @@ export function ExperimentsInterface({
                   </Card>
                 )}
 
-                {/* Session Results - Collapsible */}
+                {/* Session Results or Placeholder */}
                 {experimentResults && (
                   <Card>
-                    <CardHeader 
-                      className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50"
-                      onClick={() => setShowSessionsDropdown(!showSessionsDropdown)}
-                    >
+                    <CardHeader>
                       <CardTitle className="text-lg flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          {showSessionsDropdown ? (
-                            <ChevronDown className="h-5 w-5" />
-                          ) : (
-                            <ChevronRight className="h-5 w-5" />
-                          )}
                           <MessageSquare className="h-5 w-5" />
                           Session Details & Analysis
                         </div>
-                        <div className="text-sm font-normal text-gray-600 dark:text-gray-400">
-                          {experimentResults.sessions.length} sessions • {experimentResults.aggregateStats.totalMessages} messages
+                        <div className="flex items-center gap-4">
+                          <div className="text-sm font-normal text-gray-600 dark:text-gray-400">
+                            {experimentResults.sessions?.length || 0} sessions • {experimentResults.aggregateStats?.totalMessages || 0} messages
+                          </div>
+                          {lastResultsUpdate && (
+                            <div className="text-xs text-gray-500">
+                              Last update: {lastResultsUpdate.toLocaleTimeString()}
+                            </div>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              console.log('🧪 Manual refresh triggered')
+                              loadExperimentResults()
+                            }}
+                            disabled={isLoadingResults}
+                          >
+                            <RefreshCw className={`h-4 w-4 ${isLoadingResults ? 'animate-spin' : ''}`} />
+                          </Button>
                         </div>
                       </CardTitle>
                     </CardHeader>
-                    {showSessionsDropdown && (
-                      <CardContent>
+                    <CardContent>
+                      {experimentResults.sessions && experimentResults.sessions.length > 0 ? (
                         <div className="space-y-6">
                           {/* Aggregate Stats */}
-                          <div>
-                            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                              Aggregate Statistics
-                            </h4>
-                            <div className="grid grid-cols-3 gap-4">
-                              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg p-4">
-                                <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-                                  {experimentResults.aggregateStats.totalMessages}
+                          {experimentResults.aggregateStats && (
+                            <div>
+                              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                                Aggregate Statistics
+                              </h4>
+                              <div className="grid grid-cols-3 gap-4">
+                                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg p-4">
+                                  <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                                    {experimentResults.aggregateStats.totalMessages}
+                                  </div>
+                                  <div className="text-sm text-gray-600 dark:text-gray-400">Total Messages</div>
                                 </div>
-                                <div className="text-sm text-gray-600 dark:text-gray-400">Total Messages</div>
-                              </div>
-                              <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg p-4">
-                                <div className="text-3xl font-bold text-green-600 dark:text-green-400">
-                                  {experimentResults.aggregateStats.avgMessagesPerSession.toFixed(1)}
+                                <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg p-4">
+                                  <div className="text-3xl font-bold text-green-600 dark:text-green-400">
+                                    {experimentResults.aggregateStats.avgMessagesPerSession.toFixed(1)}
+                                  </div>
+                                  <div className="text-sm text-gray-600 dark:text-gray-400">Avg Messages/Session</div>
                                 </div>
-                                <div className="text-sm text-gray-600 dark:text-gray-400">Avg Messages/Session</div>
-                              </div>
-                              <div className="bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 rounded-lg p-4">
-                                <div className="text-3xl font-bold text-green-600 dark:text-green-400">
-                                  {(experimentResults.aggregateStats.successRate * 100).toFixed(1)}%
+                                <div className="bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 rounded-lg p-4">
+                                  <div className="text-3xl font-bold text-green-600 dark:text-green-400">
+                                    {(experimentResults.aggregateStats.successRate * 100).toFixed(1)}%
+                                  </div>
+                                  <div className="text-sm text-gray-600 dark:text-gray-400">Success Rate</div>
                                 </div>
-                                <div className="text-sm text-gray-600 dark:text-gray-400">Success Rate</div>
                               </div>
                             </div>
-                          </div>
+                          )}
 
                           {/* Participant Performance */}
-                          <div>
-                            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                              Participant Performance
-                            </h4>
-                            <div className="space-y-2">
-                              {Object.entries(experimentResults.aggregateStats.participantStats).map(([key, stats]) => (
-                                <div key={key} className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                                  <div className="flex items-center gap-3">
-                                    <Badge variant="outline" className="capitalize">
-                                      {key.split('-')[0]}
-                                    </Badge>
-                                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                                      {key.split('-')[1]}
-                                    </span>
+                          {experimentResults.aggregateStats?.participantStats && Object.keys(experimentResults.aggregateStats.participantStats).length > 0 && (
+                            <div>
+                              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                                Participant Performance
+                              </h4>
+                              <div className="space-y-2">
+                                {Object.entries(experimentResults.aggregateStats.participantStats).map(([key, stats]) => (
+                                  <div key={key} className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
+                                    <div className="flex items-center gap-3">
+                                      <Badge variant="outline" className="capitalize">
+                                        {key.split('-')[0]}
+                                      </Badge>
+                                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                                        {key.split('-')[1]}
+                                      </span>
+                                    </div>
+                                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                                      {stats.messageCount} messages across {stats.sessions} sessions
+                                    </div>
                                   </div>
-                                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                                    {stats.messageCount} messages across {stats.sessions} sessions
-                                  </div>
-                                </div>
-                              ))}
+                                ))}
+                              </div>
                             </div>
-                          </div>
+                          )}
 
-                          {/* Session List */}
+                          {/* Session Cards */}
                           <div>
                             <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
                               Sessions ({experimentResults.sessions.length})
                             </h4>
-                            <div className="max-h-96 overflow-y-auto space-y-2">
-                              {experimentResults.sessions.map((session) => (
-                                <div key={session.id} className="bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                  <div 
-                                    className="p-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50"
-                                    onClick={() => toggleSessionExpanded(session.id)}
-                                  >
-                                    <div className="flex items-center justify-between">
-                                      <div className="flex items-center gap-2">
-                                        {expandedSessions.has(session.id) ? (
-                                          <ChevronDown className="h-3 w-3 text-gray-500" />
-                                        ) : (
-                                          <ChevronRight className="h-3 w-3 text-gray-500" />
-                                        )}
-                                        <div>
-                                          <span className="font-medium text-sm">{session.name}</span>
-                                          <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
-                                            <span>{session.messageCount} messages</span>
-                                            <span>{session.participantCount} participants</span>
-                                            <span>{new Date(session.createdAt).toLocaleDateString()}</span>
-                                          </div>
+                            <div className="max-h-[600px] overflow-y-auto">
+                              <div className="grid grid-cols-4 gap-4">
+                                {experimentResults.sessions.map((session) => {
+                                  // Determine session status color
+                                  const getSessionStatusColor = (status?: string) => {
+                                    const normalizedStatus = (status || 'pending').toLowerCase()
+                                    switch (normalizedStatus) {
+                                      case 'completed':
+                                      case 'complete':
+                                        return 'text-green-600 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700'
+                                      case 'running':
+                                      case 'active':
+                                      case 'in_progress':
+                                        return 'text-blue-600 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700'
+                                      case 'failed':
+                                      case 'error':
+                                      case 'errored':
+                                        return 'text-red-600 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700'
+                                      case 'pending':
+                                      case 'waiting':
+                                      case 'queued':
+                                      default:
+                                        return 'text-gray-600 bg-gray-50 dark:bg-gray-900/20 border-gray-200 dark:border-gray-700'
+                                    }
+                                  }
+
+                                  const getSessionStatusIcon = (status?: string) => {
+                                    const normalizedStatus = (status || 'pending').toLowerCase()
+                                    switch (normalizedStatus) {
+                                      case 'completed':
+                                      case 'complete':
+                                        return <CheckCircle2 className="h-4 w-4" />
+                                      case 'running':
+                                      case 'active':
+                                      case 'in_progress':
+                                        return <Loader2 className="h-4 w-4 animate-spin" />
+                                      case 'failed':
+                                      case 'error':
+                                      case 'errored':
+                                        return <AlertCircle className="h-4 w-4" />
+                                      case 'pending':
+                                      case 'waiting':
+                                      case 'queued':
+                                      default:
+                                        return <Clock className="h-4 w-4" />
+                                    }
+                                  }
+
+                                  return (
+                                    <Card key={session.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                                      <CardContent className="p-4">
+                                        {/* Session Name and Status */}
+                                        <div className="flex items-start justify-between mb-3">
+                                          <h5 className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate flex-1 mr-2">
+                                            {session.name}
+                                          </h5>
+                                          <Badge 
+                                            variant="outline" 
+                                            className={`text-xs flex items-center gap-1 ${getSessionStatusColor(session.status || 'pending')}`}
+                                          >
+                                            {getSessionStatusIcon(session.status || 'pending')}
+                                            <span className="capitalize">
+                                              {(session.status || 'pending').replace(/_/g, ' ')}
+                                            </span>
+                                          </Badge>
                                         </div>
-                                      </div>
-                                      <Badge variant="outline" className="text-xs">
-                                        {session.status}
-                                      </Badge>
-                                    </div>
-                                  </div>
-                                  
-                                  {/* Session Details (Collapsible) */}
-                                  {expandedSessions.has(session.id) && (
-                                    <div className="border-t border-gray-200 dark:border-gray-700 p-3">
-                                      {/* Messages */}
-                                      {session.messages && session.messages.length > 0 && (
-                                        <div className="mb-4">
-                                          <h5 className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-1">
+
+                                        {/* Session Stats */}
+                                        <div className="space-y-2 text-xs text-gray-600 dark:text-gray-400">
+                                          <div className="flex items-center gap-1">
                                             <MessageSquare className="h-3 w-3" />
-                                            Conversation History
-                                          </h5>
-                                          <div className="space-y-2 max-h-48 overflow-y-auto">
-                                            {session.messages.map((msg, idx) => (
-                                              <div key={idx} className="text-xs">
-                                                <div className="flex items-center gap-2 mb-1">
-                                                  <Badge variant="outline" className="text-xs py-0">
-                                                    {msg.participantName}
-                                                  </Badge>
-                                                  <span className="text-gray-500">
-                                                    {new Date(msg.timestamp).toLocaleTimeString()}
-                                                  </span>
-                                                </div>
-                                                <p className="text-gray-600 dark:text-gray-400 ml-2">
-                                                  {msg.content}
-                                                </p>
-                                              </div>
-                                            ))}
+                                            <span>{session.messageCount || 0} messages</span>
                                           </div>
-                                        </div>
-                                      )}
-                                      
-                                      {/* Analysis Snapshots */}
-                                      {session.analysisSnapshots && session.analysisSnapshots.length > 0 && (
-                                        <div>
-                                          <h5 className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-1">
+                                          <div className="flex items-center gap-1">
+                                            <Users className="h-3 w-3" />
+                                            <span>{session.participantCount || 0} participants</span>
+                                          </div>
+                                          <div className="flex items-center gap-1">
                                             <FileText className="h-3 w-3" />
-                                            Analysis Snapshots
-                                          </h5>
-                                          <div className="space-y-2">
-                                            {session.analysisSnapshots.map((snapshot, idx) => (
-                                              <div key={idx} className="bg-gray-100 dark:bg-gray-900 rounded p-2">
-                                                <div className="flex items-center justify-between mb-1">
-                                                  <Badge variant="outline" className="text-xs">
-                                                    {snapshot.type}
-                                                  </Badge>
-                                                  <span className="text-xs text-gray-500">
-                                                    {new Date(snapshot.timestamp).toLocaleTimeString()}
-                                                  </span>
-                                                </div>
-                                                <pre className="text-xs text-gray-600 dark:text-gray-400 whitespace-pre-wrap">
-                                                  {JSON.stringify(snapshot.analysis, null, 2)}
-                                                </pre>
-                                              </div>
-                                            ))}
+                                            <span>{session.analysisSnapshots?.length || 0} analysis snapshots</span>
                                           </div>
+                                          <div className="flex items-center gap-1">
+                                            <Calendar className="h-3 w-3" />
+                                            <span>{session.createdAt ? new Date(session.createdAt).toLocaleDateString() : 'Unknown'}</span>
+                                          </div>
+                                          {session.lastActivity && (
+                                            <div className="flex items-center gap-1">
+                                              <Clock className="h-3 w-3" />
+                                              <span>Last: {new Date(session.lastActivity).toLocaleTimeString()}</span>
+                                            </div>
+                                          )}
                                         </div>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
+                                      </CardContent>
+                                    </Card>
+                                  )
+                                })}
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </CardContent>
-                    )}
+                      ) : (
+                        <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                          <MessageSquare className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                          <p>No sessions created yet. Sessions will appear here as the experiment runs.</p>
+                        </div>
+                      )}
+                    </CardContent>
                   </Card>
                 )}
 
@@ -972,6 +1050,7 @@ export function ExperimentsInterface({
                 </Card>
               </div>
             </div>
+          </div>
           ) : (
             /* No Experiment Selected */
             <div className="flex-1 flex items-center justify-center">
