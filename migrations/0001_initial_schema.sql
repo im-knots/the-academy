@@ -2,7 +2,7 @@
 
 -- Create custom types
 CREATE TYPE session_status AS ENUM ('active', 'inactive', 'paused', 'completed');
-CREATE TYPE participant_status AS ENUM ('active', 'inactive', 'typing', 'thinking');
+CREATE TYPE participant_status AS ENUM ('idle', 'active', 'thinking', 'error');
 CREATE TYPE experiment_status AS ENUM ('pending', 'running', 'paused', 'completed', 'failed', 'stopped');
 CREATE TYPE experiment_run_status AS ENUM ('running', 'paused', 'completed', 'failed', 'stopped');
 
