@@ -1124,16 +1124,16 @@ export function ExperimentsInterface({
                           </>
                         ) : null}
                         
-                        {experimentResults && (
-                          <Button
-                            variant="outline"
-                            onClick={handleExportResults}
-                            className="text-gray-600 hover:text-gray-900"
-                          >
-                            <Download className="h-4 w-4 mr-1" />
-                            Export Results
-                          </Button>
-                        )}
+                      {experimentResults && activeRun?.status !== 'running' && activeRun?.status !== 'pending' && (
+                        <Button
+                          variant="outline"
+                          onClick={handleExportResults}
+                          className="text-gray-600 hover:text-gray-900"
+                        >
+                          <Download className="h-4 w-4 mr-1" />
+                          Export Results
+                        </Button>
+                      )}
                       </div>
                     </div>
                   </CardHeader>

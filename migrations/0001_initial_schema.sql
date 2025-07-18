@@ -55,7 +55,7 @@ CREATE TABLE messages (
 CREATE INDEX messages_session_id_idx ON messages(session_id);
 CREATE INDEX messages_timestamp_idx ON messages(timestamp);
 
--- Create analysis_snapshots table (UPDATED with all required fields)
+-- Create analysis_snapshots table
 CREATE TABLE analysis_snapshots (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
@@ -85,7 +85,7 @@ CREATE TABLE experiments (
 
 CREATE INDEX experiments_status_idx ON experiments(status);
 
--- Create experiment_runs table
+-- Create experiment_runs table (UPDATED with sessionIds, errors, and updatedAt)
 CREATE TABLE experiment_runs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     experiment_id UUID NOT NULL REFERENCES experiments(id) ON DELETE CASCADE,
@@ -96,12 +96,16 @@ CREATE TABLE experiment_runs (
     failed_sessions INTEGER NOT NULL DEFAULT 0,
     average_message_count INTEGER NOT NULL DEFAULT 0,
     results JSONB NOT NULL DEFAULT '{}',
+    session_ids JSONB NOT NULL DEFAULT '[]',  
+    errors JSONB NOT NULL DEFAULT '[]',       
     started_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    completed_at TIMESTAMP
+    completed_at TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW() 
 );
 
 CREATE INDEX experiment_runs_experiment_id_idx ON experiment_runs(experiment_id);
 CREATE INDEX experiment_runs_status_idx ON experiment_runs(status);
+CREATE INDEX experiment_runs_updated_at_idx ON experiment_runs(updated_at); 
 
 -- Create api_errors table
 CREATE TABLE api_errors (
@@ -113,7 +117,8 @@ CREATE TABLE api_errors (
     max_attempts INTEGER NOT NULL,
     error TEXT NOT NULL,
     session_id TEXT,
-    participant_id TEXT
+    participant_id TEXT,
+    metadata JSONB NOT NULL DEFAULT '{}' 
 );
 
 CREATE INDEX api_errors_timestamp_idx ON api_errors(timestamp);
@@ -133,4 +138,7 @@ CREATE TRIGGER update_sessions_updated_at BEFORE UPDATE ON sessions
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_experiments_updated_at BEFORE UPDATE ON experiments
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_experiment_runs_updated_at BEFORE UPDATE ON experiment_runs
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
