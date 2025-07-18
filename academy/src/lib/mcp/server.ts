@@ -4886,7 +4886,7 @@ export class MCPServer {
 
       // Generate session batches using the same logic as client
       const batches = this.generateBatches(experimentConfig);
-      const createdSessionIds: string[] = [];
+      const allCreatedSessionIds: string[] = [];  // Track ALL session IDs
 
       for (const batch of batches) {
         console.log(`\n🚀 Starting batch ${batch.batchNumber} with ${batch.sessions.length} concurrent sessions`);
@@ -4916,7 +4916,7 @@ export class MCPServer {
             }
             
             const sessionId = createResult.sessionId;
-            createdSessionIds.push(sessionId);
+            allCreatedSessionIds.push(sessionId);  // Add to our tracking array
             
             // Track this session as part of the experiment
             const experimentSessions = this.activeExperimentSessions.get(experimentId);
@@ -4926,15 +4926,20 @@ export class MCPServer {
             
             console.log(`✅ Session created: ${sessionId}`);
             
-            // Step 2: Configure session via MCP tool
+            // IMPORTANT: Update the run with the new session ID immediately
+            await this.toolUpdateExperimentRun({
+              experimentId,
+              updates: {
+                sessionIds: allCreatedSessionIds  // Update with all session IDs so far
+              }
+            });
+            
+            // Rest of session execution...
             await this.toolUpdateSession({
               sessionId: sessionId,
-              updates: {
-                analysis: {
-                  provider: experimentConfig.analysisProvider || 'claude',
-                  autoAnalysis: true,
-                  analysisInterval: (experimentConfig.maxMessageCount || 20) * 30
-                }
+              metadata: {
+                experimentId: experimentId,  // Link session to experiment
+                experimentRunId: runId
               }
             });
             
@@ -4944,7 +4949,7 @@ export class MCPServer {
             const startResult = await this.toolStartConversation({
               sessionId,
               initialPrompt: initialPrompt,
-              maxMessageCount: experimentConfig.maxMessageCount || 20  // Add this
+              maxMessageCount: experimentConfig.maxMessageCount || 20
             });
             
             if (!startResult.success) {
@@ -4952,9 +4957,6 @@ export class MCPServer {
             }
             
             console.log(`✅ Conversation started for session ${sessionId}`);
-            
-            // Step 4: Start the conversation manager (IMPORTANT!)
-            console.log(`✅ Server-side conversation manager is handling session ${sessionId}`);
             
             // Step 5: Wait for conversation completion
             await this.waitForConversationCompletion(sessionId, experimentConfig.maxMessageCount);
@@ -5006,13 +5008,14 @@ export class MCPServer {
         console.log(`\n📊 Batch ${batch.batchNumber} completed: ${successCount}/${batch.sessions.length} successful`);
       }
 
-      // Complete experiment via MCP tool
+      // Complete experiment with final session IDs
       await this.toolUpdateExperimentRun({
         experimentId,
         updates: {
           status: 'completed',
           completedAt: new Date(),
-          progress: 100
+          progress: 100,
+          sessionIds: allCreatedSessionIds  // Final update with all session IDs
         }
       });
 
@@ -5202,7 +5205,7 @@ export class MCPServer {
       throw new Error('Experiment ID is required');
     }
 
-    // Create experiment run in database
+    // Create experiment run in database with sessionIds field
     const [newRun] = await db.insert(experimentRuns).values({
       experimentId,
       status: run.status || 'running',
@@ -5211,7 +5214,9 @@ export class MCPServer {
       completedSessions: run.completedSessions || 0,
       failedSessions: run.failedSessions || 0,
       averageMessageCount: run.averageMessageCount || 0,
-      results: run.results || {}
+      results: run.results || {},
+      sessionIds: run.sessionIds || [],  // Initialize empty array
+      errors: run.errors || []
     }).returning();
 
     this.experimentRuns.set(experimentId, newRun);
@@ -5233,25 +5238,37 @@ export class MCPServer {
 
     const currentRun = this.experimentRuns.get(experimentId);
     if (!currentRun) {
-      throw new Error('No active experiment run found');
+      // Try to get from database
+      const dbRun = await db.query.experimentRuns.findFirst({
+        where: eq(experimentRuns.experimentId, experimentId),
+        orderBy: [desc(experimentRuns.startedAt)]
+      });
+      
+      if (!dbRun) {
+        throw new Error('No experiment run found');
+      }
+      
+      this.experimentRuns.set(experimentId, dbRun);
     }
 
+    const runToUpdate = this.experimentRuns.get(experimentId)!;
+
     // Update in database
-    await db
+    const [updatedRun] = await db
       .update(experimentRuns)
       .set({
         ...updates,
         updatedAt: new Date()
       })
-      .where(eq(experimentRuns.id, currentRun.id));
+      .where(eq(experimentRuns.id, runToUpdate.id))
+      .returning();
 
     // Update in memory
-    const updatedRun = { ...currentRun, ...updates };
     this.experimentRuns.set(experimentId, updatedRun);
 
     return {
       success: true,
-      runId: currentRun.id,
+      runId: updatedRun.id,
       run: updatedRun,
       message: 'Experiment run updated successfully'
     };
@@ -5298,26 +5315,30 @@ export class MCPServer {
         throw new Error(`Experiment ${experimentId} not found`);
       }
 
-      const run = this.experimentRuns.get(experimentId) || 
-                  await db.query.experimentRuns.findFirst({
-                    where: eq(experimentRuns.experimentId, experimentId),
-                    orderBy: [desc(experimentRuns.startedAt)]
-                  });
+      // Get run from database (not just memory)
+      const run = await db.query.experimentRuns.findFirst({
+        where: eq(experimentRuns.experimentId, experimentId),
+        orderBy: [desc(experimentRuns.startedAt)]
+      });
 
+      // Get active sessions from memory for real-time count
       const activeSessions = this.activeExperimentSessions.get(experimentId);
       const activeSessionCount = activeSessions ? activeSessions.size : 0;
 
-      // Add activeSessions count to the run object
-      const runWithActiveCount = run ? {
+      // Ensure run has sessionIds field
+      const runWithSessionIds = run ? {
         ...run,
-        activeSessions: activeSessionCount  // Add this field
+        sessionIds: run.sessionIds || [],  // Ensure this field exists
+        activeSessions: activeSessionCount,
+        errors: run.errors || []
       } : null;
 
       return {
         success: true,
         experimentId: experimentId,
         experiment: experiment,
-        currentRun: runWithActiveCount,  // Use the enhanced run object
+        currentRun: runWithSessionIds,
+        run: runWithSessionIds,  // Also include as 'run' for compatibility
         activeSessions: activeSessions ? Array.from(activeSessions) : [],
         message: 'Experiment status retrieved successfully'
       };
@@ -5485,64 +5506,49 @@ export class MCPServer {
         throw new Error(`Experiment ${experimentId} not found`);
       }
 
-      // Get all runs for this experiment
-      const runs = await db.query.experimentRuns.findMany({
+      // Get the latest run
+      const latestRun = await db.query.experimentRuns.findFirst({
         where: eq(experimentRuns.experimentId, experimentId),
         orderBy: [desc(experimentRuns.startedAt)]
       });
 
-      // Get sessions created by this experiment
-      const sessionPattern = experiment.config.sessionNamePattern?.replace('{index}', '') || 
-                           experiment.name;
-      
-      const experimentSessions = await db.query.sessions.findMany({
-        where: db.sql`${sessions.name} LIKE ${`%${sessionPattern}%`}`
-      });
+      if (!latestRun) {
+        return {
+          success: true,
+          experimentId: experimentId,
+          experiment: experiment,
+          currentRun: null,
+          currentStatus: null,
+          run: null,
+          activeSessions: [],
+          sessions: [],
+          message: 'No runs found for this experiment'
+        };
+      }
 
-      // Aggregate results
-      const aggregatedResults = {
-        totalRuns: runs.length,
-        completedRuns: runs.filter(r => r.status === 'completed').length,
-        failedRuns: runs.filter(r => r.status === 'failed').length,
-        totalSessions: experimentSessions.length,
-        totalMessages: 0,
-        averageMessagesPerSession: 0,
-        sessionDetails: [] as any[]
-      };
-
-      // Get detailed session stats
-      for (const session of experimentSessions) {
-        const [messageCount] = await db
-          .select({ count: db.count() })
-          .from(messages)
-          .where(eq(messages.sessionId, session.id));
-        
-        const [participantCount] = await db
-          .select({ count: db.count() })
-          .from(participants)
-          .where(eq(participants.sessionId, session.id));
-        
-        aggregatedResults.totalMessages += messageCount.count;
-        aggregatedResults.sessionDetails.push({
-          sessionId: session.id,
-          sessionName: session.name,
-          messageCount: messageCount.count,
-          participantCount: participantCount.count,
-          status: session.status
+      // Get sessions by IDs from the run
+      let experimentSessions = [];
+      if (latestRun.sessionIds && Array.isArray(latestRun.sessionIds) && latestRun.sessionIds.length > 0) {
+        // Get sessions by their IDs
+        experimentSessions = await db.query.sessions.findMany({
+          where: inArray(sessions.id, latestRun.sessionIds as string[])
         });
       }
 
-      if (experimentSessions.length > 0) {
-        aggregatedResults.averageMessagesPerSession = 
-          aggregatedResults.totalMessages / experimentSessions.length;
-      }
+      // Get active sessions from memory
+      const activeSessions = this.activeExperimentSessions.get(experimentId);
+      const activeSessionIds = activeSessions ? Array.from(activeSessions) : [];
 
       return {
         success: true,
         experimentId: experimentId,
         experiment: experiment,
-        runs: runs,
-        results: aggregatedResults,
+        currentRun: latestRun,
+        currentStatus: latestRun,  // For compatibility
+        run: latestRun,            // For compatibility
+        activeSessions: activeSessionIds,
+        sessions: experimentSessions,  // Return actual session data if needed
+        sessionIds: latestRun.sessionIds || [],  // Return just the IDs
         message: 'Experiment results retrieved successfully'
       };
     } catch (error) {

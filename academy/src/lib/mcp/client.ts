@@ -557,7 +557,11 @@ export class MCPClient {
       
       if (toolName === 'get_experiment_status' && result.currentRun) {
         // This ensures UI updates when polling for status
-        await eventEmitter.experimentStatusChanged(args.experimentId, result.currentRun.status, result.currentRun)
+        await eventEmitter.experimentStatusChanged(
+          args.experimentId, 
+          result.currentRun.status, 
+          result.currentRun  // This now includes sessionIds
+        )
       }
       
       // Error operations
@@ -1553,25 +1557,16 @@ export class MCPClient {
   }
 
   async getExperimentResultsViaMCP(experimentId: string): Promise<any> {
-    // Get experiment details including runs and results
-    const experimentResult = await this.callTool('get_experiment', { experimentId })
+    // Call the dedicated get_experiment_results tool which now includes sessionIds
+    const result = await this.callTool('get_experiment_results', { experimentId })
     
-    if (!experimentResult.success) {
+    if (result.success) {
+      console.log(`✅ Retrieved experiment results: ${experimentId}`)
+      console.log(`📊 Found ${result.sessionIds?.length || 0} session IDs`)
+      return result
+    } else {
       throw new Error('Failed to get experiment results via MCP')
     }
-
-    // Get current status for real-time info
-    const statusResult = await this.callTool('get_experiment_status', { experimentId })
-    
-    const results = {
-      experiment: experimentResult.experiment,
-      runs: experimentResult.runs,
-      currentStatus: statusResult.success ? statusResult : null,
-      activeSessions: statusResult.success ? statusResult.activeSessions : []
-    }
-    
-    console.log(`✅ Retrieved experiment results: ${experimentId}`)
-    return results
   }
 
   // ========================================

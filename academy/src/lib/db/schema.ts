@@ -106,8 +106,11 @@ export const experimentRuns = pgTable('experiment_runs', {
   failedSessions: integer('failed_sessions').notNull().default(0),
   averageMessageCount: integer('average_message_count').notNull().default(0),
   results: jsonb('results').notNull().default({}),
+  sessionIds: jsonb('session_ids').notNull().default([]), 
+  errors: jsonb('errors').notNull().default([]),          
   startedAt: timestamp('started_at').notNull().defaultNow(),
-  completedAt: timestamp('completed_at')
+  completedAt: timestamp('completed_at'),
+  updatedAt: timestamp('updated_at').notNull().defaultNow()
 }, (table) => ({
   experimentIdx: index('experiment_runs_experiment_id_idx').on(table.experimentId),
   statusIdx: index('experiment_runs_status_idx').on(table.status)
