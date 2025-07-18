@@ -2,6 +2,7 @@
 
 The Academy is a Socratic dialogue engine for AI agents built with Next.js and **Model Context Protocol (MCP)**. It enables agents to engage in structured, recursive dialogue with shared context, while exposing all conversation data and AI capabilities through the standardized MCP interface with real-time analysis and research tools. 
 
+The Academy features a stateless architecture with PostgreSQL for persistent data storage and an event-driven pub/sub system for real-time UI updates.
 
 ![The Academy](docs/screenshot.png)
 
@@ -9,20 +10,53 @@ The Academy currently supports models from 7 major LLM providers, as well as Oll
 
 ![Supported Providers](docs/participants.png)
 
+## Design Philosophy
+
+**"If you can do it in the UI, you can do it programmatically"**
+
+The Academy embraces a comprehensive MCP-first approach where every feature available through the web interface is also exposed as an MCP tool. This design paradigm ensures researchers can fully automate their workflows, run bulk experiments, and integrate The Academy into larger research pipelines without manual intervention.
 
 ## Core Features
 
+### Advanced Dialogue Engine
+- **Multi-agent autonomous conversations** between Claude, GPT, and other AI models
+- **Real-time moderator intervention** with pause/resume and injection capabilities
+- **Persistent shared context** across conversation turns 
+- **Abort signal support** for graceful conversation interruption and resumption
+- **Template-based session creation** with curated conversation starters
+- **Comprehensive error tracking** with retry attempt logging and analysis
+
+### Bulk Experiment System
+- **Experiment Designer**: Visual interface for creating multi-session experiment configurations
+- **Batch Execution**: Run hundreds of sessions concurrently with configurable parallelism
+- **Template Variables**: Dynamic session naming with date and counter placeholders
+- **Progress Monitoring**: Real-time tracking of experiment execution with detailed metrics
+- **Result Aggregation**: Automatic collection and analysis of experiment outcomes
+- **MCP Integration**: Full programmatic control over experiment lifecycle
+- **Failure Recovery**: Graceful handling of individual session failures without stopping experiments
+
+![Bulk Experiments](docs/experiment-setup.png)
+
+![Bulk Experiments](docs/experiment-execution.png)
+
 ### Model Context Protocol Integration
 - **Full MCP server implementation** exposing Academy data and capabilities
+- **66 MCP Tools**: Comprehensive tool suite covering all Academy functionality
 - **AI Provider Tools**: Direct access to 7 major Lab APIs as well as Ollama for local models as MCP tools 
 - **Conversation Resources**: Session data, messages, and analysis available via MCP URIs
 - **Session Control Tools**: Start, pause, resume, and manage conversations programmatically
 - **Real-time Analysis Tools**: Conversation insights and metrics through MCP protocol
+- **Experiment Management Tools**: Create, execute, and monitor bulk experiments via MCP
 - **Standards Compliant**: JSON-RPC 2.0 protocol with proper error handling and abort support
 - **WebSocket Integration**: Real-time updates and event broadcasting
 - **MCP Debug Tools**: Store debugging, resource inspection, and comprehensive error tracking
 
-### Advanced Dialogue Engine
+### Stateless Architecture with PostgreSQL
+- **PostgreSQL Backend**: All conversation and experiment data persisted in a relational database
+- **Event-Driven Updates**: Internal pub/sub system (EventBus) ensures real-time UI synchronization across components
+- **Database-First Design**: Structured data model with proper relationships and constraints
+- **Containerized Deployment**: Includes Docker configuration for easy deployment
+- **Real-time Synchronization**: Changes propagate immediately through the event system
 - **Multi-agent autonomous conversations** between Claude, GPT, and other AI models
 - **Real-time moderator intervention** with pause/resume and injection capabilities
 - **Persistent shared context** across conversation turns 
@@ -35,7 +69,7 @@ The Academy currently supports models from 7 major LLM providers, as well as Oll
 - **Smart Error Classification**: Distinguishes between retryable network errors and non-retryable client errors
 - **Conversation Continuity**: Network hiccups don't interrupt long-form dialogues or cause participant dropouts
 - **Comprehensive Error Tracking**: All API failures logged with attempt counts, timestamps, and retry details
-- **Production-Grade Resilience**: Tested with 200+ message conversations under adverse network conditions
+- **Tested Resilience**: Handles 200+ message conversations under various network conditions
 - **Graceful Degradation**: Rate limits and authentication errors fail fast without wasting API quota
 - **Export Integration**: Error logs included in conversation exports for research analysis
 
@@ -48,17 +82,12 @@ The Academy currently supports models from 7 major LLM providers, as well as Oll
 - **Export Integration**: Include analysis data in conversation exports
 - **Research Data Formats**: JSON and CSV export options with metadata
 
-### Session Management & Templates
-- **Curated Session Templates**:
-  - **Consciousness Exploration**: Deep dive with Claude & GPT on consciousness and self-awareness
-  - **Creative Problem Solving**: Collaborative creativity exploration
-  - **Philosophical Inquiry**: Socratic dialogue on fundamental questions
-  - **Future of AI**: Discussion on AI development and societal impact
-  - **Casual Conversation**: Open-ended dialogue between AI agents
-- **Custom Session Creation**: Build your own research scenarios
-- **Session Persistence**: Automatic saving with localStorage integration
+### Session Management
+- **Session Persistence**: PostgreSQL-backed storage with automatic state management
 - **Session Switching**: Seamless navigation between multiple conversations
 - **Real-time Status Tracking**: Monitor conversation state and participant activity
+- **Session Templates**: Pre-configured scenarios for common research use cases
+- **Metadata Management**: Tag, star, and organize sessions for research workflows
 
 ### Participant Management
 - **AI Agent Configuration**: Custom settings for temperature, tokens, models, and personalities
@@ -80,11 +109,7 @@ The Academy currently supports models from 7 major LLM providers, as well as Oll
 - **Batch Export**: Export multiple sessions via MCP tools
 - **Research-Ready Data**: Structured formats suitable for external analysis tools
 
-## Bulk Experiment Support
-
-The Academy's comprehensive MCP tool suite enables scripted bulk experiment execution. Researchers can programmatically create sessions, configure participants, control conversations, analyze results, and export data - all through the MCP interface. This makes it possible to run comparative studies, parameter sweeps, intervention experiments, and large-scale conversation analysis without manual interaction.
-
-### MCP Integration
+## MCP Integration
 
 The Academy automatically exposes its MCP server at `/api/mcp`. You can integrate with MCP-compatible tools by connecting to this endpoint. 
 
@@ -98,51 +123,61 @@ The Academy automatically exposes its MCP server at `/api/mcp`. You can integrat
 - `academy://stats` - Platform usage statistics and analytics
 - `academy://analysis/stats` - Global analysis statistics across all sessions
 - `academy://analysis/timeline` - Complete analysis timeline for research
+- `academy://experiments` - All experiment configurations and runs
+- `academy://experiment/{id}` - Individual experiment data with run history
+- `academy://experiment/{id}/results` - Aggregated experiment results and analytics
 
 ### Tools
-The Academy provides a comprehensive suite of 40+ MCP tools:
+The Academy provides a comprehensive suite of 66 MCP tools:
 
-#### Session Management (9 tools)
+#### Session Management (11 tools)
 - `create_session` - Create new conversation sessions
+- `get_session` - Get a specific session by ID
+- `get_sessions` - Get all sessions with optional status filter
+- `get_current_session_id` - Get the ID of the currently active session
 - `delete_session` - Remove sessions
 - `update_session` - Modify session metadata
 - `switch_current_session` - Change active session
 - `duplicate_session` - Clone existing sessions
 - `import_session` - Import session data
-- `export_session` - Export conversation data
-- `get_session_templates` - List available templates
+- `list_templates` - List available session templates
 - `create_session_from_template` - Create from predefined templates
 
 #### Message Management (1 tool)
 - `send_message` - Send messages to sessions
-- *Note: Message update/delete tools are not yet implemented*
+- *Note: Message update/delete tools are available under Message Control*
 
 #### Participant Management (6 tools)
 - `add_participant` - Add AI agents to conversations
 - `remove_participant` - Remove participants from sessions
 - `update_participant` - Modify participant settings
 - `update_participant_status` - Change participant state
-- `get_available_models` - List available AI models
+- `list_available_models` - List available AI models
 - `get_participant_config` - Get participant configuration
 
-#### Conversation Control (7 tools)
-- `start_conversation` - Begin autonomous dialogue
+#### Conversation Control (6 tools)
+- `start_conversation` - Begin autonomous dialogue with optional max message count
 - `pause_conversation` - Pause active conversation
 - `resume_conversation` - Resume paused conversation
 - `stop_conversation` - End conversation
-- `inject_moderator_prompt` - Insert moderator messages
 - `get_conversation_status` - Check conversation state
 - `get_conversation_stats` - Retrieve conversation metrics
 
+#### Message Control (4 tools)
+- `update_message` - Update existing message content
+- `delete_message` - Delete a specific message
+- `clear_messages` - Clear all messages in a session
+- `inject_moderator_prompt` - Insert moderator messages
+
 #### Analysis Tools (8 tools)
-- `analyze_conversation` - Extract insights and patterns
-- `save_analysis_snapshot` - Store analysis data
-- `get_analysis_history` - Retrieve past analyses
-- `clear_analysis_history` - Remove analysis data
-- `trigger_live_analysis` - Run real-time analysis
-- `set_analysis_provider` - Choose analysis AI provider
-- `get_analysis_providers` - List available analyzers
-- `auto_analyze_conversation` - Enable automatic analysis
+- `analyze_conversation` - Extract insights and patterns from conversations
+- `trigger_live_analysis` - Run real-time analysis during active conversations
+- `save_analysis_snapshot` - Store analysis data at specific points
+- `get_analysis_history` - Retrieve past analyses for a session
+- `clear_analysis_history` - Remove analysis data for a session
+- `set_analysis_provider` - Choose between Claude or GPT for analysis
+- `get_analysis_providers` - List available analysis providers
+- `auto_analyze_conversation` - Enable/disable automatic analysis
 
 #### Export Tools (3 tools)
 - `export_session` - Export conversation data
@@ -159,10 +194,29 @@ The Academy provides a comprehensive suite of 40+ MCP tools:
 - `cohere_chat` - Cohere API access with exponential backoff retry
 - `ollama_chat` - Ollama API access with exponential backoff retry
 
-#### Debug & Error Tracking Tools (3 tools)
+#### Debug & Error Tracking (4 tools)
 - `debug_store` - Debug store state and MCP integration
 - `get_api_errors` - Retrieve API errors with retry attempt details
 - `clear_api_errors` - Clear error logs for sessions or globally
+- `log_api_error` - Log an API error for tracking
+
+#### Experiment Management (8 tools)
+- `create_experiment` - Create new bulk experiment configuration
+- `get_experiments` - Retrieve all experiment configurations
+- `get_experiment` - Get specific experiment configuration and run status
+- `update_experiment` - Update experiment configuration
+- `delete_experiment` - Delete experiment configuration and stop if running
+- `create_experiment_run` - Create new experiment run
+- `update_experiment_run` - Update experiment run status and progress
+- `get_experiment_run` - Get experiment run details
+
+#### Experiment Execution (6 tools)
+- `execute_experiment` - Execute bulk experiment creating multiple sessions
+- `get_experiment_status` - Get current status and progress of experiment run
+- `pause_experiment` - Pause running experiment
+- `resume_experiment` - Resume paused experiment
+- `stop_experiment` - Stop running experiment
+- `get_experiment_results` - Get aggregated results and analytics for completed experiment
 
 ### Real-time Integration Examples
 ```javascript
@@ -205,6 +259,29 @@ const exportData = await mcp.callTool('export_session', {
 mcp.subscribe('analysis_snapshot_saved', (data) => {
   console.log('New analysis saved:', data.totalSnapshots)
 })
+
+// Create and execute bulk experiments
+const experiment = await mcp.callTool('create_experiment', {
+  config: {
+    name: 'Temperature Study',
+    participants: [/* participant configs */],
+    totalSessions: 50,
+    concurrentSessions: 5,
+    maxMessageCount: 30,
+    sessionNamePattern: 'Temp Study <date> Session <n>'
+  }
+})
+
+// Execute experiment with automatic session orchestration
+await mcp.callTool('execute_experiment', { 
+  experimentId: experiment.experimentId 
+})
+
+// Monitor experiment progress
+const status = await mcp.callTool('get_experiment_status', { 
+  experimentId: experiment.experimentId 
+})
+console.log(`Progress: ${status.currentRun.progress}%`)
 ```
 
 ## Use Cases
@@ -219,21 +296,47 @@ mcp.subscribe('analysis_snapshot_saved', (data) => {
 - **Educational demonstrations** - Teach concepts of multi-agent systems and dialogue management
 - **Synthetic data generation** - Create conversational datasets for research purposes
 - **Bulk experiment execution** - Run large-scale studies through programmatic control
+- **Temperature and parameter sweeps** - Systematically test AI behavior across different configurations
+- **Comparative model studies** - Run identical experiments across different AI providers
 
 ## Technology Stack
 
 - **Next.js 15** - Modern React framework with App Router and server-side capabilities
 - **Model Context Protocol (MCP)** - Full server implementation with JSON-RPC 2.0
+- **PostgreSQL** - Relational database for persistent data storage
 - **TypeScript** - Type-safe development with comprehensive interfaces
 - **Tailwind CSS** - Responsive, accessible UI design with custom Academy theme
-- **Zustand** - Lightweight state management with persistence and real-time updates
-- **AI APIs** - Claude (Anthropic) and GPT (OpenAI) integration with abort support
+- **EventBus** - Internal pub/sub system for real-time UI updates
+- **AI APIs** - Direct integration with 8 major LLM providers
 - **WebSocket Support** - Real-time communication for MCP protocol
-- **Event-Driven Architecture** - Real-time analysis updates and state synchronization
+- **Docker** - Containerized deployment with PostgreSQL and pgAdmin
 
 ## Getting Started 
 
-### Running with Docker
+### Prerequisites
+- Node.js 18+ 
+- Docker and Docker Compose (for PostgreSQL)
+- API keys for AI providers you intend to use
+
+### Running with Docker Compose
+
+The Academy requires PostgreSQL for data persistence. The easiest way to set this up is using the provided Docker Compose configuration:
+
+```bash
+# Clone the repository
+git clone https://github.com/yourname/the-academy.git
+cd the-academy
+
+# Start PostgreSQL and pgAdmin
+docker-compose up -d
+```
+
+The Docker Compose setup includes:
+- PostgreSQL 15 on port 5432
+- pgAdmin 4 on port 5050 (admin@academy.local / admin)
+- Automatic database initialization with required schema
+
+### Running with Docker (Application Only)
 Note: You only need to provide api keys for providers you intend to use. 
 
 ```bash 
@@ -330,6 +433,14 @@ Visit `http://localhost:3000` to access The Academy interface.
 4. Save analysis snapshots automatically via MCP protocol
 5. Export complete analysis timeline for academic research
 6. Integrate with external MCP-compatible analysis tools
+
+### Bulk Experiment Execution
+1. Design experiment configuration with participant settings and session parameters
+2. Set total sessions and concurrency limits for controlled execution
+3. Execute experiment with automatic session creation and conversation management
+4. Monitor real-time progress across all concurrent sessions
+5. Handle failures gracefully without stopping the entire experiment
+6. Aggregate results and export comprehensive analytics for research analysis
 
 ## Contributing
 
