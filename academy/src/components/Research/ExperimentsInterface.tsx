@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { ExperimentConfig, ExperimentRun } from '@/types/experiment'
 import { CreateExperimentModal } from '@/components/Research/CreateExperimentModal'
+import { ExperimentExportModal } from '@/components/Export/ExperimentExportModal'
 import { 
   TestTubeDiagonal, Plus, Play, Pause, Square, 
   AlertCircle, CheckCircle2, Loader2, 
@@ -243,6 +244,7 @@ export function ExperimentsInterface({
   const [isLoadingResults, setIsLoadingResults] = useState(false)
   const [lastResultsUpdate, setLastResultsUpdate] = useState<Date | null>(null)
   const [isDuplicating, setIsDuplicating] = useState(false)
+  const [showExportModal, setShowExportModal] = useState(false)
   
   // Use React 19's useTransition for smoother updates
   const [isPending, startTransition] = useTransition()
@@ -917,29 +919,8 @@ export function ExperimentsInterface({
   }
 
   const handleExportResults = () => {
-    if (!experimentResults) return
-
-    try {
-      const exportData = {
-        experiment: selectedExperiment,
-        run: activeRun,
-        results: experimentResults,
-        exportedAt: new Date().toISOString()
-      }
-
-      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `experiment-${selectedExperiment?.name.replace(/\s+/g, '-').toLowerCase()}-results.json`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-    } catch (error) {
-      console.error('Failed to export results:', error)
-      alert('Failed to export results. Please try again.')
-    }
+    if (!experimentResults || !selectedExperiment) return
+    setShowExportModal(true)
   }
 
   const getStatusIcon = (status: string) => {
@@ -1470,6 +1451,17 @@ export function ExperimentsInterface({
         onClose={() => setShowCreateModal(false)}
         onSave={onCreateExperiment}
       />
+
+      {/* Export Experiment Modal */}
+      {selectedExperiment && experimentResults && (
+        <ExperimentExportModal
+          isOpen={showExportModal}
+          onClose={() => setShowExportModal(false)}
+          experiment={selectedExperiment}
+          experimentRun={activeRun || undefined}
+          sessionIds={experimentResults.sessions.map(s => s.id)}
+        />
+      )}
     </>
   )
 }

@@ -44,41 +44,82 @@ const modelOptions = {
   claude: [
     { value: 'claude-opus-4-20250514', label: 'Claude 4 Opus'},
     { value: 'claude-sonnet-4-20250514', label: 'Claude 4 Sonnet'},
+    { value: 'claude-3-7-sonnet-20250219', label: 'Claude 3.7 Sonnet'},
     { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet' },
     { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku' },
+    { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus' },
+    { value: 'claude-3-sonnet-20240229', label: 'Claude 3 Sonnet' },
+    { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku' }
   ],
   gpt: [
+    { value: 'gpt-4.1-2025-04-14', label: 'GPT-4.1' },
     { value: 'gpt-4o', label: 'GPT-4o' },
     { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
     { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
+    { value: 'gpt-4', label: 'GPT-4' },
     { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' }
   ],
   grok: [
-    { value: 'grok-2-latest', label: 'Grok 2' },
-    { value: 'grok-2-mini', label: 'Grok 2 Mini' }
+    { value: 'grok-3-latest', label: 'Grok 3' },
+    { value: 'grok-3-fast-latest', label: 'Grok 3 Fast' },
+    { value: 'grok-3-mini-latest', label: 'Grok 3 Mini' },
+    { value: 'grok-3-mini-fast-latest', label: 'Grok 3 Mini Fast' },
+    { value: 'grok-2-latest', label: 'Grok 2' }
   ],
   gemini: [
-    { value: 'gemini-2.0-flash-exp', label: 'Gemini 2.0 Flash' },
-    { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
-    { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' }
+    { value: 'gemini-2.5-flash-preview-05-20', label: 'Gemini 2.5 Flash Preview' },
+    { value: 'gemini-2.5-flash-preview-tts', label: 'Gemini 2.5 Flash Preview TTS' },
+    { value: 'gemini-2.5-pro-preview-06-05', label: 'Gemini 2.5 Pro Preview' },
+    { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
+    { value: 'gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite' }
   ],
   ollama: [
     { value: 'llama3.2', label: 'Llama 3.2' },
+    { value: 'llama3.2:1b', label: 'Llama 3.2 1B' },
+    { value: 'llama3.2:3b', label: 'Llama 3.2 3B' },
+    { value: 'llama3.1', label: 'Llama 3.1' },
+    { value: 'llama3.1:8b', label: 'Llama 3.1 8B' },
+    { value: 'llama3.1:70b', label: 'Llama 3.1 70B' },
+    { value: 'llama3.1:405b', label: 'Llama 3.1 405B' },
+    { value: 'llama3', label: 'Llama 3' },
+    { value: 'llama2', label: 'Llama 2' },
+    { value: 'llama2:7b', label: 'Llama 2 7B' },
+    { value: 'llama2:13b', label: 'Llama 2 13B' },
+    { value: 'llama2:70b', label: 'Llama 2 70B' },
     { value: 'mistral', label: 'Mistral' },
-    { value: 'deepseek-r1:latest', label: 'DeepSeek R1' }
+    { value: 'mixtral', label: 'Mixtral' },
+    { value: 'mixtral:8x7b', label: 'Mixtral 8x7B' },
+    { value: 'phi3', label: 'Phi-3' },
+    { value: 'qwen2.5', label: 'Qwen 2.5' },
+    { value: 'gemma2', label: 'Gemma 2' },
+    { value: 'custom', label: 'Custom Model (Enter name)' }
   ],
   deepseek: [
-    { value: 'deepseek-chat', label: 'DeepSeek Chat' },
-    { value: 'deepseek-coder', label: 'DeepSeek Coder' }
+    { value: 'deepseek-chat', label: 'DeepSeek Chat (V3)' },
+    { value: 'deepseek-reasoner', label: 'DeepSeek Reasoner (R1)' },
+    { value: 'deepseek-coder', label: 'DeepSeek Coder' },
   ],
   mistral: [
-    { value: 'mistral-large-latest', label: 'Mistral Large' },
-    { value: 'mistral-medium', label: 'Mistral Medium' },
-    { value: 'mistral-small', label: 'Mistral Small' }
+    { value: 'mistral-large-latest', label: 'Mistral Large (Latest)' },
+    { value: 'mistral-medium-latest', label: 'Mistral Medium (Latest)' },
+    { value: 'mistral-small-latest', label: 'Mistral Small (Latest)' },
+    { value: 'open-mixtral-8x22b', label: 'Mixtral 8x22B' },
+    { value: 'open-mixtral-8x7b', label: 'Mixtral 8x7B' },
+    { value: 'open-mistral-7b', label: 'Mistral 7B' },
+    { value: 'open-mistral-nemo', label: 'Mistral Nemo' },
+    { value: 'codestral-latest', label: 'Codestral (Latest)' },
+    { value: 'ministral-8b-2410', label: 'Ministral 8B' },
+    { value: 'ministral-3b-2410', label: 'Ministral 3B' },
+    { value: 'pixtral-large-2411', label: 'Pixtral Large' },
   ],
   cohere: [
+    { value: 'command-r-plus-08-2024', label: 'Command R+ (Latest)' },
     { value: 'command-r-plus', label: 'Command R+' },
-    { value: 'command-r', label: 'Command R' }
+    { value: 'command-r-08-2024', label: 'Command R (Latest)' },
+    { value: 'command-r', label: 'Command R' },
+    { value: 'command', label: 'Command' },
+    { value: 'command-light', label: 'Command Light' },
+    { value: 'custom', label: 'Custom Model (Enter name)' }
   ]
 }
 
