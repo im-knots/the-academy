@@ -43,6 +43,7 @@ interface ConversationState {
   participantQueue: string[]
   currentParticipantIndex: number
   messageCount: number
+  maxMessageCount?: number  // ADD THIS - Support for max message limit
   abortController?: AbortController
   isGenerating: boolean
   lastGeneratedBy?: string
@@ -70,8 +71,11 @@ export class ServerConversationManager {
     return ServerConversationManager.instance
   }
 
-  async startConversation(sessionId: string, initialPrompt?: string): Promise<void> {
+  async startConversation(sessionId: string, initialPrompt?: string, maxMessageCount?: number): Promise<void> {
     console.log('🚀 Starting server-side conversation for session:', sessionId)
+    if (maxMessageCount) {
+      console.log(`📊 Max message count set to: ${maxMessageCount}`)
+    }
 
     // Cancel any existing conversation for this session
     await this.stopConversation(sessionId)
@@ -107,12 +111,13 @@ export class ServerConversationManager {
       await this.updateParticipantStatus(sessionId, participant.id, PARTICIPANT_STATUS.ACTIVE)
     }
 
-    // Initialize conversation state
+    // Initialize conversation state with maxMessageCount
     this.activeConversations.set(sessionId, {
       isRunning: true,
       participantQueue: sortedParticipants.map(p => p.id),
       currentParticipantIndex: 0,
       messageCount: 0,
+      maxMessageCount: maxMessageCount || undefined,  // Store the max message count
       abortController,
       isGenerating: false,
       lastGeneratedBy: undefined,
@@ -292,8 +297,30 @@ export class ServerConversationManager {
             })
 
             conversationState.messageCount++
+
+            if (conversationState.messageCount % 5 === 0) { // Every 5 messages
+              console.log(`🔍 Triggering periodic analysis at message ${conversationState.messageCount}`)
+              try {
+                await this.mcpServer.toolTriggerLiveAnalysis({
+                  sessionId: sessionId,
+                  analysisType: 'full'
+                })
+              } catch (error) {
+                console.warn(`⚠️ Periodic analysis failed:`, error)
+                // Don't stop the conversation for analysis failures
+              }
+            }
+
             conversationState.lastGeneratedBy = currentParticipantId
             console.log(`💬 ${currentParticipant.name}: ${response.substring(0, 100)}...`)
+            console.log(`📊 Message count: ${conversationState.messageCount}${conversationState.maxMessageCount ? `/${conversationState.maxMessageCount}` : ''}`)
+
+            // CHECK MAX MESSAGE COUNT - Stop conversation if limit reached
+            if (conversationState.maxMessageCount && conversationState.messageCount >= conversationState.maxMessageCount) {
+              console.log(`📊 Reached max message count (${conversationState.messageCount}/${conversationState.maxMessageCount}), stopping conversation`)
+              await this.stopConversation(sessionId)
+              break
+            }
 
             // Update participant status back to active
             await this.updateParticipantStatus(sessionId, currentParticipantId, PARTICIPANT_STATUS.ACTIVE)
@@ -735,6 +762,7 @@ Remember: You are ${participant.name}, not any other participant. Always maintai
       isRunning: conversationState?.isRunning || false,
       isGenerating: conversationState?.isGenerating || false,
       messageCount: conversationState?.messageCount || 0,
+      maxMessageCount: conversationState?.maxMessageCount,
       participantCount: session?.participants.length || 0,
       currentParticipant: conversationState && session ? 
         session.participants.find(p => p.id === conversationState.participantQueue[conversationState.currentParticipantIndex])?.name 

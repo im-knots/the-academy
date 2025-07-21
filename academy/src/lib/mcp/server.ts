@@ -4902,10 +4902,12 @@ export class MCPServer {
               participants: sessionPlan.participants.map(p => ({
                 type: p.type,
                 name: p.name,
-                model: p.model,
-                apiKey: p.apiKey,
-                temperature: p.temperature,
-                maxTokens: p.maxTokens,
+                settings: {
+                  model: p.model,
+                  temperature: p.temperature || 0.7,
+                  maxTokens: p.maxTokens || 1000,
+                  responseDelay: p.responseDelay || 4000
+                },
                 systemPrompt: p.systemPrompt,
                 characteristics: p.characteristics
               }))
@@ -5119,8 +5121,8 @@ export class MCPServer {
           // Extract status from the correct location
           const sessionStatus = statusResult.status?.sessionStatus || statusResult.data?.status;
           
-          // Check if conversation is stopped or has errors
-          if (sessionStatus === 'stopped' || sessionStatus === 'error') {
+          // Check if conversation is stopped, completed, or has errors
+          if (sessionStatus === 'stopped' || sessionStatus === 'error' || sessionStatus === 'completed') {
             clearInterval(checkInterval);
             console.log(`✅ Session ${sessionId}: Conversation completed with status: ${sessionStatus}`);
             resolve();
