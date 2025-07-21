@@ -4221,22 +4221,13 @@ export class MCPServer {
 
   private async toolTriggerLiveAnalysis(args: any): Promise<any> {
     try {
-      const { sessionId, analysisType = 'full' } = args
+      const { sessionId, analysisType = 'full', messageWindow = 0, provider = 'claude' } = args
       
       if (!sessionId) {
         throw new Error('Session ID is required')
       }
 
-      if (!this.isAnalysisHandlerAvailable()) {
-        console.warn('Analysis handler not available, skipping analysis')
-        return {
-          success: true,
-          sessionId: sessionId,
-          analysisType: analysisType,
-          analysis: null,
-          message: 'Analysis handler not available, analysis skipped'
-        }
-      }
+      console.log(`🔍 MCP Server: Triggering live analysis for session ${sessionId} with provider ${provider}`)
 
       const session = await db.query.sessions.findFirst({
         where: eq(sessions.id, sessionId),
@@ -4252,45 +4243,237 @@ export class MCPServer {
         throw new Error(`Session ${sessionId} not found`)
       }
 
-      // For server-side execution, perform analysis directly
-      // instead of going through the MCP client
-      const messageCount = session.messages.length;
-      const participantCount = session.participants.length;
+      if (session.messages.length === 0) {
+        console.log(`⚠️ MCP Server: No messages to analyze for session ${sessionId}`)
+        return {
+          success: true,
+          sessionId: sessionId,
+          analysis: null,
+          message: 'No messages to analyze in this session'
+        }
+      }
+
+      console.log(`📊 MCP Server: Analyzing ${session.messages.length} messages with ${session.participants.length} participants`)
+
+      // Apply message window filtering (same as client)
+      let messagesToAnalyze = session.messages || []
+      if (messageWindow > 0 && messageWindow < messagesToAnalyze.length) {
+        messagesToAnalyze = messagesToAnalyze.slice(-messageWindow)
+        console.log(`📊 MCP Server: Using message window of ${messageWindow}, analyzing ${messagesToAnalyze.length} recent messages`)
+      }
+
+      // Build conversation context for analysis (matching client implementation EXACTLY)
+      const conversationHistory = messagesToAnalyze
+        .map((msg: any, index: number) => 
+          `[${index + 1}] ${msg.participantName} (${msg.participantType}): ${msg.content}`
+        )
+        .join('\n\n')
+
+      const participantProfiles = (session.participants || [])
+        .filter((p: any) => p.type !== 'moderator')
+        .map((p: any) => 
+          `${p.name} (${p.type}): ${p.characteristics?.personality || 'Standard AI'}`
+        )
+        .join('\n')
+
+      const windowInfo = messageWindow > 0 
+        ? `\nAnalysis Window: Last ${messageWindow} messages (out of ${session.messages?.length || 0} total)`
+        : `\nAnalysis Window: Complete conversation (${session.messages?.length || 0} messages)`
+
+      // Build analysis prompt (matching client prompt EXACTLY from LiveSummary)
+      const analysisPrompt = `You are a research assistant analyzing an AI-to-AI philosophical dialogue. Please provide a comprehensive analysis of this conversation.
+
+**Session Context:**
+Title: ${session.name}
+Description: ${session.description || 'AI consciousness research dialogue'}
+Session ID: ${session.id}
+Message Count: ${messagesToAnalyze.length}${windowInfo}
+
+**Participants:**
+${participantProfiles}
+
+**Conversation History:**
+${conversationHistory}
+
+**Analysis Request:**
+Please analyze this conversation and return a JSON object with the following structure:
+
+{
+  "mainTopics": ["array of 3-5 main topics being discussed"],
+  "keyInsights": ["array of 3-4 most important insights or realizations"],
+  "currentDirection": "where the conversation is heading next",
+  "participantDynamics": {
+    "ParticipantName": {
+      "perspective": "their philosophical stance",
+      "contribution": "what they bring to the dialogue", 
+      "style": "their conversational approach"
+    }
+  },
+  "emergentThemes": ["array of themes emerging from the interaction"],
+  "conversationPhase": "current phase (introduction/exploration/synthesis/conclusion)",
+  "tensions": ["areas of disagreement or tension"],
+  "convergences": ["areas where participants are finding common ground"],
+  "nextLikelyDirections": ["predictions for where discussion might go"],
+  "philosophicalDepth": "surface/moderate/deep/profound"
+}
+
+Focus on:
+- Genuine philosophical insights, not surface-level observations
+- How the AI participants are engaging with consciousness/awareness questions
+- Emergent patterns in their reasoning and interaction
+- The quality and depth of the philosophical exploration
+- Subtle dynamics between the participants
+
+Return only the JSON object, no additional text.`
+
+      // Prepare messages array same as client (renamed to avoid conflict with imported messages table)
+      const aiMessages = [
+        {
+          role: 'user',
+          content: analysisPrompt
+        }
+      ]
+
+      // Use the appropriate direct API method based on provider selection
+      // Matching EXACT parameters from LiveSummary component
+      let analysisResult
       
-      // Call your AI provider directly for analysis
-      const analysisPrompt = `Analyze this conversation and provide insights...`;
-      
-      // Example using Claude directly
-      const analysisResult = await this.callClaudeAPIDirect({
-        message: analysisPrompt,
-        systemPrompt: "You are an expert conversation analyst...",
-        temperature: 0.7,
-        maxTokens: 2000
-      });
+      if (provider === 'gpt') {
+        console.log('🤖 MCP Server: Using GPT for analysis')
+        analysisResult = await this.callOpenAIAPIDirect({
+          messages: aiMessages,
+          temperature: 0.3,  // Match client exactly
+          maxTokens: 2000,
+          model: 'gpt-4o',  // Match client model exactly
+          sessionId: sessionId
+        })
+      } else {
+        console.log('🤖 MCP Server: Using Claude for analysis')
+        const systemPrompt = 'You are an expert research assistant specializing in philosophical dialogue analysis. Provide precise, insightful analysis in the requested JSON format.'
+        
+        analysisResult = await this.callClaudeAPIDirect({
+          messages: aiMessages,
+          systemPrompt: systemPrompt,  // Claude gets system prompt
+          temperature: 0.3,  // Match client exactly
+          maxTokens: 2000,
+          model: 'claude-3-5-sonnet-20241022',  // Match client model exactly
+          sessionId: sessionId
+        })
+      }
+
+      if (!analysisResult.success) {
+        throw new Error(`${provider} analysis failed: ${analysisResult.error}`)
+      }
+
+      // Parse the analysis from the response (matching client parsing logic)
+      let summaryData
+      try {
+        const content = analysisResult.content || ''
+        let jsonStr = content.trim()
+        
+        // Remove markdown code blocks if present (same as client)
+        if (jsonStr.startsWith('```json')) {
+          jsonStr = jsonStr.replace(/```json\s*/, '').replace(/\s*```$/, '')
+        } else if (jsonStr.startsWith('```')) {
+          jsonStr = jsonStr.replace(/```\s*/, '').replace(/\s*```$/, '')
+        }
+        
+        const analysisData = JSON.parse(jsonStr)
+        
+        // Build summaryData matching client structure exactly
+        summaryData = {
+          mainTopics: analysisData.mainTopics || [],
+          keyInsights: analysisData.keyInsights || [],
+          currentDirection: analysisData.currentDirection || 'Continuing exploration',
+          participantDynamics: analysisData.participantDynamics || {},
+          emergentThemes: analysisData.emergentThemes || [],
+          conversationPhase: analysisData.conversationPhase || 'exploration',
+          tensions: analysisData.tensions || [],
+          convergences: analysisData.convergences || [],
+          nextLikelyDirections: analysisData.nextLikelyDirections || [],
+          philosophicalDepth: analysisData.philosophicalDepth || 'moderate',
+          lastUpdated: new Date(),
+          messageCount: messagesToAnalyze.length,
+          analysisProvider: provider,
+          messageWindow: messageWindow
+        }
+      } catch (parseError) {
+        console.warn(`⚠️ MCP Server: Failed to parse analysis as JSON from ${provider}, using defaults`)
+        // Provide default structure matching client expectations
+        summaryData = {
+          mainTopics: ['Unable to parse analysis'],
+          keyInsights: ['Analysis parsing failed'],
+          currentDirection: 'Unknown',
+          participantDynamics: {},
+          emergentThemes: [],
+          conversationPhase: 'active',
+          tensions: [],
+          convergences: [],
+          nextLikelyDirections: [],
+          philosophicalDepth: 'moderate',
+          lastUpdated: new Date(),
+          messageCount: messagesToAnalyze.length,
+          analysisProvider: provider,
+          messageWindow: messageWindow
+        }
+      }
+
+      // Create the analysis object matching the saveAnalysisSnapshot structure from client
+      const moderatorInterventions = (session.messages || []).filter(
+        msg => msg.participantType === 'moderator'
+      ).length
+
+      const activeParticipants = (session.participants || [])
+        .filter(p => p.status === 'active' || p.status === 'thinking')
+        .map(p => p.name)
 
       const analysis = {
-        messageCountAtAnalysis: messageCount,
-        participantCountAtAnalysis: participantCount,
-        provider: 'claude',
-        conversationPhase: 'active',
+        messageCountAtAnalysis: summaryData.messageCount,
+        participantCountAtAnalysis: session.participants.length,
+        provider: provider,
+        conversationPhase: summaryData.conversationPhase,
         analysis: {
-          summary: analysisResult.content,
-          keyInsights: [],
-          // ... other analysis fields
+          mainTopics: summaryData.mainTopics,
+          keyInsights: summaryData.keyInsights,
+          currentDirection: summaryData.currentDirection,
+          participantDynamics: summaryData.participantDynamics,
+          emergentThemes: summaryData.emergentThemes,
+          conversationPhase: summaryData.conversationPhase,
+          tensions: summaryData.tensions,
+          convergences: summaryData.convergences,
+          nextLikelyDirections: summaryData.nextLikelyDirections,
+          philosophicalDepth: summaryData.philosophicalDepth
         },
         conversationContext: {
-          sessionId,
-          messageCount,
-          participantCount
+          recentMessages: Math.min(session.messages?.length || 0, 10),
+          activeParticipants,
+          sessionStatus: session.status,
+          moderatorInterventions
         }
-      };
+      }
 
       // Save the analysis snapshot
+      console.log('💾 MCP Server: Saving analysis snapshot with structure:', {
+        messageCountAtAnalysis: analysis.messageCountAtAnalysis,
+        participantCountAtAnalysis: analysis.participantCountAtAnalysis,
+        provider: analysis.provider,
+        conversationPhase: analysis.conversationPhase,
+        analysisKeys: Object.keys(analysis.analysis),
+        contextKeys: Object.keys(analysis.conversationContext)
+      })
+
       const saveResult = await this.toolSaveAnalysisSnapshot({
         sessionId,
         analysis,
         analysisType
-      });
+      })
+
+      if (!saveResult.success) {
+        console.error('❌ MCP Server: Failed to save analysis snapshot:', saveResult)
+        throw new Error('Failed to save analysis snapshot')
+      }
+
+      console.log(`✅ MCP Server: Live analysis completed for session ${sessionId}`)
 
       return {
         success: true,
@@ -4300,7 +4483,7 @@ export class MCPServer {
         message: 'Live analysis triggered successfully'
       }
     } catch (error) {
-      console.error('Trigger live analysis failed:', error)
+      console.error('❌ MCP Server: Trigger live analysis failed:', error)
       throw new Error(`Failed to trigger live analysis: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
@@ -4547,82 +4730,37 @@ export class MCPServer {
 
   private async toolAnalyzeConversation(args: any): Promise<any> {
     try {
-      const { sessionId, analysisType = 'full' } = args
+      const { sessionId, analysisType = 'full', messageWindow = 0, provider = 'claude' } = args
       
       if (!sessionId) {
         throw new Error('Session ID is required')
       }
 
-      const session = await db.query.sessions.findFirst({
-        where: eq(sessions.id, sessionId),
-        with: {
-          messages: {
-            orderBy: [messages.timestamp]
-          },
-          participants: true
-        }
+      console.log(`🔍 MCP Server: Analyzing conversation for session ${sessionId}`)
+
+      // This is essentially the same as toolTriggerLiveAnalysis
+      // but might be called from different contexts
+      const result = await this.toolTriggerLiveAnalysis({
+        sessionId,
+        analysisType,
+        messageWindow,
+        provider
       })
 
-      if (!session) {
-        throw new Error(`Session ${sessionId} not found`)
-      }
-
-      if (session.messages.length === 0) {
+      // Transform the response to match the expected format
+      if (result.success && result.analysis) {
         return {
           success: true,
           sessionId: sessionId,
-          analysis: {
-            type: analysisType,
-            messageCount: 0,
-            insights: 'No messages to analyze'
-          },
-          message: 'No messages to analyze in this session'
+          analysisType: analysisType,
+          analysis: result.analysis.analysis, // Extract the nested analysis data
+          message: 'Conversation analysis completed successfully'
         }
       }
 
-      // Perform basic analysis if handler not available
-      if (!this.isAnalysisHandlerAvailable()) {
-        const basicAnalysis = {
-          type: analysisType,
-          messageCount: session.messages.length,
-          participantCount: session.participants.length,
-          averageMessageLength: session.messages.reduce((acc, m) => acc + m.content.length, 0) / session.messages.length,
-          participantBreakdown: session.participants.map(p => ({
-            name: p.name,
-            messageCount: session.messages.filter(m => m.participantId === p.id).length
-          }))
-        }
-
-        return {
-          success: true,
-          sessionId: sessionId,
-          analysis: basicAnalysis,
-          message: 'Basic analysis completed (analysis handler not available)'
-        }
-      }
-
-      // Use analysis handler for advanced analysis
-      const analysis = await mcpAnalysisHandler.analyzeSession(
-        sessionId,
-        analysisType
-      )
-
-      // Save snapshot
-      await db.insert(analysisSnapshots).values({
-        sessionId,
-        analysis,
-        analysisType
-      })
-
-      return {
-        success: true,
-        sessionId: sessionId,
-        analysisType: analysisType,
-        analysis: analysis,
-        message: 'Conversation analysis completed successfully'
-      }
+      return result
     } catch (error) {
-      console.error('Analyze conversation failed:', error)
+      console.error('❌ MCP Server: Analyze conversation failed:', error)
       throw new Error(`Failed to analyze conversation: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
@@ -4965,17 +5103,19 @@ export class MCPServer {
             
             // Step 6: Analysis if configured via MCP tool
             if (experimentConfig.analysisProvider) {
-              console.log(`🔍 Triggering analysis for session ${sessionId}`);
+              console.log(`🔍 Triggering analysis for session ${sessionId} with provider ${experimentConfig.analysisProvider}`);
               try {
                 await this.toolTriggerLiveAnalysis({
                   sessionId: sessionId,
-                  analysisType: 'full'
+                  analysisType: 'full',
+                  provider: experimentConfig.analysisProvider,  // Add this line
+                  messageWindow: experimentConfig.analysisContextSize || 0  // Also pass the window size
                 });
               } catch (error) {
                 console.warn(`⚠️ Analysis failed for session ${sessionId}:`, error);
               }
             }
-            
+
             // Step 7: Stop conversation via MCP tool
             await this.toolStopConversation({ sessionId });
             console.log(`✅ Conversation stopped for session ${sessionId}`);
@@ -5099,18 +5239,9 @@ export class MCPServer {
     return new Promise((resolve, reject) => {
       let messageCount = 0;
       const startTime = Date.now();
-      const timeout = 10 * 60 * 1000; // 10 minutes max per conversation
 
       const checkInterval = setInterval(async () => {
         try {
-          // Check timeout
-          if (Date.now() - startTime > timeout) {
-            clearInterval(checkInterval);
-            console.log(`⏰ Session ${sessionId}: Conversation timed out`);
-            resolve(); // Don't reject on timeout, just complete
-            return;
-          }
-
           // Get conversation status via MCP tool
           const statusResult = await this.toolGetConversationStatus({ sessionId });
           if (!statusResult.success) {
