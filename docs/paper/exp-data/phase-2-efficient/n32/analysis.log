@@ -1,0 +1,280 @@
+2025-07-22 10:59:14,184 - [MainProcess] WARNING - Threshold config file threshold_config.json not found, using defaults
+2025-07-22 10:59:14,184 - [MainProcess] INFO - Sensitivity analysis disabled
+2025-07-22 10:59:14,184 - [MainProcess] INFO - Using 4 worker processes
+2025-07-22 10:59:14,185 - [MainProcess] INFO - Found 32 JSON files to process
+2025-07-22 10:59:14,185 - [MainProcess] INFO - NLP analysis enabled
+2025-07-22 10:59:14,185 - [MainProcess] INFO - Threshold configuration saved to: threshold_config.json
+2025-07-22 10:59:14,185 - [MainProcess] INFO - Starting parallel main analysis...
+2025-07-22 10:59:14,185 - [MainProcess] INFO - Using 4 workers for main analysis
+2025-07-22 10:59:19,449 - [SpawnPoolWorker-3] INFO - Processing experiment-consciousness-exploration-efficient-models-session-consciousness_exploration_efficient_models-2025-07-21-1-5ffd1ea6.json (1/32)
+2025-07-22 10:59:19,453 - [SpawnPoolWorker-3] INFO - Initializing NLP models...
+2025-07-22 10:59:19,454 - [SpawnPoolWorker-3] INFO - Use pytorch device_name: cuda:0
+2025-07-22 10:59:19,454 - [SpawnPoolWorker-3] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 10:59:19,468 - [SpawnPoolWorker-2] INFO - Processing experiment-consciousness-exploration-efficient-models-session-consciousness_exploration_efficient_models-2025-07-21-10-7a03583c.json (2/32)
+2025-07-22 10:59:19,470 - [SpawnPoolWorker-2] INFO - Initializing NLP models...
+2025-07-22 10:59:19,471 - [SpawnPoolWorker-2] INFO - Use pytorch device_name: cuda:0
+2025-07-22 10:59:19,471 - [SpawnPoolWorker-2] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 10:59:19,474 - [SpawnPoolWorker-4] INFO - Processing experiment-consciousness-exploration-efficient-models-session-consciousness_exploration_efficient_models-2025-07-21-2-d8f4a239.json (3/32)
+2025-07-22 10:59:19,476 - [SpawnPoolWorker-4] INFO - Initializing NLP models...
+2025-07-22 10:59:19,476 - [SpawnPoolWorker-1] INFO - Processing experiment-consciousness-exploration-efficient-models-session-consciousness_exploration_efficient_models-2025-07-21-3-356b20b4.json (4/32)
+2025-07-22 10:59:19,477 - [SpawnPoolWorker-4] INFO - Use pytorch device_name: cuda:0
+2025-07-22 10:59:19,477 - [SpawnPoolWorker-4] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 10:59:19,479 - [SpawnPoolWorker-1] INFO - Initializing NLP models...
+2025-07-22 10:59:19,479 - [SpawnPoolWorker-1] INFO - Use pytorch device_name: cuda:0
+2025-07-22 10:59:19,479 - [SpawnPoolWorker-1] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 10:59:19,520 - [SpawnPoolWorker-3] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-07-22 10:59:19,558 - [SpawnPoolWorker-2] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-07-22 10:59:19,564 - [SpawnPoolWorker-1] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-07-22 10:59:19,565 - [SpawnPoolWorker-4] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-07-22 10:59:20,540 - [SpawnPoolWorker-3] INFO - Use pytorch device_name: cuda:0
+2025-07-22 10:59:20,540 - [SpawnPoolWorker-3] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 10:59:20,656 - [SpawnPoolWorker-4] INFO - Use pytorch device_name: cuda:0
+2025-07-22 10:59:20,656 - [SpawnPoolWorker-2] INFO - Use pytorch device_name: cuda:0
+2025-07-22 10:59:20,656 - [SpawnPoolWorker-4] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 10:59:20,656 - [SpawnPoolWorker-2] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 10:59:20,659 - [SpawnPoolWorker-1] INFO - Use pytorch device_name: cuda:0
+2025-07-22 10:59:20,659 - [SpawnPoolWorker-1] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 10:59:20,663 - [SpawnPoolWorker-3] INFO - NLP models loaded successfully
+2025-07-22 10:59:20,738 - [SpawnPoolWorker-1] INFO - NLP models loaded successfully
+2025-07-22 10:59:20,738 - [SpawnPoolWorker-4] INFO - NLP models loaded successfully
+2025-07-22 10:59:20,747 - [SpawnPoolWorker-2] INFO - NLP models loaded successfully
+2025-07-22 11:01:49,270 - [SpawnPoolWorker-1] INFO - Processing experiment-consciousness-exploration-efficient-models-session-consciousness_exploration_efficient_models-2025-07-21-4-7530126f.json (5/32)
+2025-07-22 11:01:49,273 - [SpawnPoolWorker-1] INFO - Initializing NLP models...
+2025-07-22 11:01:49,273 - [SpawnPoolWorker-1] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:01:49,273 - [SpawnPoolWorker-1] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:01:49,346 - [SpawnPoolWorker-1] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-07-22 11:01:50,055 - [SpawnPoolWorker-1] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:01:50,055 - [SpawnPoolWorker-1] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:01:50,131 - [SpawnPoolWorker-1] INFO - NLP models loaded successfully
+2025-07-22 11:01:53,081 - [SpawnPoolWorker-4] INFO - Processing experiment-consciousness-exploration-efficient-models-session-consciousness_exploration_efficient_models-2025-07-21-5-c82e535d.json (6/32)
+2025-07-22 11:01:53,083 - [SpawnPoolWorker-4] INFO - Initializing NLP models...
+2025-07-22 11:01:53,084 - [SpawnPoolWorker-4] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:01:53,084 - [SpawnPoolWorker-4] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:01:53,164 - [SpawnPoolWorker-4] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-07-22 11:01:53,860 - [SpawnPoolWorker-4] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:01:53,860 - [SpawnPoolWorker-4] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:01:53,946 - [SpawnPoolWorker-4] INFO - NLP models loaded successfully
+2025-07-22 11:01:55,557 - [SpawnPoolWorker-2] INFO - Processing experiment-consciousness-exploration-efficient-models-session-consciousness_exploration_efficient_models-2025-07-21-6-af3bef62.json (7/32)
+2025-07-22 11:01:55,560 - [SpawnPoolWorker-2] INFO - Initializing NLP models...
+2025-07-22 11:01:55,560 - [SpawnPoolWorker-2] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:01:55,560 - [SpawnPoolWorker-2] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:01:55,643 - [SpawnPoolWorker-2] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-07-22 11:01:56,363 - [SpawnPoolWorker-2] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:01:56,363 - [SpawnPoolWorker-2] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:01:56,440 - [SpawnPoolWorker-2] INFO - NLP models loaded successfully
+2025-07-22 11:01:56,812 - [SpawnPoolWorker-3] INFO - Processing experiment-consciousness-exploration-efficient-models-session-consciousness_exploration_efficient_models-2025-07-21-7-aaf756ea.json (8/32)
+2025-07-22 11:01:56,814 - [SpawnPoolWorker-3] INFO - Initializing NLP models...
+2025-07-22 11:01:56,815 - [SpawnPoolWorker-3] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:01:56,815 - [SpawnPoolWorker-3] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:01:56,899 - [SpawnPoolWorker-3] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-07-22 11:01:57,577 - [SpawnPoolWorker-3] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:01:57,577 - [SpawnPoolWorker-3] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:01:57,651 - [SpawnPoolWorker-3] INFO - NLP models loaded successfully
+2025-07-22 11:04:25,567 - [SpawnPoolWorker-4] INFO - Processing experiment-consciousness-exploration-efficient-models-session-consciousness_exploration_efficient_models-2025-07-21-8-eddadb1f.json (9/32)
+2025-07-22 11:04:25,569 - [SpawnPoolWorker-4] INFO - Initializing NLP models...
+2025-07-22 11:04:25,569 - [SpawnPoolWorker-4] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:04:25,569 - [SpawnPoolWorker-4] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:04:25,648 - [SpawnPoolWorker-4] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-07-22 11:04:26,302 - [SpawnPoolWorker-1] INFO - Processing experiment-consciousness-exploration-efficient-models-session-consciousness_exploration_efficient_models-2025-07-21-9-94918209.json (10/32)
+2025-07-22 11:04:26,303 - [MainProcess] INFO - Progress: 5/32 files (16%) - 0.0 files/sec
+2025-07-22 11:04:26,306 - [SpawnPoolWorker-1] INFO - Initializing NLP models...
+2025-07-22 11:04:26,307 - [SpawnPoolWorker-1] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:04:26,307 - [SpawnPoolWorker-1] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:04:26,320 - [SpawnPoolWorker-4] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:04:26,320 - [SpawnPoolWorker-4] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:04:26,384 - [SpawnPoolWorker-1] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-07-22 11:04:26,399 - [SpawnPoolWorker-4] INFO - NLP models loaded successfully
+2025-07-22 11:04:27,026 - [SpawnPoolWorker-1] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:04:27,026 - [SpawnPoolWorker-1] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:04:27,102 - [SpawnPoolWorker-1] INFO - NLP models loaded successfully
+2025-07-22 11:04:28,307 - [SpawnPoolWorker-3] INFO - Processing experiment-consciousness-exploration-efficient-models-session-consciousness_exploration_efficient_models-2025-07-22-1-107a38e7.json (11/32)
+2025-07-22 11:04:28,309 - [SpawnPoolWorker-3] INFO - Initializing NLP models...
+2025-07-22 11:04:28,309 - [SpawnPoolWorker-3] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:04:28,310 - [SpawnPoolWorker-3] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:04:28,382 - [SpawnPoolWorker-3] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-07-22 11:04:28,476 - [SpawnPoolWorker-2] INFO - Processing experiment-consciousness-exploration-efficient-models-session-consciousness_exploration_efficient_models-2025-07-22-1-205bf5d7.json (12/32)
+2025-07-22 11:04:28,479 - [SpawnPoolWorker-2] INFO - Initializing NLP models...
+2025-07-22 11:04:28,479 - [SpawnPoolWorker-2] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:04:28,479 - [SpawnPoolWorker-2] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:04:28,554 - [SpawnPoolWorker-2] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-07-22 11:04:29,042 - [SpawnPoolWorker-3] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:04:29,042 - [SpawnPoolWorker-3] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:04:29,116 - [SpawnPoolWorker-3] INFO - NLP models loaded successfully
+2025-07-22 11:04:29,235 - [SpawnPoolWorker-2] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:04:29,235 - [SpawnPoolWorker-2] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:04:29,308 - [SpawnPoolWorker-2] INFO - NLP models loaded successfully
+2025-07-22 11:06:34,558 - [SpawnPoolWorker-1] INFO - Processing experiment-consciousness-exploration-efficient-models-session-consciousness_exploration_efficient_models-2025-07-22-10-a33f4f21.json (13/32)
+2025-07-22 11:06:34,561 - [SpawnPoolWorker-1] INFO - Initializing NLP models...
+2025-07-22 11:06:34,561 - [SpawnPoolWorker-1] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:06:34,561 - [SpawnPoolWorker-1] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:06:34,642 - [SpawnPoolWorker-1] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-07-22 11:06:35,333 - [SpawnPoolWorker-1] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:06:35,333 - [SpawnPoolWorker-1] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:06:35,411 - [SpawnPoolWorker-1] INFO - NLP models loaded successfully
+2025-07-22 11:06:55,230 - [SpawnPoolWorker-4] INFO - Processing experiment-consciousness-exploration-efficient-models-session-consciousness_exploration_efficient_models-2025-07-22-11-e0277ef3.json (14/32)
+2025-07-22 11:06:55,230 - [MainProcess] INFO - Progress: 10/32 files (31%) - 0.0 files/sec
+2025-07-22 11:06:55,233 - [SpawnPoolWorker-4] INFO - Initializing NLP models...
+2025-07-22 11:06:55,233 - [SpawnPoolWorker-4] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:06:55,233 - [SpawnPoolWorker-4] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:06:55,351 - [SpawnPoolWorker-4] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-07-22 11:06:56,048 - [SpawnPoolWorker-4] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:06:56,048 - [SpawnPoolWorker-4] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:06:56,132 - [SpawnPoolWorker-4] INFO - NLP models loaded successfully
+2025-07-22 11:07:05,578 - [SpawnPoolWorker-3] INFO - Processing experiment-consciousness-exploration-efficient-models-session-consciousness_exploration_efficient_models-2025-07-22-11-fae1124b.json (15/32)
+2025-07-22 11:07:05,581 - [SpawnPoolWorker-3] INFO - Initializing NLP models...
+2025-07-22 11:07:05,587 - [SpawnPoolWorker-3] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:07:05,587 - [SpawnPoolWorker-3] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:07:05,668 - [SpawnPoolWorker-3] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-07-22 11:07:06,361 - [SpawnPoolWorker-3] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:07:06,361 - [SpawnPoolWorker-3] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:07:06,436 - [SpawnPoolWorker-3] INFO - NLP models loaded successfully
+2025-07-22 11:07:07,684 - [SpawnPoolWorker-2] INFO - Processing experiment-consciousness-exploration-efficient-models-session-consciousness_exploration_efficient_models-2025-07-22-12-347b29ae.json (16/32)
+2025-07-22 11:07:07,687 - [SpawnPoolWorker-2] INFO - Initializing NLP models...
+2025-07-22 11:07:07,687 - [SpawnPoolWorker-2] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:07:07,687 - [SpawnPoolWorker-2] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:07:07,769 - [SpawnPoolWorker-2] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-07-22 11:07:08,450 - [SpawnPoolWorker-2] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:07:08,450 - [SpawnPoolWorker-2] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:07:08,535 - [SpawnPoolWorker-2] INFO - NLP models loaded successfully
+2025-07-22 11:09:10,664 - [SpawnPoolWorker-1] INFO - Processing experiment-consciousness-exploration-efficient-models-session-consciousness_exploration_efficient_models-2025-07-22-13-e5cf22b6.json (17/32)
+2025-07-22 11:09:10,667 - [SpawnPoolWorker-1] INFO - Initializing NLP models...
+2025-07-22 11:09:10,668 - [SpawnPoolWorker-1] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:09:10,668 - [SpawnPoolWorker-1] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:09:10,748 - [SpawnPoolWorker-1] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-07-22 11:09:11,647 - [SpawnPoolWorker-1] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:09:11,647 - [SpawnPoolWorker-1] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:09:11,724 - [SpawnPoolWorker-1] INFO - NLP models loaded successfully
+2025-07-22 11:09:36,637 - [SpawnPoolWorker-4] INFO - Processing experiment-consciousness-exploration-efficient-models-session-consciousness_exploration_efficient_models-2025-07-22-15-39b9557b.json (18/32)
+2025-07-22 11:09:36,640 - [SpawnPoolWorker-4] INFO - Initializing NLP models...
+2025-07-22 11:09:36,641 - [SpawnPoolWorker-4] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:09:36,641 - [SpawnPoolWorker-4] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:09:36,738 - [SpawnPoolWorker-4] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-07-22 11:09:37,697 - [SpawnPoolWorker-4] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:09:37,697 - [SpawnPoolWorker-4] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:09:37,792 - [SpawnPoolWorker-4] INFO - NLP models loaded successfully
+2025-07-22 11:09:46,477 - [SpawnPoolWorker-2] INFO - Processing experiment-consciousness-exploration-efficient-models-session-consciousness_exploration_efficient_models-2025-07-22-2-93b869e1.json (19/32)
+2025-07-22 11:09:46,480 - [SpawnPoolWorker-2] INFO - Initializing NLP models...
+2025-07-22 11:09:46,480 - [SpawnPoolWorker-2] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:09:46,481 - [SpawnPoolWorker-2] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:09:46,562 - [SpawnPoolWorker-2] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-07-22 11:09:47,551 - [SpawnPoolWorker-2] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:09:47,551 - [SpawnPoolWorker-2] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:09:47,627 - [SpawnPoolWorker-2] INFO - NLP models loaded successfully
+2025-07-22 11:09:49,709 - [SpawnPoolWorker-3] INFO - Processing experiment-consciousness-exploration-efficient-models-session-consciousness_exploration_efficient_models-2025-07-22-2-a8817162.json (20/32)
+2025-07-22 11:09:49,709 - [MainProcess] INFO - Progress: 15/32 files (47%) - 0.0 files/sec
+2025-07-22 11:09:49,712 - [SpawnPoolWorker-3] INFO - Initializing NLP models...
+2025-07-22 11:09:49,712 - [SpawnPoolWorker-3] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:09:49,712 - [SpawnPoolWorker-3] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:09:49,788 - [SpawnPoolWorker-3] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-07-22 11:09:50,711 - [SpawnPoolWorker-3] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:09:50,711 - [SpawnPoolWorker-3] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:09:50,786 - [SpawnPoolWorker-3] INFO - NLP models loaded successfully
+2025-07-22 11:11:46,656 - [SpawnPoolWorker-1] INFO - Processing experiment-consciousness-exploration-efficient-models-session-consciousness_exploration_efficient_models-2025-07-22-3-8bf05492.json (21/32)
+2025-07-22 11:11:46,658 - [SpawnPoolWorker-1] INFO - Initializing NLP models...
+2025-07-22 11:11:46,659 - [SpawnPoolWorker-1] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:11:46,659 - [SpawnPoolWorker-1] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:11:46,738 - [SpawnPoolWorker-1] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-07-22 11:11:47,424 - [SpawnPoolWorker-1] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:11:47,424 - [SpawnPoolWorker-1] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:11:47,501 - [SpawnPoolWorker-1] INFO - NLP models loaded successfully
+2025-07-22 11:12:13,650 - [SpawnPoolWorker-4] INFO - Processing experiment-consciousness-exploration-efficient-models-session-consciousness_exploration_efficient_models-2025-07-22-3-b2181927.json (22/32)
+2025-07-22 11:12:13,653 - [SpawnPoolWorker-4] INFO - Initializing NLP models...
+2025-07-22 11:12:13,653 - [SpawnPoolWorker-4] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:12:13,653 - [SpawnPoolWorker-4] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:12:13,727 - [SpawnPoolWorker-4] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-07-22 11:12:14,427 - [SpawnPoolWorker-4] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:12:14,427 - [SpawnPoolWorker-4] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:12:14,501 - [SpawnPoolWorker-4] INFO - NLP models loaded successfully
+2025-07-22 11:12:26,504 - [SpawnPoolWorker-2] INFO - Processing experiment-consciousness-exploration-efficient-models-session-consciousness_exploration_efficient_models-2025-07-22-4-e7d17247.json (23/32)
+2025-07-22 11:12:26,506 - [SpawnPoolWorker-2] INFO - Initializing NLP models...
+2025-07-22 11:12:26,507 - [SpawnPoolWorker-2] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:12:26,507 - [SpawnPoolWorker-2] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:12:26,589 - [SpawnPoolWorker-2] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-07-22 11:12:27,245 - [SpawnPoolWorker-2] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:12:27,245 - [SpawnPoolWorker-2] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:12:27,319 - [SpawnPoolWorker-2] INFO - NLP models loaded successfully
+2025-07-22 11:12:28,112 - [SpawnPoolWorker-3] INFO - Processing experiment-consciousness-exploration-efficient-models-session-consciousness_exploration_efficient_models-2025-07-22-4-f92ed6c3.json (24/32)
+2025-07-22 11:12:28,112 - [MainProcess] INFO - Progress: 20/32 files (62%) - 0.0 files/sec
+2025-07-22 11:12:28,115 - [SpawnPoolWorker-3] INFO - Initializing NLP models...
+2025-07-22 11:12:28,115 - [SpawnPoolWorker-3] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:12:28,115 - [SpawnPoolWorker-3] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:12:28,196 - [SpawnPoolWorker-3] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-07-22 11:12:28,857 - [SpawnPoolWorker-3] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:12:28,857 - [SpawnPoolWorker-3] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:12:28,933 - [SpawnPoolWorker-3] INFO - NLP models loaded successfully
+2025-07-22 11:14:22,282 - [SpawnPoolWorker-1] ERROR - Error processing experiment-consciousness-exploration-efficient-models-session-consciousness_exploration_efficient_models-2025-07-22-3-8bf05492.json: division by zero
+2025-07-22 11:14:22,292 - [SpawnPoolWorker-1] INFO - Processing experiment-consciousness-exploration-efficient-models-session-consciousness_exploration_efficient_models-2025-07-22-5-1d193555.json (25/32)
+2025-07-22 11:14:22,292 - [MainProcess] INFO - Progress: 20/32 files (62%) - 0.0 files/sec
+2025-07-22 11:14:22,295 - [SpawnPoolWorker-1] INFO - Initializing NLP models...
+2025-07-22 11:14:22,295 - [SpawnPoolWorker-1] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:14:22,295 - [SpawnPoolWorker-1] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:14:22,382 - [SpawnPoolWorker-1] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-07-22 11:14:23,070 - [SpawnPoolWorker-1] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:14:23,070 - [SpawnPoolWorker-1] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:14:23,149 - [SpawnPoolWorker-1] INFO - NLP models loaded successfully
+2025-07-22 11:14:59,687 - [SpawnPoolWorker-4] INFO - Processing experiment-consciousness-exploration-efficient-models-session-consciousness_exploration_efficient_models-2025-07-22-6-9dde6c4a.json (26/32)
+2025-07-22 11:14:59,690 - [SpawnPoolWorker-4] INFO - Initializing NLP models...
+2025-07-22 11:14:59,690 - [SpawnPoolWorker-4] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:14:59,690 - [SpawnPoolWorker-4] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:14:59,768 - [SpawnPoolWorker-4] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-07-22 11:15:00,420 - [SpawnPoolWorker-4] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:15:00,420 - [SpawnPoolWorker-4] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:15:00,496 - [SpawnPoolWorker-4] INFO - NLP models loaded successfully
+2025-07-22 11:15:02,203 - [SpawnPoolWorker-2] INFO - Processing experiment-consciousness-exploration-efficient-models-session-consciousness_exploration_efficient_models-2025-07-22-7-456b4b32.json (27/32)
+2025-07-22 11:15:02,205 - [SpawnPoolWorker-2] INFO - Initializing NLP models...
+2025-07-22 11:15:02,206 - [SpawnPoolWorker-2] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:15:02,206 - [SpawnPoolWorker-2] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:15:02,282 - [SpawnPoolWorker-2] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-07-22 11:15:02,938 - [SpawnPoolWorker-2] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:15:02,938 - [SpawnPoolWorker-2] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:15:03,007 - [SpawnPoolWorker-2] INFO - NLP models loaded successfully
+2025-07-22 11:15:05,994 - [SpawnPoolWorker-3] INFO - Processing experiment-consciousness-exploration-efficient-models-session-consciousness_exploration_efficient_models-2025-07-22-7-b18c312f.json (28/32)
+2025-07-22 11:15:05,997 - [SpawnPoolWorker-3] INFO - Initializing NLP models...
+2025-07-22 11:15:05,997 - [SpawnPoolWorker-3] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:15:05,997 - [SpawnPoolWorker-3] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:15:06,077 - [SpawnPoolWorker-3] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-07-22 11:15:06,736 - [SpawnPoolWorker-3] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:15:06,736 - [SpawnPoolWorker-3] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:15:06,809 - [SpawnPoolWorker-3] INFO - NLP models loaded successfully
+2025-07-22 11:16:34,183 - [SpawnPoolWorker-2] INFO - Processing experiment-consciousness-exploration-efficient-models-session-consciousness_exploration_efficient_models-2025-07-22-8-70c71d6b.json (29/32)
+2025-07-22 11:16:34,185 - [SpawnPoolWorker-2] INFO - Initializing NLP models...
+2025-07-22 11:16:34,185 - [SpawnPoolWorker-2] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:16:34,186 - [SpawnPoolWorker-2] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:16:34,265 - [SpawnPoolWorker-2] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-07-22 11:16:35,009 - [SpawnPoolWorker-2] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:16:35,009 - [SpawnPoolWorker-2] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:16:35,093 - [SpawnPoolWorker-2] INFO - NLP models loaded successfully
+2025-07-22 11:16:57,695 - [SpawnPoolWorker-1] INFO - Processing experiment-consciousness-exploration-efficient-models-session-consciousness_exploration_efficient_models-2025-07-22-8-e3ffe474.json (30/32)
+2025-07-22 11:16:57,698 - [SpawnPoolWorker-1] INFO - Initializing NLP models...
+2025-07-22 11:16:57,698 - [SpawnPoolWorker-1] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:16:57,698 - [SpawnPoolWorker-1] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:16:57,776 - [SpawnPoolWorker-1] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-07-22 11:16:58,446 - [SpawnPoolWorker-1] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:16:58,446 - [SpawnPoolWorker-1] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:16:58,522 - [SpawnPoolWorker-1] INFO - NLP models loaded successfully
+2025-07-22 11:17:43,358 - [SpawnPoolWorker-4] INFO - Processing experiment-consciousness-exploration-efficient-models-session-consciousness_exploration_efficient_models-2025-07-22-9-db248c08.json (31/32)
+2025-07-22 11:17:43,358 - [MainProcess] INFO - Progress: 25/32 files (78%) - 0.0 files/sec
+2025-07-22 11:17:43,361 - [SpawnPoolWorker-4] INFO - Initializing NLP models...
+2025-07-22 11:17:43,361 - [SpawnPoolWorker-4] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:17:43,361 - [SpawnPoolWorker-4] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:17:43,438 - [SpawnPoolWorker-4] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-07-22 11:17:44,088 - [SpawnPoolWorker-4] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:17:44,088 - [SpawnPoolWorker-4] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:17:44,163 - [SpawnPoolWorker-4] INFO - NLP models loaded successfully
+2025-07-22 11:17:46,052 - [SpawnPoolWorker-3] INFO - Processing experiment-consciousness-exploration-efficient-models-session-consciousness_exploration_efficient_models-2025-07-22-9-f5a3afc3.json (32/32)
+2025-07-22 11:17:46,055 - [SpawnPoolWorker-3] INFO - Initializing NLP models...
+2025-07-22 11:17:46,055 - [SpawnPoolWorker-3] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:17:46,055 - [SpawnPoolWorker-3] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:17:46,136 - [SpawnPoolWorker-3] INFO - Pre-computing BERT embeddings for phase archetypes...
+2025-07-22 11:17:46,785 - [SpawnPoolWorker-3] INFO - Use pytorch device_name: cuda:0
+2025-07-22 11:17:46,785 - [SpawnPoolWorker-3] INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-22 11:17:46,860 - [SpawnPoolWorker-3] INFO - NLP models loaded successfully
+2025-07-22 11:19:57,564 - [MainProcess] INFO - Progress: 30/32 files (94%) - 0.0 files/sec
+2025-07-22 11:19:57,852 - [MainProcess] INFO - Main analysis completed in 1243.7 seconds
+2025-07-22 11:19:57,854 - [MainProcess] INFO - CSV generated: conversation_analysis_enhanced.csv
+2025-07-22 11:19:57,854 - [MainProcess] INFO - Processed 31 files
+2025-07-22 11:19:57,854 - [MainProcess] INFO - Metric mapping saved to: metric_mapping.json
+2025-07-22 11:19:57,854 - [MainProcess] INFO - Performing statistical analysis...
+2025-07-22 11:19:57,868 - [MainProcess] INFO - Generating final report...
+2025-07-22 11:19:57,871 - [MainProcess] INFO - Statistical report saved to: analysis_report.txt
+2025-07-22 11:19:57,871 - [MainProcess] INFO - Total processing time: 20.7 minutes

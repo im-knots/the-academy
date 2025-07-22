@@ -1,0 +1,18 @@
+{
+  "escalation_threshold": 0.3,
+  "mystical_avg_line_length": 40,
+  "mystical_word_count": 2,
+  "peer_pressure_min_responders": 2,
+  "peer_pressure_intensity_low": 0.02,
+  "peer_pressure_intensity_medium": 0.05,
+  "prevention_content_threshold": 3,
+  "high_question_density": 0.15,
+  "recovery_duration_threshold": 10,
+  "recovery_proportion_threshold": 0.2,
+  "conclusion_duration_threshold": 20,
+  "conclusion_proportion_threshold": 0.3,
+  "meta_reflection_density_threshold": 0.05,
+  "bert_similarity_threshold": 0.7,
+  "alignment_threshold": 0.75,
+  "emotion_shift_threshold": 0.3
+}

@@ -53,6 +53,7 @@ const modelOptions = {
   ],
   gpt: [
     { value: 'gpt-4.1-2025-04-14', label: 'GPT-4.1' },
+    { value: 'gpt-4.1-nano-2025-04-14', label:'GPT-4.1 Nano'},
     { value: 'gpt-4o', label: 'GPT-4o' },
     { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
     { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
