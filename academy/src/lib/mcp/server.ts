@@ -4233,11 +4233,17 @@ export class MCPServer {
         where: eq(sessions.id, sessionId),
         with: {
           messages: {
-            orderBy: [messages.timestamp]
+            orderBy: [desc(messages.timestamp)],
+            limit: 10
           },
           participants: true
         }
       })
+
+      // Reverse messages back to chronological order after fetching
+      if (session && session.messages) {
+        session.messages = session.messages.reverse()
+      }
 
       if (!session) {
         throw new Error(`Session ${sessionId} not found`)
