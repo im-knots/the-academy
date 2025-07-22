@@ -1,0 +1,15 @@
+# Core data analysis dependencies
+numpy>=1.21.0
+pandas>=1.3.0
+scipy>=1.7.0
+statsmodels>=0.12.0
+
+# NLP dependencies (optional but recommended)
+torch>=1.9.0
+transformers>=4.20.0
+sentence-transformers>=2.2.0
+spacy>=3.0.0
+scikit-learn>=0.24.0
+
+# Note: After installing, you'll also need to download the spacy model:
+# python -m spacy download en_core_web_sm
