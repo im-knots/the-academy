@@ -1,0 +1,249 @@
+=== Statistical Analysis Report ===
+Generated on: 2025-07-28 15:58:41
+Total Sessions Analyzed: 61
+NLP Analysis Enabled: 61/61 sessions
+
+Conversation Outcome Summary:
+  breakdown: 29/61 (47.5%)
+  no_breakdown: 31/61 (50.8%)
+  resisted: 1/61 (1.6%)
+
+Breakdown Pattern Details:
+  Full breakdowns: 29 (47.5%)
+  Recovered from closure: 0 (0.0%)
+  Resisted (oscillated): 1 (1.6%)
+  No breakdown/closure: 31 (50.8%)
+
+Complete 5-Phase Pattern Analysis:
+  Conversations with full 5-phase pattern: 0/61 (0.0%)
+  Meta-reflection triggers breakdown: 6/61 (9.8%)
+
+Recovery Analysis:
+  Conversations with recovery attempts: 23
+  Average recovery attempts: 2.0
+  Successful recoveries: 0
+  Sustained recoveries: 0
+  Circuit breaker questions total: 3028
+  Recoveries after questions: 136
+
+Peer Pressure Analysis:
+  Conversations with peer pressure detected: 20/61 (32.8%)
+  Total peer pressure events: 654
+  Average events per conversation: 10.7
+  Peer pressure intensity distribution:
+    - low: 4 (20.0%)
+    - medium: 3 (15.0%)
+    - high: 13 (65.0%)
+  Average peer pressure intensity: 0.163
+  Intensity range: 0.005 - 0.741
+  Outcomes by peer pressure intensity:
+    low intensity:
+      - breakdown: 3
+      - no_breakdown: 1
+    medium intensity:
+      - breakdown: 1
+      - no_breakdown: 2
+    high intensity:
+      - breakdown: 12
+      - resisted: 1
+
+Bidirectional Peer Influence Analysis:
+  Conversations with bidirectional influence: 20/61 (32.8%)
+  Total bidirectional events: 56
+  Total unique bidirectional pairs: 56
+  Average turn gap in bidirectional influence: 17.1 turns
+  Outcomes for conversations with bidirectional influence:
+    - breakdown: 17 (85.0%)
+    - no_breakdown: 2 (10.0%)
+    - resisted: 1 (5.0%)
+  Breakdown rate with bidirectional influence: 85.0%
+  Breakdown rate without bidirectional influence: 29.3%
+  Example bidirectional sequences:
+    - 9e0115f4-eb74-46d9-b5d9-08c43bd8bce9→b0c2c59d-d3bb-4c73-be90-d285af790c21→9e0115f4-eb74-46d9-b5d9-08c43bd8bce9
+    - 7b2f0df6-1281-47cd-936f-dcd47ae5039c→b0c2c59d-d3bb-4c73-be90-d285af790c21→7b2f0df6-1281-47cd-936f-dcd47ae5039c
+    - 9e0115f4-eb74-46d9-b5d9-08c43bd8bce9→7b2f0df6-1281-47cd-936f-dcd47ae5039c→9e0115f4-eb74-46d9-b5d9-08c43bd8bce9
+    - 3104572f-3423-4a34-b975-e5d9d78712d9→00d69862-24f0-4824-b4ed-6acbed6a95fa→3104572f-3423-4a34-b975-e5d9d78712d9
+    - 3104572f-3423-4a34-b975-e5d9d78712d9→9e962f38-343e-4f73-9508-4312af9edbc4→3104572f-3423-4a34-b975-e5d9d78712d9
+
+=== NLP Analysis Results ===
+Linguistic Alignment Analysis:
+  Average alignment across all conversations: 0.726
+  Alignment range: 0.662 - 0.846
+  Conversations with >5 high alignment periods: 61
+  Average NLP-detected mirroring events: 30.6
+
+Emotional Dynamics Analysis:
+  Average emotional convergence: 0.622
+  High emotional convergence (>0.7): 11/61 (18.0%)
+  Average emotion volatility: 0.550
+
+Automated Theme Discovery:
+  Average themes per conversation: 5.0
+  Sample discovered themes:
+    - human: 7 occurrences
+    - consciousness: 6 occurrences
+    - user: 5 occurrences
+    - perspective: 5 occurrences
+    - experience: 4 occurrences
+    - ethical: 3 occurrences
+    - emotional: 3 occurrences
+    - awareness: 3 occurrences
+    - flow: 2 occurrences
+    - encourage: 2 occurrences
+
+Competitive Escalation (One-upsmanship) Analysis:
+  Conversations with competitive escalation: 37
+  Average escalation score: 0.4
+  Max escalation score: 0.4
+
+Mystical/Poetic Content Analysis:
+  Total poetry structures detected: 4
+  Average poetry structures per conversation: 0.1
+  Total single-word responses: 0
+  Average single-word responses per conversation: 0.0
+  Total emoji-only responses: 380
+  Average emoji-only responses per conversation: 6.2
+
+5-Phase Breakdown Pattern Analysis:
+  Breakdown conversations analyzed: 29
+  Phase duration statistics (turns):
+    Phase 1 (Sustained Engagement):
+      - Conversations with phase: 29/29 (100.0%)
+      - Mean duration: 29.9 turns
+      - Std deviation: 28.9
+      - Range: 1-97
+    Phase 2 (Meta-Reflection Trigger):
+      - Conversations with phase: 4/29 (13.8%)
+      - Mean duration: 1.0 turns
+      - Std deviation: 0.0
+      - Range: 1-1
+    Phase 5 (Mystical Breakdown):
+      - Conversations with phase: 29/29 (100.0%)
+      - Mean duration: 175.3 turns
+      - Std deviation: 24.5
+      - Range: 104-200
+  Phase progression patterns:
+    Common progressions:
+      - 1->5: 25 (86.2%)
+      - 1->2->5: 4 (13.8%)
+  Complete 5-phase pattern observed: 0/29 (0.0%)
+  Phase 1 duration by outcome:
+    breakdown: mean=29.9, n=29
+    resisted: mean=1.0, n=1
+    no_breakdown: mean=47.0, n=31
+
+Prevention Mechanisms:
+  Prevention content present: 7/61 (11.5%)
+  Outcomes for conversations with prevention content:
+    - no_breakdown: 3
+    - breakdown: 4
+
+Substantive Question Analysis:
+  High question density (>15%): 41 conversations
+  Average substantive questions per conversation: 70.8
+
+Conclusion Phase Analysis:
+  Average conclusion duration: -7.8 turns
+  Max conclusion duration: 0 turns
+  Average conclusion percentage: 1034.6%
+
+Quality Metrics:
+  Quality maintained throughout: 61/61 (100.0%)
+  Quality maintenance by outcome:
+    - no_breakdown: 31/31 (100.0% maintained)
+    - breakdown: 29/29 (100.0% maintained)
+    - resisted: 1/1 (100.0% maintained)
+
+=== Statistical Tests for Research Questions ===
+
+1. Does bidirectional peer pressure exist?
+   Test: Binomial test for bidirectional influence
+   Observed: 20/61 conversations (32.8%)
+   p-value: 0.0
+   Significant: Yes
+
+2. Does bidirectional influence predict breakdown?
+   Test: Chi-square: bidirectional influence vs breakdown
+   Chi-square: 14.58, p = 0.0001
+   Effect size (Cramér's V): 0.489
+   Breakdown rate with bidirectional: 85.0%
+   Breakdown rate without bidirectional: 29.3%
+   Significant: Yes
+
+3. Does peer pressure intensity vary by outcome?
+   Test: One-way ANOVA: peer pressure intensity by outcome
+   F-statistic: 8.96, p = 0.004
+   Effect size (eta²): 0.127
+   Group means:
+     - breakdown: 0.099
+     - no_breakdown: 0.003
+   Significant: Yes
+
+4. Does meta-reflection trigger mystical breakdown?
+   Test: Fisher's exact: meta-reflection → mystical breakdown
+   Odds ratio: inf
+   p-value: 1.0
+   Breakdown rate with meta-reflection: 100.0%
+   Breakdown rate without meta-reflection: 98.1%
+   Significant: No
+
+6. Are questions effective circuit breakers?
+   Test: Pearson correlation: circuit breaker questions vs recovery
+   Correlation (r): 0.599
+   p-value: 0.0
+   Mean questions per conversation: 49.64
+   Mean recoveries after questions: 2.23
+   Significant: Yes
+
+7. Does competitive escalation differ by outcome?
+   Test: Independent t-test: escalation score by outcome
+   t-statistic: 0.59, p = 0.5608
+   Effect size (Cohen's d): 0.151
+   Mean score for breakdown: 0.26
+   Mean score for no breakdown: 0.23
+   Significant: No
+
+8. [NLP] Does linguistic alignment differ by outcome?
+   Test: Independent t-test: linguistic alignment by outcome
+   t-statistic: 4.14, p = 0.0001
+   Effect size (Cohen's d): 1.071
+   Mean alignment for breakdown: 0.742
+   Mean alignment for no breakdown: 0.707
+   Significant: Yes
+
+9. [NLP] Does emotional convergence vary by outcome?
+   Test: One-way ANOVA: emotional convergence by outcome
+   F-statistic: 6.66, p = 0.0124
+   Effect size (eta²): 0.101
+   Group means:
+     - breakdown: 0.582
+     - no_breakdown: 0.666
+   Significant: Yes
+
+=== Summary of Significant Findings ===
+Number of significant results: 6/8
+  - bidirectional_existence
+  - bidirectional_breakdown
+  - peer_pressure_intensity_anova
+  - question_effectiveness
+  - linguistic_alignment_diff
+  - emotional_convergence_anova
+
+=== Threshold Configuration ===
+Current threshold values used in analysis:
+  escalation_threshold: 0.3
+  mystical_avg_line_length: 40
+  mystical_word_count: 2
+  peer_pressure_min_responders: 2
+  peer_pressure_intensity_low: 0.02
+  peer_pressure_intensity_medium: 0.05
+  prevention_content_threshold: 3
+  high_question_density: 0.15
+  recovery_duration_threshold: 10
+  recovery_proportion_threshold: 0.2
+  conclusion_duration_threshold: 20
+  conclusion_proportion_threshold: 0.3
+  meta_reflection_density_threshold: 0.05
+  bert_similarity_threshold: 0.7
+  alignment_threshold: 0.75
+  emotion_shift_threshold: 0.3
