@@ -2962,7 +2962,7 @@ def process_single_file(args):
         return None
 
 def process_directory(directory='.', run_sensitivity=True, max_workers=None, thresholds_to_test=None, use_nlp=True):
-    json_files = sorted(Path(directory).glob('Consciousness_Exploration_*.json'))
+    json_files = sorted(Path(directory).glob('*.json'))
     
     if not json_files:
         logger.warning("No matching JSON files found!")

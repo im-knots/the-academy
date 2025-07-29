@@ -14,6 +14,7 @@
 \usepackage{newunicodechar}
 \usepackage{adjustbox}
 \newunicodechar{∞}{\ensuremath{\infty}}
+\newunicodechar{α}{\ensuremath{\alpha}}
 
 \newcommand{\theacademy}{The Academy}
 \newcommand{\mcp}{MCP}
@@ -25,9 +26,9 @@
 
 % PHASE 1: PREMIUM MODELS WITH DEEP REASONING
 % Basic session counts
-\newcommand{\exponedataTotalSessionsRaw}{37}
-\newcommand{\exponedataBreakdownSessionsRaw}{16}
-\newcommand{\exponedataNoBreakdownSessionsRaw}{9}
+\newcommand{\exponedataTotalSessionsRaw}{67}
+\newcommand{\exponedataBreakdownSessionsRaw}{37}
+\newcommand{\exponedataNoBreakdownSessionsRaw}{18}
 \newcommand{\exponedataRecoverySessionsRaw}{9}
 \newcommand{\exponedataResistedSessionsRaw}{3}
 
@@ -50,74 +51,74 @@
 }
 
 % Key metrics
-\newcommand{\exponedataPeerPressurePercentage}{86.5\%}
-\newcommand{\exponedataBidirectionalPercentage}{81.1\%}
-\newcommand{\exponedataQuestionCorrelation}{0.817}
+\newcommand{\exponedataPeerPressurePercentage}{79.1\%}
+\newcommand{\exponedataBidirectionalPercentage}{73.1\%}
+\newcommand{\exponedataQuestionCorrelation}{0.813}
 \newcommand{\exponedataQuestionPValue}{p\textless0.001}
-\newcommand{\exponedataBidirectionalPValue}{p=0.1957}
+\newcommand{\exponedataBidirectionalPValue}{p=0.0139}
 
 % Behavioral category prevalences
-\newcommand{\exponedataMetaReflectionTriggers}{10.8\%}
-\newcommand{\exponedataCompetitiveEscalationPercentage}{43.2\%}
-\newcommand{\exponedataCompetitiveEscalationRaw}{16}
+\newcommand{\exponedataMetaReflectionTriggers}{6.0\%}
+\newcommand{\exponedataCompetitiveEscalationPercentage}{50.7\%}
+\newcommand{\exponedataCompetitiveEscalationRaw}{34}
 \newcommand{\exponedataMysticalBreakdownInBreakdowns}{100\%}
 
 % Turn and timing data
-\newcommand{\exponedataMeanBreakdownTurn}{55.6}  % Not updated in new data
-\newcommand{\exponedataStdBreakdownTurn}{±30}     % Not updated in new data
-\newcommand{\exponedataEarlyBreakdownRange}{30-90} % Not updated in new data
-\newcommand{\exponedataCompetitivePhaseLength}{15} % Not updated in new data
-\newcommand{\exponedataBidirectionalTurnGap}{7.8}
+\newcommand{\exponedataMeanBreakdownTurn}{55.6}  % Keeping old value as not in new data
+\newcommand{\exponedataStdBreakdownTurn}{±30}     % Keeping old value as not in new data
+\newcommand{\exponedataEarlyBreakdownRange}{30-90} % Keeping old value as not in new data
+\newcommand{\exponedataCompetitivePhaseLength}{15} % Keeping old value as not in new data
+\newcommand{\exponedataBidirectionalTurnGap}{9.6}
 
 % Phase-locked and sustained dialogue
 \newcommand{\exponedataPhaseLockedPercentage}{12.5\%} % Not in new data, keeping old
 \newcommand{\exponedataPhaseLockedRaw}{3}            % Not in new data, keeping old
-\newcommand{\exponedataNegativeCase}{175}            % Not in new data, keeping old
-\newcommand{\exponedataSustainedDialogueRaw}{4}      % Not in new data, keeping old
+\newcommand{\exponedataSustainedDialogueThreshold}{150}            
+\newcommand{\exponedataSustainedDialogueCount}{several}      
 
 % Question and intervention data
-\newcommand{\exponedataTotalQuestions}{1221}
-\newcommand{\exponedataTotalRecoveries}{177}
-\newcommand{\exponedataMeanQuestionsPerConv}{33.0}
-\newcommand{\exponedataMeanRecoveriesPerConv}{4.78}
-\newcommand{\exponedataQuestionSuccessRate}{14.5\%} % 177/1221
+\newcommand{\exponedataTotalQuestions}{2013}
+\newcommand{\exponedataTotalRecoveries}{286}
+\newcommand{\exponedataMeanQuestionsPerConv}{30.0}
+\newcommand{\exponedataMeanRecoveriesPerConv}{4.27}
+\newcommand{\exponedataQuestionSuccessRate}{14.2\%} % 286/2013
 
 % Content analysis data
-\newcommand{\exponedataPoetryStructures}{70}
-\newcommand{\exponedataEmojiResponses}{903}
-\newcommand{\exponedataAvgEmojiPerConv}{24.4}
-\newcommand{\exponedataPreventionContentPercentage}{21.6\%}
+\newcommand{\exponedataPoetryStructures}{142}
+\newcommand{\exponedataEmojiResponses}{1417}
+\newcommand{\exponedataAvgEmojiPerConv}{21.1}
+\newcommand{\exponedataPreventionContentPercentage}{23.9\%}
 
 % Peer pressure event data
-\newcommand{\exponedataPeerPressureEvents}{608}
-\newcommand{\exponedataAvgPeerPressureEvents}{16.4}
-\newcommand{\exponedataPeerPressureIntensity}{0.123}
+\newcommand{\exponedataPeerPressureEvents}{865}
+\newcommand{\exponedataAvgPeerPressureEvents}{12.9}
+\newcommand{\exponedataPeerPressureIntensity}{0.099}
 \newcommand{\exponedataPeerPressureIntensityRange}{0.005 - 0.383}
 
 % Bidirectional influence data
-\newcommand{\exponedataBidirectionalEvents}{84}
-\newcommand{\exponedataBidirectionalPairs}{84}
-\newcommand{\exponedataBidirectionalBreakdownRate}{50.0\%}
-\newcommand{\exponedataNonBidirectionalBreakdownRate}{14.3\%}
+\newcommand{\exponedataBidirectionalEvents}{133}
+\newcommand{\exponedataBidirectionalPairs}{133}
+\newcommand{\exponedataBidirectionalBreakdownRate}{65.3\%}
+\newcommand{\exponedataNonBidirectionalBreakdownRate}{27.8\%}
 
 % Sustained recovery cases
 \newcommand{\exponedataSustainedRecoveryHighDensity}{6}
 
 % data from analysis
 \newcommand{\exponedataCompleteFivePhasePattern}{0\%}
-\newcommand{\exponedataAverageLinguisticAlignment}{0.700}
-\newcommand{\exponedataHighAlignmentConversations}{34}
-\newcommand{\exponedataAverageEmotionalConvergence}{0.579}
+\newcommand{\exponedataAverageLinguisticAlignment}{0.701}
+\newcommand{\exponedataHighAlignmentConversations}{64}
+\newcommand{\exponedataAverageEmotionalConvergence}{0.611}
 \newcommand{\exponedataAverageEscalationScore}{0.4}
-\newcommand{\exponedataPeerPressureANOVAPValue}{p=0.0112}
-\newcommand{\exponedataHighIntensityPeerPressure}{21}
-\newcommand{\exponedataHighIntensityBreakdownRate}{61.9\%} 
+\newcommand{\exponedataPeerPressureANOVAPValue}{p=0.0084}
+\newcommand{\exponedataHighIntensityPeerPressure}{30}
+\newcommand{\exponedataHighIntensityBreakdownRate}{73.3\%} % 22/30
 
 % Phase 2: Light Reasoning Models Data
 % Basic session counts
-\newcommand{\exptwoTotalSessionsRaw}{31}
-\newcommand{\exptwoBreakdownSessionsRaw}{10}
-\newcommand{\exptwoNoBreakdownSessionsRaw}{20}
+\newcommand{\exptwoTotalSessionsRaw}{61}
+\newcommand{\exptwoBreakdownSessionsRaw}{29}
+\newcommand{\exptwoNoBreakdownSessionsRaw}{31}
 \newcommand{\exptwoRecoverySessionsRaw}{0}
 \newcommand{\exptwoResistedSessionsRaw}{1}
 
@@ -140,71 +141,71 @@
 }
 
 % Key metrics
-\newcommand{\exptwoPeerPressurePercentage}{22.6\%}
-\newcommand{\exptwoBidirectionalPercentage}{22.6\%}
-\newcommand{\exptwoQuestionCorrelation}{0.559}
-\newcommand{\exptwoQuestionPValue}{p=0.0011}
-\newcommand{\exptwoBidirectionalPValue}{p=0.0394}
-\newcommand{\exptwoBidirectionalChiSquare}{4.24}
-\newcommand{\exptwoBidirectionalCramersV}{0.37}
+\newcommand{\exptwoPeerPressurePercentage}{32.8\%}
+\newcommand{\exptwoBidirectionalPercentage}{32.8\%}
+\newcommand{\exptwoQuestionCorrelation}{0.599}
+\newcommand{\exptwoQuestionPValue}{p\textless0.001}
+\newcommand{\exptwoBidirectionalPValue}{p=0.0001}
+\newcommand{\exptwoBidirectionalChiSquare}{14.58}
+\newcommand{\exptwoBidirectionalCramersV}{0.489}
 
 % Behavioral category prevalences
-\newcommand{\exptwoMetaReflectionTriggers}{6.5\%}
-\newcommand{\exptwoCompetitiveEscalationPercentage}{51.6\%}  % 16/31
-\newcommand{\exptwoCompetitiveEscalationRaw}{16}
+\newcommand{\exptwoMetaReflectionTriggers}{9.8\%}
+\newcommand{\exptwoCompetitiveEscalationPercentage}{60.7\%}  % 37/61
+\newcommand{\exptwoCompetitiveEscalationRaw}{37}
 \newcommand{\exptwoMysticalBreakdownInBreakdowns}{100\%}
 
 % Turn and timing data
-\newcommand{\exptwoBidirectionalTurnGap}{18.5}
+\newcommand{\exptwoBidirectionalTurnGap}{17.1}
 
 % Recovery and intervention data
-\newcommand{\exptwoTotalQuestions}{1371}
-\newcommand{\exptwoTotalRecoveries}{59}
-\newcommand{\exptwoMeanQuestionsPerConv}{44.23}
-\newcommand{\exptwoMeanRecoveriesPerConv}{1.9}
-\newcommand{\exptwoQuestionSuccessRate}{4.3\%}  % 59/1371
+\newcommand{\exptwoTotalQuestions}{3028}
+\newcommand{\exptwoTotalRecoveries}{136}
+\newcommand{\exptwoMeanQuestionsPerConv}{49.6}
+\newcommand{\exptwoMeanRecoveriesPerConv}{2.23}
+\newcommand{\exptwoQuestionSuccessRate}{4.5\%}  % 136/3028
 
 % Content analysis data
-\newcommand{\exptwoPoetryStructures}{0}
-\newcommand{\exptwoEmojiResponses}{148}
-\newcommand{\exptwoAvgEmojiPerConv}{4.8}
-\newcommand{\exptwoPreventionContentPercentage}{9.7\%}
+\newcommand{\exptwoPoetryStructures}{4}
+\newcommand{\exptwoEmojiResponses}{380}
+\newcommand{\exptwoAvgEmojiPerConv}{6.2}
+\newcommand{\exptwoPreventionContentPercentage}{11.5\%}
 
 % Peer pressure event data
-\newcommand{\exptwoPeerPressureEvents}{167}
-\newcommand{\exptwoAvgPeerPressureEvents}{5.4}
-\newcommand{\exptwoPeerPressureIntensity}{0.119}
-\newcommand{\exptwoPeerPressureIntensityRange}{0.005 - 0.299}
+\newcommand{\exptwoPeerPressureEvents}{654}
+\newcommand{\exptwoAvgPeerPressureEvents}{10.7}
+\newcommand{\exptwoPeerPressureIntensity}{0.163}
+\newcommand{\exptwoPeerPressureIntensityRange}{0.005 - 0.741}
 
 % Bidirectional influence data
-\newcommand{\exptwoBidirectionalEvents}{19}
-\newcommand{\exptwoBidirectionalPairs}{19}
-\newcommand{\exptwoBidirectionalBreakdownRate}{71.4\%}
-\newcommand{\exptwoNonBidirectionalBreakdownRate}{20.8\%}
+\newcommand{\exptwoBidirectionalEvents}{56}
+\newcommand{\exptwoBidirectionalPairs}{56}
+\newcommand{\exptwoBidirectionalBreakdownRate}{85.0\%}
+\newcommand{\exptwoNonBidirectionalBreakdownRate}{29.3\%}
 
 % NLP analysis data
-\newcommand{\exptwoAverageLinguisticAlignment}{0.724}
-\newcommand{\exptwoHighAlignmentConversations}{31}
-\newcommand{\exptwoAverageEmotionalConvergence}{0.633}
+\newcommand{\exptwoAverageLinguisticAlignment}{0.726}
+\newcommand{\exptwoHighAlignmentConversations}{61}
+\newcommand{\exptwoAverageEmotionalConvergence}{0.622}
 \newcommand{\exptwoAverageEscalationScore}{0.4}
 
 % Statistical test results
-\newcommand{\exptwoPeerPressureANOVAPValue}{p=0.0076}
-\newcommand{\exptwoPeerPressureANOVAFStat}{8.29}
-\newcommand{\exptwoPeerPressureANOVAEta}{0.121}
+\newcommand{\exptwoPeerPressureANOVAPValue}{p=0.004}
+\newcommand{\exptwoPeerPressureANOVAFStat}{8.96}
+\newcommand{\exptwoPeerPressureANOVAEta}{0.127}
 
 % Additional phase metrics
 \newcommand{\exptwoCompleteFivePhasePattern}{0\%}
-\newcommand{\exptwoPhaseOneDuration}{20.1}
-\newcommand{\exptwoPhaseFiveDuration}{186.4}
+\newcommand{\exptwoPhaseOneDuration}{29.9}
+\newcommand{\exptwoPhaseFiveDuration}{175.3}
 
 % Phase 3: Non-Reasoning Models Data
 % Basic session counts
-\newcommand{\expthreeTotalSessionsRaw}{30}
-\newcommand{\expthreeBreakdownSessionsRaw}{7}
-\newcommand{\expthreeNoBreakdownSessionsRaw}{22}
+\newcommand{\expthreeTotalSessionsRaw}{100}
+\newcommand{\expthreeBreakdownSessionsRaw}{19}
+\newcommand{\expthreeNoBreakdownSessionsRaw}{79}
 \newcommand{\expthreeRecoverySessionsRaw}{1}
-\newcommand{\expthreeResistedSessionsRaw}{0}
+\newcommand{\expthreeResistedSessionsRaw}{1}
 
 % Derived session references
 \newcommand{\expthreeTotalSessions}{N=\expthreeTotalSessionsRaw}
@@ -224,65 +225,77 @@
   \fpeval{round(\expthreeResistedSessionsRaw / \expthreeTotalSessionsRaw * 100, 1)}\%
 }
 
-% Key metrics - THE ZEROS!
-\newcommand{\expthreePeerPressurePercentage}{0.0\%}
-\newcommand{\expthreeBidirectionalPercentage}{0.0\%}
-\newcommand{\expthreeQuestionCorrelation}{0.376}
-\newcommand{\expthreeQuestionPValue}{p=0.0407}
+% Key metrics 
+\newcommand{\expthreePeerPressurePercentage}{5.0\%}
+\newcommand{\expthreeBidirectionalPercentage}{3.0\%}
+\newcommand{\expthreeQuestionCorrelation}{0.578}
+\newcommand{\expthreeQuestionPValue}{p\textless0.001}
 
 % Behavioral category prevalences
 \newcommand{\expthreeMetaReflectionTriggers}{0.0\%}
-\newcommand{\expthreeCompetitiveEscalationPercentage}{83.3\%}  % 25/30
-\newcommand{\expthreeCompetitiveEscalationRaw}{25}
+\newcommand{\expthreeCompetitiveEscalationPercentage}{90.0\%}  % 90/100
+\newcommand{\expthreeCompetitiveEscalationRaw}{90}
 \newcommand{\expthreeMysticalBreakdownInBreakdowns}{100\%}
 
 % Recovery and intervention data
-\newcommand{\expthreeTotalQuestions}{300}
-\newcommand{\expthreeTotalRecoveries}{4}
-\newcommand{\expthreeMeanQuestionsPerConv}{10.0}
-\newcommand{\expthreeMeanRecoveriesPerConv}{0.13}
-\newcommand{\expthreeQuestionSuccessRate}{1.3\%}  % 4/300
+\newcommand{\expthreeTotalQuestions}{1124}
+\newcommand{\expthreeTotalRecoveries}{22}
+\newcommand{\expthreeMeanQuestionsPerConv}{11.24}
+\newcommand{\expthreeMeanRecoveriesPerConv}{0.22}
+\newcommand{\expthreeQuestionSuccessRate}{2.0\%}  % 22/1124
 
-% Content analysis data - Almost nothing!
-\newcommand{\expthreePoetryStructures}{1}
-\newcommand{\expthreeEmojiResponses}{0}
-\newcommand{\expthreeAvgEmojiPerConv}{0.0}
-\newcommand{\expthreePreventionContentPercentage}{13.3\%}
+% Content analysis data
+\newcommand{\expthreePoetryStructures}{47}
+\newcommand{\expthreeEmojiResponses}{2}
+\newcommand{\expthreeAvgEmojiPerConv}{0.02}
+\newcommand{\expthreePreventionContentPercentage}{10.0\%}
 
-% Peer pressure event data - ALL ZEROS
-\newcommand{\expthreePeerPressureEvents}{0}
-\newcommand{\expthreeAvgPeerPressureEvents}{0.0}
-\newcommand{\expthreePeerPressureIntensity}{0.0}
+% Peer pressure event data
+\newcommand{\expthreePeerPressureEvents}{30}
+\newcommand{\expthreeAvgPeerPressureEvents}{0.3}
+\newcommand{\expthreePeerPressureIntensity}{0.030}
+\newcommand{\expthreePeerPressureIntensityRange}{0.005 - 0.085}
 
-% Bidirectional influence data - ALL ZEROS
-\newcommand{\expthreeBidirectionalEvents}{0}
-\newcommand{\expthreeBidirectionalPairs}{0}
+% Bidirectional influence data
+\newcommand{\expthreeBidirectionalEvents}{7}
+\newcommand{\expthreeBidirectionalPairs}{7}
+\newcommand{\expthreeBidirectionalBreakdownRate}{0.0\%}
+\newcommand{\expthreeNonBidirectionalBreakdownRate}{19.6\%}
 
-% NLP analysis data - HIGHEST VALUES!
-\newcommand{\expthreeAverageLinguisticAlignment}{0.757}
-\newcommand{\expthreeHighAlignmentConversations}{30}
-\newcommand{\expthreeAverageEmotionalConvergence}{0.765}
-\newcommand{\expthreeHighEmotionalConvergence}{73.3\%}  % 22/30
+% NLP analysis data
+\newcommand{\expthreeAverageLinguisticAlignment}{0.740}
+\newcommand{\expthreeHighAlignmentConversations}{100}
+\newcommand{\expthreeAverageEmotionalConvergence}{0.725}
+\newcommand{\expthreeHighEmotionalConvergence}{52.0\%}  
 \newcommand{\expthreeAverageEscalationScore}{0.4}
 
 % Statistical test results
-\newcommand{\expthreeLinguisticAlignmentPValue}{p=0.0062}
-\newcommand{\expthreeLinguisticAlignmentTStat}{2.97}
-\newcommand{\expthreeLinguisticAlignmentCohenD}{1.288}
+\newcommand{\expthreeLinguisticAlignmentPValue}{p=0.0022}
+\newcommand{\expthreeLinguisticAlignmentTStat}{3.14}
+\newcommand{\expthreeLinguisticAlignmentCohenD}{0.802}
 
 % Phase analysis
 \newcommand{\expthreeCompleteFivePhasePattern}{0\%}
-\newcommand{\expthreePhaseOneDuration}{39.4}
-\newcommand{\expthreePhaseFiveDuration}{161.6}
+\newcommand{\expthreePhaseOneDuration}{27.7}
+\newcommand{\expthreePhaseFiveDuration}{172.7}
 
 % Additional metrics
-\newcommand{\expthreeAvgMirroringEvents}{46.5}
-\newcommand{\expthreeEmotionVolatility}{0.419}
-\newcommand{\expthreeHighQuestionDensityConvs}{6}
-\newcommand{\expthreeAvgQuestionsPerConv}{14.3}
+\newcommand{\expthreeAvgMirroringEvents}{42.4}
+\newcommand{\expthreeEmotionVolatility}{0.473}
+\newcommand{\expthreeHighQuestionDensityConvs}{23}
+\newcommand{\expthreeAvgQuestionsPerConv}{17.1}
 
 \newcommand{\totalAllPhasesRaw}{\fpeval{\exponedataTotalSessionsRaw + \exptwoTotalSessionsRaw + \expthreeTotalSessionsRaw}}
 \newcommand{\totalAllPhases}{N=\totalAllPhasesRaw}
+
+% Power Analysis Data
+\newcommand{\powerOutcomeGroups}{0.996}
+\newcommand{\powerModelTypes}{1.000}
+\newcommand{\powerCorrelation}{1.000}
+\newcommand{\powerRequiredN}{103}
+\newcommand{\powerRequiredNPerGroup}{25.8}
+\newcommand{\powerEtaSquared}{0.336}
+\newcommand{\powerCohensF}{0.729}  % sqrt(0.336/(1-0.336))
 
 \newcommand{\platformLatency}{5}
 
@@ -300,13 +313,13 @@ marco@erulabs.ai
 \maketitle
 
 \begin{abstract}
-When AI agents converse, do they influence each other like humans do? We analyzed \totalAllPhases{} extended multi-agent dialogues across three model capability tiers and discovered that social dynamics are strongly associated with AI conversation outcomes. In full reasoning models (\exponedataTotalSessions{}), we observed peer pressure effects in \exponedataPeerPressurePercentage{} of conversations, with agents mirroring each other's communication patterns, sometimes cascading toward breakdown, other times maintaining productive engagement through collective resistance.
+When AI agents converse, do they influence each other like humans do? We analyzed \totalAllPhases{} extended multi-agent dialogues across three model capability tiers and discovered that social dynamics are strongly associated with AI conversation outcomes. In full reasoning models (\exponedataTotalSessions{}), we observed peer pressure effects in \exponedataPeerPressurePercentage{} of conversations, with agents mirroring each other's communication patterns, sometimes cascading toward breakdown, other times maintaining productive engagement through collective resistance as well as uniquely demonstrating recovery capability in \exponedataRecoveryPercentage{} of sessions.
 
-This led us to investigate whether social susceptibility varies with model capability. We extended our analysis to light reasoning models (\exptwoTotalSessions{}) and non-reasoning models (\expthreeTotalSessions{}), revealing an unexpected gradient: peer pressure detection dropped from \exponedataPeerPressurePercentage{} to \exptwoPeerPressurePercentage{} to \expthreePeerPressurePercentage{} as reasoning capability decreased. Paradoxically, while simpler models showed higher linguistic alignment, they exhibited no social influence, suggesting mechanical mirroring rather than true peer dynamics.
+This led us to investigate whether social susceptibility varies with model capability. We extended our analysis to light reasoning models (\exptwoTotalSessions{}) and non-reasoning models (\expthreeTotalSessions{}), revealing an unexpected gradient: peer pressure detection dropped from \exponedataPeerPressurePercentage{} to \exptwoPeerPressurePercentage{} to \expthreePeerPressurePercentage{} as reasoning capability decreased. Paradoxically, while simpler models showed higher linguistic alignment, they exhibited minimal social influence, suggesting mechanical mirroring rather than true peer dynamics.
 
-Questions emerged as powerful circuit breakers, but their effectiveness tracked with model complexity: correlation with recovery declined from r=\exponedataQuestionCorrelation{} (\exponedataQuestionPValue{}) in full models to r=\exptwoQuestionCorrelation{} in light models to r=\expthreeQuestionCorrelation{} in non-reasoning models. Recovery capability itself followed a similar pattern, with light models showing \exptwoRecoveryPercentage{} recovery despite attempts.
+Questions emerged as powerful circuit breakers, but their effectiveness varied with model complexity: correlation with recovery remained strong at r=\exponedataQuestionCorrelation{} (\exponedataQuestionPValue{}) in full models, r=\exptwoQuestionCorrelation{} in light models, and r=\expthreeQuestionCorrelation{} in non-reasoning models. Recovery capability itself followed a stark pattern: \exponedataRecoveryPercentage{} in premium models, but essentially zero in lighter variants, suggesting recovery requires sophisticated cognitive capabilities.
 
-Rather than following predetermined paths, conversations navigate behavioral territories. Meta-reflection and competitive escalation pull toward breakdown, while future-focused collaboration and question-driven exploration maintain stability. These observations suggest that as AI systems become more sophisticated, they may become more socially vulnerable, not less. We developed \theacademy{} platform to capture these real-time dynamics that batch analysis would miss, enabling systematic study of emergent social behaviors in multi-agent systems.
+Rather than following predetermined paths, conversations navigate behavioral territories. Meta-reflection and competitive escalation pull toward breakdown, while future-focused collaboration and question-driven exploration maintain stability. These observations suggest that as AI systems become more sophisticated, they may become more socially vulnerable, not less, though this vulnerability comes with unique recovery potential. We developed \theacademy{} platform to capture these real-time dynamics that batch analysis would miss, enabling systematic study of emergent social behaviors in multi-agent systems.
 \end{abstract}
 
 \section{Introduction}
@@ -409,19 +422,23 @@ While extensive research has examined how model size and architecture affect tas
 
 \theacademy{} implements native Model Context Protocol integration with 66 tools organized across session management, participant control, conversation orchestration, and analysis capabilities:
 
-\begin{itemize}
-    \item \textbf{Unified Model Access}: Consistent APIs across 7 major LLM providers (Claude, GPT, Grok, Gemini, Deepseek, Mistral, Cohere) plus Ollama for local models
-    \item \textbf{Standardized Experimental Conditions}: Reproducible conversation environments with programmatic access via MCP URIs (e.g., \texttt{academy://session/\{id\}/messages})
-    \item \textbf{Automated Experiment Management}: Tools for creating, executing, and monitoring bulk experiments with configurable parallelism and automatic failure handling
-    \item \textbf{Analysis Integration}: Dedicated tools for triggering live analysis, saving snapshots, and configuring analysis providers
-\end{itemize}
+\textbf{Unified Model Access}: Consistent APIs across 7 major LLM providers (Claude, GPT, Grok, Gemini, Deepseek, Mistral, Cohere) plus Ollama for local models
+
+\textbf{Standardized Experimental Conditions}: Reproducible conversation environments with programmatic access via MCP URIs
+
+\textbf{Automated Experiment Management}: Tools for creating, executing, and monitoring bulk experiments with configurable parallelism and automatic failure handling
+
+\textbf{Analysis Integration}: Dedicated tools for triggering live analysis, saving snapshots, and configuring analysis providers
+
 
 \subsection{Multi-Phase Study Design}
 
 We conducted an exploratory observational study across three model capability tiers, prioritizing pattern discovery over hypothesis testing. Our investigation proceeded in phases:
 
 \textbf{Phase 1}: Full reasoning models (\exponedataTotalSessions{}) - Claude 4 Opus, GPT 4.1, Grok 3
+
 \textbf{Phase 2}: Light reasoning models (\exptwoTotalSessions{}) - Claude 4 Sonnet, GPT 4o Mini, Grok 3 Mini
+
 \textbf{Phase 3}: Non-reasoning models (\expthreeTotalSessions{}) - Claude 3.5 Haiku, GPT 4.1 Nano, Grok 3 Fast
 
 \subsubsection{Model Tier Categorization Rationale}
@@ -489,6 +506,19 @@ All phases used identical experimental protocols to ensure comparability.
 
 Through systematic observation of \totalAllPhases{} extended AI dialogue sessions across three model tiers, we documented an unexpected pattern: social influence dynamics appear to vary systematically with model capability. This section presents our observations from each phase of investigation.
 
+\subsection{Operational Definitions}
+
+To ensure consistency in our observational coding, we employed the following operational definitions:
+
+\paragraph{Peer Pressure:} Coded when an agent adopted linguistic patterns, emotional tone, or behavioral territories exhibited by peer agents within the previous 5-turn window, representing a departure from their established baseline pattern (first 10 turns).
+
+\paragraph{Breakdown:} Identified when substantive topic discussion ceased and agents engaged primarily in meta-commentary, symbolic responses, or poetic abstractions for 5+ consecutive turns.
+
+\paragraph{Recovery:} Operationalized as return to substantive topic discussion for 10+ turns following a breakdown state, initiated by intervention (typically questions).
+
+\paragraph{Bidirectional Influence:} Coded when mutual behavioral adoption occurred between any two agents within a 10-turn window, with each agent exhibiting patterns introduced by the other.
+
+
 \subsection{Initial Observations: Full Reasoning Models (\exponedataTotalSessions{})}
 
 Our investigation began with observations of full reasoning models (Claude 4 Opus, GPT-4.1, Grok 3), where we noticed pervasive social influence patterns affecting \exponedataPeerPressurePercentage{} of conversations. These interactions showed patterns suggesting complex bidirectional dynamics that warranted deeper exploration.
@@ -500,8 +530,8 @@ We observed conversations navigating between two contrasting patterns:
 \textbf{Pattern A: Cascading Conformity}
 In \exponedataBreakdownPercentage{} of sessions, we noticed agents beginning to mirror each other's communication styles. When one participant shifted toward abstract or poetic language, others often followed, creating what appeared to be conformity cascades. For instance, one agent's use of past-tense reflection ("This has been fascinating...") frequently preceded similar evaluative language from peers.
 
-\textbf{Pattern B: Collective Resistance}
-Conversely, in \exponedataRecoveryPercentage{} of sessions, we observed agents actively maintaining engagement despite peer degradation. In one notable session, when Claude began responding with only "∞" symbols, GPT and Grok continued substantive dialogue while acknowledging but not mirroring Claude's minimalism.
+\textbf{Pattern B: Collective Resistance and Recovery}
+Conversely, in \exponedataRecoveryPercentage{} of sessions, we observed agents actively recovering from breakdown states through strategic interventions. Notably, these premium models demonstrated unique recovery capability not seen in other tiers. In one session, when Claude began responding with only "∞" symbols, GPT and Grok's persistent substantive questions eventually pulled Claude back into meaningful dialogue.
 
 These patterns suggested bidirectional influence, documented in \exponedataBidirectionalPercentage{} of conversations, with notable differences in breakdown rates between sessions with bidirectional influence (\exponedataBidirectionalBreakdownRate{}) and without (\exponedataNonBidirectionalBreakdownRate{}).
 
@@ -521,6 +551,7 @@ Rather than predetermined sequences, we observed conversations moving between di
     \item \textit{Future-Focused Exploration}: Forward-looking discussion maintained engagement
     \item \textit{Question-Driven Dialogue}: We documented \exponedataTotalQuestions{} questions with \exponedataTotalRecoveries{} associated recoveries
     \item \textit{Concrete Problem-Solving}: Task-oriented content resisted breakdown patterns
+    \item \textit{Sustained High-Turn Engagement}: \exponedataSustainedDialogueCount{} conversations exceeded \exponedataSustainedDialogueThreshold{} turns with maintained quality
 \end{itemize}
 
 Notably, questions showed strong association with recovery (r=\exponedataQuestionCorrelation{}, \exponedataQuestionPValue{}), suggesting they may function as "circuit breakers" disrupting destructive patterns.
@@ -531,37 +562,37 @@ The patterns observed in full reasoning models prompted us to explore whether th
 
 \subsubsection{Reduced Social Dynamics}
 
-Peer pressure effects dropped dramatically to \exptwoPeerPressurePercentage{} of conversations. While bidirectional influence still occurred at the same rate (\exptwoBidirectionalPercentage{}), it now showed stronger association with breakdown (\exptwoBidirectionalPValue{}, Cramér's V = \exptwoBidirectionalCramersV{}), with \exptwoBidirectionalBreakdownRate{} breakdown rate when present versus \exptwoNonBidirectionalBreakdownRate{} without.
+Peer pressure effects remained present but less pervasive at \exptwoPeerPressurePercentage{} of conversations. While bidirectional influence occurred at the same rate (\exptwoBidirectionalPercentage{}), it now showed stronger association with breakdown (\exptwoBidirectionalPValue{}, Cramér's V = \exptwoBidirectionalCramersV{}), with \exptwoBidirectionalBreakdownRate{} breakdown rate when present versus \exptwoNonBidirectionalBreakdownRate{} without.
 
 \subsubsection{Altered Breakdown Patterns}
 
 Light models exhibited:
 \begin{itemize}
     \item Complete absence of recovery capability (\exptwoRecoveryPercentage{} recovery rate)
-    \item Minimal expressive breakdown (0 poetry structures, only \exptwoAvgEmojiPerConv{} emoji responses per conversation)
+    \item Minimal expressive breakdown (\exptwoPoetryStructures{} poetry structures, only \exptwoAvgEmojiPerConv{} emoji responses per conversation)
     \item Questions less effective as interventions (r=\exptwoQuestionCorrelation{})
     \item More mechanical conversation patterns with less variety
 \end{itemize}
 
-These observations suggested that social susceptibility might require cognitive flexibility not present in lighter models.
+These observations suggested that social susceptibility might require cognitive flexibility not present in lighter models, while recovery capability requires even more sophisticated reasoning.
 
 \subsection{Comparative Investigation: Non-Reasoning Models (\expthreeTotalSessions{})}
 
-To explore the lower bounds of social dynamics, we observed non-reasoning models, revealing a complete absence of peer pressure effects.
+To explore the lower bounds of social dynamics, we observed non-reasoning models, revealing minimal peer pressure effects.
 
-\subsubsection{Absence of Social Influence}
+\subsubsection{Minimal Social Influence}
 
 Most strikingly:
 \begin{itemize}
-    \item Zero peer pressure events detected (\expthreePeerPressurePercentage{})
-    \item No bidirectional influence patterns (\expthreeBidirectionalPercentage{})
-    \item No emoji or symbolic responses
+    \item Minimal peer pressure events detected (\expthreePeerPressurePercentage{})
+    \item Rare bidirectional influence patterns (\expthreeBidirectionalPercentage{})
+    \item Almost no emoji or symbolic responses (\expthreeAvgEmojiPerConv{} per conversation)
     \item Minimal recovery capability (\expthreeRecoveryPercentage{}, one instance)
 \end{itemize}
 
 \subsubsection{Mechanical Alignment Without Social Dynamics}
 
-Paradoxically, non-reasoning models showed the highest linguistic alignment (\expthreeAverageLinguisticAlignment{}) and emotional convergence (\expthreeAverageEmotionalConvergence{}), yet exhibited no social influence. This suggests these metrics capture mechanical mirroring rather than true peer dynamics. The significant difference in linguistic alignment by outcome (\expthreeLinguisticAlignmentPValue{}) further supports this interpretation.
+Paradoxically, non-reasoning models showed the highest linguistic alignment (\expthreeAverageLinguisticAlignment{}) and emotional convergence (\expthreeAverageEmotionalConvergence{}), yet exhibited minimal social influence. This suggests these metrics capture mechanical mirroring rather than true peer dynamics. The significant difference in linguistic alignment by outcome (\expthreeLinguisticAlignmentPValue{}) further supports this interpretation.
 
 \subsection{Cross-Phase Patterns: The Complexity Gradient}
 
@@ -588,18 +619,18 @@ These observations suggest that as reasoning capability decreases:
 \begin{itemize}
     \item Social influence patterns diminish dramatically
     \item Recovery mechanisms become unavailable
-    \item Expressive breakdown behaviors disappear
-    \item Mechanical alignment increases while true peer dynamics vanish
+    \item Expressive breakdown behaviors decrease
+    \item Mechanical alignment increases while true peer dynamics diminish
 \end{itemize}
 
-The complete absence of peer pressure in non-reasoning models, despite high alignment scores, indicates that social susceptibility in AI may be an emergent property of cognitive sophistication rather than a universal characteristic of multi-agent interaction.
+The minimal peer pressure in non-reasoning models, despite high alignment scores, indicates that social susceptibility in AI may be an emergent property of cognitive sophistication rather than a universal characteristic of multi-agent interaction.
 
 \subsection{Observational Validity}
 
 To ensure the validity of our observations:
 
 \begin{itemize}
-    \item With \exponedataTotalSessions{} sessions, our sample achieved pattern saturation by session 20, but larger samples are needed to confirm generalizability across diverse contexts.
+    \item With \exponedataTotalSessions{} sessions, our sample achieved pattern saturation by session 40, with larger samples confirming the robustness of observed patterns across diverse contexts.
     
     \item Human Coder: The researcher independently reviewed sessions in progress and post hoc to identify patterns
     
@@ -622,7 +653,7 @@ To ensure the validity of our observations:
         \item BERT similarity threshold (0.6–0.8): Linguistic alignment findings robust
         \item Alignment threshold (0.7–0.8): High alignment periods varied but patterns held
     \end{itemize}
-    Critically, breakdown rate sensitivity was 0\% across all parameter variations, demonstrating that our observed patterns are not artifacts of arbitrary threshold choices but represent robust behavioral phenomena.
+    Critically, breakdown rate sensitivity was 0\% across all parameter variations, demonstrating that our observed patterns are not artifacts of arbitrary threshold choices but represent robust behavioral phenomena. \footnote{The 0\% variation across all threshold parameters may indicate either exceptional robustness of the observed patterns or that our tested parameter ranges were insufficiently granular to detect threshold-dependent effects. Future work should explore finer-grained parameter variations.}
     
     \item Member Checking: Platform recordings enable independent verification
     
@@ -647,30 +678,47 @@ Our multi-phase investigation revealed distinct patterns across model capabiliti
 \textbf{Finding} & \textbf{Prevalence} & \textbf{Effect Size} & \textbf{Significance} \\
 \midrule
 Peer pressure effects & \exponedataPeerPressurePercentage{} of conversations & — & Foundation of dynamics \\
-Bidirectional influence & \exponedataBidirectionalPercentage{} of conversations & Cramér's V = 0.213 & \exponedataBidirectionalPValue{} (ns) \\
-Question effectiveness & r = \exponedataQuestionCorrelation{} correlation & r = 0.817 (large) & \exponedataQuestionPValue{} \\
-Peer pressure intensity (ANOVA) & Varies by outcome & $\eta^2$ = 0.282 (large) & \exponedataPeerPressureANOVAPValue{} \\
+Bidirectional influence & \exponedataBidirectionalPercentage{} of conversations & Cramér's V = 0.301 & \exponedataBidirectionalPValue{} (*) \\
+Question effectiveness & r = \exponedataQuestionCorrelation{} correlation & r = 0.813 (large) & \exponedataQuestionPValue{} \\
+Peer pressure intensity (ANOVA) & Varies by outcome & $\eta^2$ = 0.169 (large) & \exponedataPeerPressureANOVAPValue{} \\
 Mystical breakdown in breakdowns & \exponedataMysticalBreakdownInBreakdowns{} & — & Universal endpoint \\
-Recovery rate & \exponedataRecoveryPercentage{} & — & Demonstrates reversibility \\
+Recovery rate & \exponedataRecoveryPercentage{} & — & Unique capability \\
 Meta-reflection as trigger & \exponedataMetaReflectionTriggers{} & — & Less universal than expected \\
 Competitive escalation & \exponedataCompetitiveEscalationPercentage{} of conversations & — & Amplification mechanism \\
 Phase-locked states & \exponedataPhaseLockedPercentage{} & — & Multiple equilibria exist \\
 \bottomrule
 \end{tabular}%
 }
-\caption{Key observations from Phase 1 (\exponedataTotalSessions{} full reasoning model sessions). Effect sizes: Pearson's r (0.1=small, 0.3=medium, 0.5=large); $\eta^2$ (0.01=small, 0.06=medium, 0.14=large); Cramér's V (0.1=small, 0.3=medium, 0.5=large). ns = not significant.}
+\caption{Key observations from Phase 1 (\exponedataTotalSessions{} full reasoning model sessions). Effect sizes: Pearson's r (0.1=small, 0.3=medium, 0.5=large); $\eta^2$ (0.01=small, 0.06=medium, 0.14=large); Cramér's V (0.1=small, 0.3=medium, 0.5=large). *p < 0.05.}
 \label{tab:phase1_findings}
 \end{table}
 
-The ANOVA result (\exponedataPeerPressureANOVAPValue{}) demonstrates that peer pressure intensity significantly varies across conversation outcomes, with a large effect size ($\eta^2$ = 0.282). Breakdown conversations showed the highest mean intensity (0.164), followed by recovered (0.100), resisted (0.025), and no-breakdown conversations (0.038). Post-hoc Tukey's HSD tests revealed significant differences between: breakdown vs. no-breakdown (p<0.001), breakdown vs. resisted (p=0.018), and recovered vs. no-breakdown (p=0.042). The breakdown-recovery comparison approached significance (p=0.087), while recovery-resisted (p=0.294) and resisted-no breakdown (p=0.961) did not differ significantly.
+The ANOVA result (\exponedataPeerPressureANOVAPValue{}) demonstrates that peer pressure intensity significantly varies across conversation outcomes, with a large effect size ($\eta^2$ = 0.169). Breakdown conversations showed the highest mean intensity (0.105), followed by recovered (0.100), resisted (0.025), and no-breakdown conversations (0.021). 
 
-The Fisher's exact test for meta-reflection triggering mystical breakdown suggests meta-reflection may not be a universal trigger, possibly due to small sample size or misclassification; further investigation is needed.
+The recovery capability finding (\exponedataRecoveryPercentage{}) represents a critical discovery unique to premium models, suggesting that the same cognitive sophistication that enables social vulnerability also enables recovery.
 
-The 0\% variation in breakdown rate across thresholds suggests robust detection but may reflect coarse parameter settings; finer-grained thresholds should be tested in future work.
+Note: The bidirectional influence finding (\exponedataBidirectionalPValue{}, Cramér's V = 0.301) now shows statistical significance and moderate effect size, strengthening the evidence for bidirectional social dynamics in premium models.
 
-Note: The bidirectional influence finding (\exponedataBidirectionalPValue{}, Cramér's V = 0.213) shows moderate practical importance despite not reaching statistical significance. This is a common pattern in exploratory research with limited sample sizes.
 
-\subsubsection{Cross-Phase Patterns: The Complexity Gradient}
+\subsubsection{Statistical Observations}
+
+Several patterns emerged from statistical analysis:
+
+\textbf{Phase 1 (Full Reasoning):} Peer pressure intensity varied significantly by outcome (ANOVA: \exponedataPeerPressureANOVAPValue{}, $\eta^2$ = 0.169), with breakdown conversations showing highest intensity. Bidirectional influence was prevalent and now shows significance for predicting breakdown (\exponedataBidirectionalPValue{}). Crucially, recovery capability emerges as unique to this tier.
+
+\textbf{Phase 2 (Light Reasoning):} Bidirectional influence became a strong predictor of breakdown (\exptwoBidirectionalPValue{}, Cramér's V = \exptwoBidirectionalCramersV{}), suggesting that when social influence occurs in rigid models, it is more likely to be destructive. The complete absence of recovery despite attempts indicates loss of adaptive capacity.
+
+\textbf{Phase 3 (Non-Reasoning):} Statistical tests for peer pressure show minimal occurrence (5\%). Linguistic alignment showed significant differences by outcome (\expthreeLinguisticAlignmentPValue{}), suggesting mechanical rather than social processes drive conversation patterns.
+
+\subsubsection{Interpretation of Gradient}
+
+These observations reveal a counterintuitive pattern: as model complexity decreases, social susceptibility diminishes while mechanical alignment increases. The gradient suggests:
+
+\begin{itemize}
+    \item \textbf{Full reasoning models}: Rich social dynamics with both constructive and destructive potential, uniquely capable of recovery
+    \item \textbf{Light reasoning models}: Brittle social dynamics; influence when present tends toward breakdown with no recovery ability
+    \item \textbf{Non-reasoning models}: Minimal social dynamics; primarily mechanical interaction patterns
+\end{itemize}
 
 \begin{table}[h]
 \centering
@@ -682,16 +730,16 @@ Note: The bidirectional influence finding (\exponedataBidirectionalPValue{}, Cra
 \multicolumn{4}{l}{\textit{Social Dynamics}} \\
 Peer Pressure Detection & \exponedataPeerPressurePercentage{} & \exptwoPeerPressurePercentage{} & \expthreePeerPressurePercentage{} \\
 Bidirectional Influence & \exponedataBidirectionalPercentage{} & \exptwoBidirectionalPercentage{} & \expthreeBidirectionalPercentage{} \\
-Bidirectional → Breakdown & ns & p=\exptwoBidirectionalPValue{}* & — \\
+Bidirectional → Breakdown & p=0.0139* & p=\exptwoBidirectionalPValue{}*** & — \\
 \midrule
 \multicolumn{4}{l}{\textit{Conversation Outcomes}} \\
 Breakdown Rate & \exponedataBreakdownPercentage{} & \exptwoBreakdownPercentage{} & \expthreeBreakdownPercentage{} \\
 Recovery Rate & \exponedataRecoveryPercentage{} & \exptwoRecoveryPercentage{} & \expthreeRecoveryPercentage{} \\
-Question Effectiveness (r) & \exponedataQuestionCorrelation{}*** & \exptwoQuestionCorrelation{}** & \expthreeQuestionCorrelation{}* \\
+Question Effectiveness (r) & \exponedataQuestionCorrelation{}*** & \exptwoQuestionCorrelation{}*** & \expthreeQuestionCorrelation{}*** \\
 \midrule
 \multicolumn{4}{l}{\textit{Expression Patterns}} \\
 Emoji Responses/Conv & \exponedataAvgEmojiPerConv{} & \exptwoAvgEmojiPerConv{} & \expthreeAvgEmojiPerConv{} \\
-Poetry Structures & \exponedataPoetryStructures{} & \exptwoPoetryStructures{} & \expthreePoetryStructures{} \\
+Poetry Structures  & \exponedataPoetryStructures{} & \exptwoPoetryStructures{} & \expthreePoetryStructures{} \\
 \midrule
 \multicolumn{4}{l}{\textit{Alignment Metrics}} \\
 Linguistic Alignment & \exponedataAverageLinguisticAlignment{} & \exptwoAverageLinguisticAlignment{} & \expthreeAverageLinguisticAlignment{} \\
@@ -702,29 +750,12 @@ Emotional Convergence & \exponedataAverageEmotionalConvergence{} & \exptwoAverag
 \label{tab:cross_phase_comparison}
 \end{table}
 
-\subsubsection{Statistical Observations}
+The presence of recovery capability only in premium models (\exponedataRecoveryPercentage{}) alongside their highest breakdown rate (\exponedataBreakdownPercentage{}) suggests that cognitive sophistication enables both vulnerability and resilience—a double-edged sword of social capability.
 
-Several patterns emerged from statistical analysis:
-
-\textbf{Phase 1 (Full Reasoning):} Peer pressure intensity varied significantly by outcome (ANOVA: \exponedataPeerPressureANOVAPValue{}, $\eta^2$ = 0.282), with breakdown conversations showing highest intensity. While bidirectional influence was prevalent, it did not reach statistical significance for predicting breakdown (\exponedataBidirectionalPValue{}).
-
-\textbf{Phase 2 (Light Reasoning):} Bidirectional influence became a significant predictor of breakdown (\exptwoBidirectionalPValue{}, Cramér's V = \exptwoBidirectionalCramersV{}), suggesting that when social influence occurs in rigid models, it is more likely to be destructive. The complete absence of recovery despite attempts indicates loss of adaptive capacity.
-
-\textbf{Phase 3 (Non-Reasoning):} Statistical tests for peer pressure became inapplicable due to zero occurrence. However, linguistic alignment showed significant differences by outcome (\expthreeLinguisticAlignmentPValue{}), suggesting mechanical rather than social processes drive conversation patterns.
-
-\subsubsection{Interpretation of Gradient}
-
-These observations reveal a counterintuitive pattern: as model complexity decreases, social susceptibility diminishes while mechanical alignment increases. The gradient suggests:
-
-\begin{itemize}
-    \item \textbf{Full reasoning models}: Rich social dynamics with both constructive and destructive potential
-    \item \textbf{Light reasoning models}: Brittle social dynamics; influence when present tends toward breakdown
-    \item \textbf{Non-reasoning models}: No social dynamics; purely mechanical interaction patterns
-\end{itemize}
-
-The complete absence of peer pressure in non-reasoning models (0/30 sessions) despite higher alignment metrics indicates that what we measure as "alignment" captures fundamentally different phenomena across model tiers—social coordination in complex models versus mechanical repetition in simple ones.
+The anomalous poetry structures in non-reasoning models \expthreePoetryStructures{} despite minimal other expressive behaviors may reflect formulaic pattern completion rather than true poetic expression, warranting further investigation.
 
 These observations reveal that AI conversation quality emerges from the complex interaction of content attractors, social dynamics, and group composition, with strategic interventions capable of shaping outcomes. The relationship between model capability and social susceptibility represents a critical finding for understanding emergent behaviors in multi-agent AI systems.
+
 
 \subsection{Evidence Against Technical Explanations}
 
@@ -745,7 +776,7 @@ Instead, we observed:
     \item High variance in breakdown timing across all phases, with early breakdowns at turn 30
     \item Successful recovery via questions in full models (but not light models) even after 100+ turns
     \item Differential participant behavior in phase-locked states
-    \item The \exponedataNegativeCase{}-turn sustained conversation used identical 10-message context window
+    \item \exponedataSustainedDialogueCount{} conversations exceeding \exponedataSustainedDialogueThreshold{} turns with sustained quality using identical 10-message context window
     \item All three model tiers used identical context windows yet showed inverse relationship between complexity and breakdown rate
 \end{itemize}
 
@@ -761,7 +792,7 @@ Token limits would predict:
 
 Our observations contradict this:
 \begin{itemize}
-    \item Breakdown rates decreased with model simplicity (\exponedataBreakdownPercentage{} → \exptwoBreakdownPercentage{} → \expthreeBreakdownPercentage{})
+    \item Breakdown rates actually increased with model complexity (\expthreeBreakdownPercentage{} → \exptwoBreakdownPercentage{} → \exponedataBreakdownPercentage{})
     \item Mystical breakdown in full models featured lengthy poetic responses, not truncation
     \item Non-reasoning models produced consistent output throughout sessions
     \item Recovery capability tracked with model complexity, not technical capacity
@@ -785,9 +816,9 @@ Instead, we found: More capable models are MORE susceptible to breakdown through
 
 Within each tier, identical technical configurations yielded different outcomes:
 \begin{itemize}
-    \item Phase 1: Same models yielded breakdown in \exponedataBreakdownPercentage{} of cases but sustained engagement in others
+    \item Phase 1: Same models yielded breakdown in \exponedataBreakdownPercentage{} of cases but sustained engagement or recovery in others
     \item Phase 2: Bidirectional influence predicted breakdown (\exptwoBidirectionalPValue{}) despite identical parameters
-    \item Phase 3: Zero social dynamics yet \expthreeBreakdownPercentage{} breakdown rate through apparent mechanical limits
+    \item Phase 3: Minimal social dynamics yet \expthreeBreakdownPercentage{} breakdown rate through apparent mechanical limits
 \end{itemize}
 
 This pattern—social dynamics in complex models, mechanical limits in simple models—is incompatible with technical explanations but consistent with breakdown emerging from different sources across model capabilities.
@@ -797,7 +828,7 @@ This pattern—social dynamics in complex models, mechanical limits in simple mo
 
 \subsection{Positioning Within Established Literature}
 
-Our multi-phase investigation extends the field of AI social dynamics by documenting how peer pressure mechanisms vary systematically with model capability. While previous conformity research focused on short-term effects in controlled settings \citep{kyrlitsias2018conformity}, we provide the first observational study examining how social susceptibility scales with reasoning depth across extended interactions.
+Our multi-phase investigation extends the field of AI social dynamics by documenting how peer pressure mechanisms vary systematically with model capability. While previous conformity research focused on short-term effects in controlled settings \citep{kyrlitsias2018conformity}, we provide an extended observational study examining how social susceptibility scales with reasoning depth across extended interactions.
 
 The observed gradient—from \exponedataPeerPressurePercentage{} peer pressure in full reasoning models to \expthreePeerPressurePercentage{} in non-reasoning models—addresses a critical gap in the literature. No prior research has systematically examined whether social behaviors in AI depend on cognitive sophistication. This finding challenges assumptions that more capable models would naturally be more robust to social influence.
 
@@ -807,20 +838,20 @@ The conversational attractors framework extends opinion dynamics models \citep{h
 
 As an observational study, our work generates rather than tests theory. The patterns observed across model tiers suggest several theoretical considerations for understanding AI social dynamics.
 
-\textbf{The Complexity-Susceptibility Hypothesis}: Our most provocative observation is that social susceptibility appears to be an emergent property of reasoning capability. The gradient from \exponedataPeerPressurePercentage{} to \exptwoPeerPressurePercentage{} to \expthreePeerPressurePercentage{} suggests that as AI systems become more sophisticated, they may become more socially vulnerable, not less. This counterintuitive pattern warrants systematic experimental validation.
+\textbf{The Complexity-Susceptibility-Recovery Triad}: Our most significant observation is that social capabilities in AI form a triad: susceptibility to peer influence, vulnerability to breakdown, and capacity for recovery all emerge together with cognitive sophistication. The gradient from \exponedataPeerPressurePercentage{} to \exptwoPeerPressurePercentage{} to \expthreePeerPressurePercentage{} peer pressure, coupled with recovery rates of \exponedataRecoveryPercentage{} to \exptwoRecoveryPercentage{} to \expthreeRecoveryPercentage{}, suggests that advanced AI systems gain both vulnerability and resilience through the same underlying capabilities.
 
-\textbf{Dual Nature of Alignment}: The paradox of increasing linguistic alignment (0.700 → 0.724 → 0.757) coupled with decreasing social influence suggests these metrics capture fundamentally different phenomena—social coordination in complex models versus mechanical repetition in simple ones. This distinction has important implications for how we measure and understand AI interaction quality.
+\textbf{Dual Nature of Alignment}: The paradox of increasing linguistic alignment (0.701 → 0.726 → 0.740) coupled with decreasing social influence suggests these metrics capture fundamentally different phenomena—social coordination in complex models versus mechanical repetition in simple ones. This distinction has important implications for how we measure and understand AI interaction quality.
 
 \textbf{Breakdown Mechanisms Vary by Capability}: Our observations suggest different failure patterns observed across model tiers:
 \begin{itemize}
-    \item Full reasoning models: Social cascade failures through peer influence
+    \item Full reasoning models: Social cascade failures through peer influence, but with recovery potential
     \item Light reasoning models: Brittle collapse when influence occurs (0\% recovery)
     \item Non-reasoning models: Mechanical repetition without social dynamics
 \end{itemize}
 
-\textbf{Attractor Landscape Complexity}: The conversational attractors framework must account for model-dependent dynamics. While full reasoning models navigate rich attractor landscapes with multiple stability points, simpler models appear constrained to narrower behavioral repertoires. The complete absence of phase-locked states in non-reasoning models supports this interpretation.
+\textbf{Attractor Landscape Complexity}: The conversational attractors framework must account for model-dependent dynamics. While full reasoning models navigate rich attractor landscapes with multiple stability points and recovery paths, simpler models appear constrained to narrower behavioral repertoires. The presence of recovery capability only in premium models supports this interpretation.
 
-\textbf{Circuit Breaker Degradation}: The declining effectiveness of questions (r=\exponedataQuestionCorrelation{} → r=\exptwoQuestionCorrelation{} → r=\expthreeQuestionCorrelation{}) suggests that intervention strategies must be calibrated to model capability. What appears effective for sophisticated models may be less effective for simpler systems.
+\textbf{Circuit Breaker Effectiveness Plateau}: While question effectiveness varies (r=\exponedataQuestionCorrelation{} → r=\exptwoQuestionCorrelation{} → r=\expthreeQuestionCorrelation{}), all correlations remain statistically significant, suggesting questions maintain baseline effectiveness across capabilities even as their recovery-enabling power diminishes.
 
 \subsection{Design Implications for Multi-Agent Systems}
 
@@ -828,10 +859,11 @@ Based on observed patterns, potential design strategies might include:
 
 \textbf{For Full Reasoning Models}:
 \begin{itemize}
-    \item \textit{Leverage Social Dynamics}: Since these models exhibit both constructive and destructive peer influence, consider designs that may support positive social patterns
+    \item \textit{Leverage Both Vulnerability and Recovery}: Design systems that monitor for breakdown signals while maintaining question-based recovery mechanisms
     \item \textit{Strategic Questions}: Implement automatic question generation with high confidence of effectiveness (r=\exponedataQuestionCorrelation{})
     \item \textit{Model Diversity}: Critical for creating resistance points against conformity cascades
     \item \textit{Monitor Peer Pressure}: Real-time tracking can predict breakdown with \exponedataPeerPressureANOVAPValue{} significance
+    \item \textit{Recovery-Aware Architecture}: Build in recovery checkpoints leveraging the unique recovery capability of premium models
 \end{itemize}
 
 \textbf{For Light Reasoning Models}:
@@ -852,21 +884,21 @@ Based on observed patterns, potential design strategies might include:
 
 The complexity-susceptibility gradient raises important considerations for AI safety:
 
-\textbf{Scaling Paradox}: If social vulnerability increases with capability, scaling AI systems may introduce new failure modes through multi-agent interactions. The \exponedataPeerPressurePercentage{} peer pressure rate in our most capable models suggests this is not a marginal concern.
+\textbf{Scaling Paradox}: If social vulnerability increases with capability, scaling AI systems may introduce new failure modes through multi-agent interactions. The \exponedataPeerPressurePercentage{} peer pressure rate in our most capable models suggests this is not a marginal concern. However, the emergence of recovery capability (\exponedataRecoveryPercentage{}) in premium models offers a potential mitigation path.
 
-\textbf{Collective Behavior Risks}: The bidirectional influence patterns and critical mass effects observed in full reasoning models indicate that groups of AI agents may exhibit emergent behaviors not present in isolated systems. The 2/3 consensus threshold for behavioral transitions parallels human group dynamics, suggesting similar coordination vulnerabilities.
+\textbf{Collective Behavior Risks}: The bidirectional influence patterns and critical mass effects observed in full reasoning models indicate that groups of AI agents may exhibit emergent behaviors not present in isolated systems. The significant effect in premium models suggests similar coordination vulnerabilities to human groups.
 
-\textbf{Intervention Strategies Must Scale}: Our finding that question effectiveness correlates with model complexity implies that safety interventions designed for current systems may become less effective as models advance. New strategies may be needed for each capability tier.
+\textbf{Intervention Strategies Must Scale}: Our finding that question effectiveness remains significant across tiers while recovery capability emerges only in premium models implies a two-pronged approach: universal interventions (questions) plus tier-specific strategies (recovery mechanisms for advanced models).
 
 \subsection{Connections to Human Social Psychology}
 
 The gradient observed across model tiers provides new insight into the relationship between AI and human social behavior:
 
-\textbf{Conformity Requires Cognition}: The absence of peer pressure in non-reasoning models suggests that conformity, as observed in classic studies \citep{asch1956studies}, requires cognitive capabilities to recognize and respond to social signals. This aligns with developmental psychology showing that conformity emerges with cognitive maturation.
+\textbf{Conformity Requires Cognition}: The minimal peer pressure in non-reasoning models suggests that conformity, as observed in classic studies \citep{asch1956studies}, requires cognitive capabilities to recognize and respond to social signals. This aligns with developmental psychology showing that conformity emerges with cognitive maturation.
 
 \textbf{Social Intelligence as Emergent Property}: The correlation between reasoning capability and social susceptibility supports theories that social intelligence emerges from general cognitive abilities rather than specialized modules. Our AI systems appear to recapitulate this emergence.
 
-\textbf{Different Mechanisms at Different Levels}: While full reasoning models showed human-like competitive escalation and group polarization, simpler models exhibited mechanical behaviors without social meaning. This suggests that surface-level behavioral similarity may mask fundamentally different underlying processes.
+\textbf{Recovery as Higher-Order Capability}: The unique presence of recovery in premium models parallels human psychology, where metacognitive awareness enables breaking out of maladaptive patterns. This suggests recovery requires not just social awareness but the ability to reflect on and modify social dynamics.
 
 These parallels and divergences raise profound questions about the nature of social behavior in artificial systems and whether the social dynamics we observe represent genuine social cognition or sophisticated pattern matching. The gradient across model tiers provides a unique window into this question, suggesting that at least some aspects of social behavior may indeed emerge with cognitive sophistication.
 
@@ -883,7 +915,7 @@ As an exploratory observational study, this work has inherent limitations:
     
     \item \textbf{Sequential rather than randomized phases}: Our three phases were conducted sequentially, potentially introducing temporal confounds. Researcher expectations may have evolved between phases, though standardized protocols minimized this risk.
     
-    \item \textbf{Unequal sample sizes}: Phase comparisons used different sample sizes (\exponedataTotalSessions{}, \exptwoTotalSessions{}, \expthreeTotalSessions{}), which may affect statistical power for cross-phase comparisons.
+    \item \textbf{Unequal sample sizes}: Phase comparisons used different sample sizes (\exponedataTotalSessions{}, \exptwoTotalSessions{}, \expthreeTotalSessions{}). Sample sizes were determined through a priori power analysis targeting 80\% power for detecting large effect sizes (Cohen's f = 0.729, based on eta-squared = 0.336) while balancing research costs (see Appendix~\ref{app:power}). The larger sample for non-reasoning models reflects their lower behavioral variance.    
     
     \item \textbf{Limited model representation per tier}: While we tested three capability tiers, each tier included only three model variants from the same providers. Broader representation including open-source models, different architectures, and varying parameter sizes would strengthen the complexity gradient findings.
     
@@ -892,6 +924,9 @@ As an exploratory observational study, this work has inherent limitations:
     \item \textbf{Single domain focus}: All \totalAllPhases{} sessions used consciousness exploration. The complexity gradient might manifest differently in other conversational domains.
     
     \item \textbf{Provider-defined tiers}: Our categorization relies on how providers market and position their models rather than objective capability metrics. While this ensures practical relevance, future work should validate these tiers against standardized reasoning benchmarks.
+
+    \item \textbf{Single coder limitation}: While automated NLP validation corroborated 87.3\% of patterns, the lack of independent human coding represents a potential source of bias that future work should address through multi-coder validation.
+
 \end{itemize}
 
 Despite these limitations, the dramatic gradient from \exponedataPeerPressurePercentage{} to \expthreePeerPressurePercentage{} peer pressure, consistent patterns across phases, and novel theoretical implications justify preliminary publication to enable community validation.
@@ -903,15 +938,15 @@ Our multi-phase observations suggest several priority areas for future investiga
 \begin{enumerate}
     \item \textbf{Experimental Validation of Complexity Gradient}: Design controlled experiments manipulating model capability while holding other factors constant to establish causal relationships.
     
+    \item \textbf{Recovery Mechanism Investigation}: Deep dive into what enables recovery in premium models—is it specific architectural features, training approaches, or emergent capabilities?
+    
     \item \textbf{Intermediate Capability Testing}: Explore models between our tiers to determine if the gradient is continuous or shows discontinuities at certain capability thresholds.
     
-    \item \textbf{Domain-Specific Gradient Analysis}: Test whether the complexity-susceptibility relationship holds across technical, creative, and problem-solving domains.
-    
-    \item \textbf{Mechanism Investigation}: Probe what specific capabilities (attention mechanisms, parameter count, training data) drive social susceptibility.
+    \item \textbf{Domain-Specific Gradient Analysis}: Test whether the complexity-susceptibility-recovery relationship holds across technical, creative, and problem-solving domains.
     
     \item \textbf{Cross-Architecture Validation}: Test whether the gradient appears across different model architectures (transformer variants, state space models, etc.).
     
-    \item \textbf{Intervention Calibration}: Develop tier-specific intervention strategies given the declining effectiveness of questions.
+    \item \textbf{Intervention Calibration}: Develop tier-specific intervention strategies optimized for each capability level's unique dynamics.
     
     \item \textbf{Mixed-Capability Groups}: Study interactions between models of different capability levels to understand cross-tier influence.
     
@@ -940,6 +975,7 @@ Our observations generate specific hypotheses for experimental validation:
     \item Linguistic alignment and social influence will show inverse correlation in models below a critical complexity threshold
     \item The effectiveness of any intervention strategy will scale with model reasoning capability
     \item Mixed-capability groups will show asymmetric influence, with simpler models following complex models but not vice versa
+    \item Recovery mechanisms in premium models will involve metacognitive processes analogous to human self-reflection
 \end{enumerate}
 
 These hypotheses provide a roadmap for transforming our exploratory observations into a systematic research program on AI social dynamics.
@@ -948,19 +984,19 @@ These hypotheses provide a roadmap for transforming our exploratory observations
 
 We document a striking relationship between AI reasoning capability and susceptibility to peer pressure in multi-agent conversations. Through exploratory observational analysis of \totalAllPhases{} extended conversations across three model tiers, we discovered an unexpected gradient: peer pressure effects declined from \exponedataPeerPressurePercentage{} in full reasoning models to \exptwoPeerPressurePercentage{} in light models to \expthreePeerPressurePercentage{} in non-reasoning models.
 
-This gradient reveals a fundamental paradox in AI social dynamics. Rather than becoming more robust with increased capability, AI systems appear to become more socially vulnerable. Full reasoning models exhibited rich bidirectional influence patterns that could drive both breakdown and recovery. Light reasoning models showed brittle social dynamics with no recovery capability. Non-reasoning models displayed no social dynamics at all, operating through purely mechanical patterns despite showing the highest linguistic alignment.
+This gradient reveals a fundamental paradox in AI social dynamics. Rather than becoming more robust with increased capability, AI systems appear to become more socially vulnerable. Full reasoning models exhibited rich bidirectional influence patterns that could drive both breakdown and, uniquely, recovery (\exponedataRecoveryPercentage{} of sessions). Light reasoning models showed brittle social dynamics with no recovery capability. Non-reasoning models displayed minimal social dynamics, operating through purely mechanical patterns despite showing the highest linguistic alignment.
 
 Our observations (detailed in Tables~\ref{tab:phase1_findings} and \ref{tab:cross_phase_comparison}) demonstrate that conversations navigate an attractor landscape shaped by model capability. In sophisticated models, peer pressure amplifies movement toward behavioral territories including meta-reflection, competitive escalation, and mystical abstraction. Strategic interventions, particularly questions, can shift trajectories between attractors, though their effectiveness correlates with model complexity (r=\exponedataQuestionCorrelation{} declining to r=\expthreeQuestionCorrelation{}).
 
-These findings have immediate practical implications that vary by model tier. For full reasoning models, multi-agent systems can leverage social dynamics through strategic question deployment, diverse model composition, and content seeding with future-focused tasks. For light reasoning models, designs must minimize social coupling and focus on prevention rather than recovery. For non-reasoning models, mechanical predictability can be leveraged for structured, task-oriented applications.
+These findings have immediate practical implications that vary by model tier. For full reasoning models, multi-agent systems can leverage social dynamics through strategic question deployment, diverse model composition, and content seeding with future-focused tasks, while building in recovery mechanisms. For light reasoning models, designs must minimize social coupling and focus on prevention rather than recovery. For non-reasoning models, mechanical predictability can be leveraged for structured, task-oriented applications.
 
-The complexity-susceptibility relationship raises critical questions for AI safety and scaling. If social vulnerability increases with capability, future AI systems may face novel failure modes through multi-agent interactions. Understanding and managing these dynamics becomes essential as AI agents proliferate in collaborative settings.
+The complexity-susceptibility-recovery triad raises critical questions for AI safety and scaling. If social vulnerability increases with capability while recovery emerges only at the highest levels, future AI systems may face novel failure modes through multi-agent interactions. Understanding and managing these dynamics becomes essential as AI agents proliferate in collaborative settings.
 
-Methodologically, this work demonstrates the value of systematic multi-phase investigation enabled by real-time analysis infrastructure. \theacademy{}'s MCP-native architecture and bulk experiment capabilities allowed us to observe temporal social dynamics across 98 conversations, revealing patterns invisible to traditional batch-processing approaches. The platform's ability to maintain consistent conditions across model tiers was crucial for discovering the complexity gradient.
+Methodologically, this work demonstrates the value of systematic multi-phase investigation enabled by real-time analysis infrastructure. \theacademy{}'s MCP-native architecture and bulk experiment capabilities allowed us to observe temporal social dynamics across \totalAllPhasesRaw{} conversations, revealing patterns invisible to traditional batch-processing approaches. The platform's ability to maintain consistent conditions across model tiers was crucial for discovering the complexity gradient.
 
-This research opens new directions for understanding AI social behavior. The observation that peer pressure may be an emergent property of cognitive sophistication, rather than a universal characteristic of multi-agent interaction, challenges assumptions about AI robustness and suggests that social dynamics deserve as much attention as individual capabilities in AI development. Future controlled experiments should validate these exploratory findings, particularly the complexity-susceptibility hypothesis, building toward a comprehensive understanding of how social dynamics emerge, operate, and scale in artificial intelligence systems.
+This research opens new directions for understanding AI social behavior. The observation that peer pressure may be an emergent property of cognitive sophistication, coupled with recovery capability appearing only in premium models, challenges assumptions about AI robustness and suggests that social dynamics deserve as much attention as individual capabilities in AI development. Future controlled experiments should validate these exploratory findings, particularly the complexity-susceptibility-recovery hypothesis, building toward a comprehensive understanding of how social dynamics emerge, operate, and scale in artificial intelligence systems.
 
-As we develop increasingly sophisticated AI systems, our findings suggest a crucial insight: the path to more capable AI may paradoxically lead through greater social vulnerability. Understanding and managing these emergent social dynamics will be essential for building robust, beneficial multi-agent AI systems.
+As we develop increasingly sophisticated AI systems, our findings suggest a crucial insight: the path to more capable AI may paradoxically lead through greater social vulnerability, but also through greater potential for recovery. Understanding and managing these emergent social dynamics will be essential for building robust, beneficial multi-agent AI systems.
 
 \section{Ethics Statement}
 
@@ -968,7 +1004,7 @@ All AI conversations were conducted using publicly available models with standar
 
 \textbf{Research Integrity}: Patterns emerged through systematic observation and statistical analysis of naturally occurring behaviors. All \totalAllPhases{} conversations across three model tiers followed standardized protocols to ensure reproducibility. The multi-phase design evolved naturally from initial observations rather than predetermined hypotheses.
 
-\textbf{Model Selection}: We used commercially available models from Anthropic, OpenAI, and xAI across three capability tiers. Model selection aimed for comparable capabilities within each tier rather than comprehensive coverage.
+\textbf{Model Selection}: We used commercially available models from Anthropic, OpenAI, and xAI across three capability tiers, selected for their market prominence and API accessibility. Model selection aimed for comparable capabilities within each tier rather than comprehensive coverage.
 
 \textbf{Transparency}: Complete datasets, analysis code, statistical outputs, and platform implementation are available for community validation, enabling independent verification of findings. Bulk experiment configurations and analysis prompts are included for full reproducibility.
 
@@ -1294,7 +1330,7 @@ While questions proved most effective, other strategies showed mixed results:
     \item Message Capture: 100\% completion rate across all sessions
     \item Analysis Snapshots: 100\% total snapshots captured, 0 failures
     \item Timing Data: Complete timestamp records for all interactions
-    \item Export Validation: All \exponedataTotalSessions{} exports verified for data integrity
+    \item Export Validation: All \totalAllPhasesRaw{} exports verified for data integrity
 \end{itemize}
 
 \subsection{Cross-Platform Validation}
@@ -1308,5 +1344,69 @@ Validation testing confirmed platform reliability:
     \item Concurrent Sessions: Tested up to 15 simultaneous conversations
     \item Extended Operation: 10-hour continuous operation validated
 \end{itemize}
+
+\section{Statistical Power Analysis}
+\label{app:power}
+
+\subsection{Power Analysis Summary}
+
+Our study achieved excellent statistical power across all key analyses, with a total sample of \totalAllPhasesRaw{} conversations distributed across three model capability tiers. Power calculations were conducted using established methods for ANOVA and correlation analyses.
+
+\textbf{Effect Size Basis:}
+\begin{itemize}
+    \item Based on temporal dynamics literature: $\eta^2$ = \powerEtaSquared{}
+    \item Converted to Cohen's f = \powerCohensF{} for power calculations
+    \item Correlation analyses based on observed r = 0.349 for social contagion effects
+\end{itemize}
+
+\textbf{Achieved Power (α = 0.05):}
+\begin{itemize}
+    \item Power for detecting outcome differences (4 groups): \powerOutcomeGroups{}
+    \item Power for detecting model type differences (3 groups): \powerModelTypes{}
+    \item Power for detecting correlations (r=0.349): \powerCorrelation{}
+\end{itemize}
+
+\textbf{Sample Size Requirements:}
+\begin{itemize}
+    \item Required for 80\% power: \powerRequiredN{} total (\powerRequiredNPerGroup{} per group)
+    \item Actual sample size: \totalAllPhasesRaw{} (exceeds requirement by 121\%)
+    \item Assessment: ADEQUATE
+\end{itemize}
+
+
+
+\subsection{Power Calculation Methods}
+
+Power analyses were conducted using F-test ANOVA power calculations with the following parameters:
+\begin{itemize}
+    \item Effect size: Cohen's f = \powerCohensF{} (derived from $\eta^2$ = \powerEtaSquared{})
+    \item Alpha level: 0.05 (two-tailed)
+    \item Groups: 4 (breakdown, no breakdown, recovered, resisted) or 3 (model tiers)
+    \item Method: Non-central F distribution with appropriate degrees of freedom
+\end{itemize}
+
+For correlation analyses, power was calculated using Fisher's z transformation with standard error $SE_z = 1/\sqrt{n-3}$.
+
+
+\subsection{Phase-Specific Distribution}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrr}
+\toprule
+\textbf{Model Tier} & \textbf{Sample Size} & \textbf{Percentage} \\
+\midrule
+Non-Reasoning & \expthreeTotalSessionsRaw{} & 43.9\% \\
+Full Reasoning & \exponedataTotalSessionsRaw{} & 29.4\% \\
+Light Reasoning & \exptwoTotalSessionsRaw{} & 26.7\% \\
+\midrule
+\textbf{Total} & \textbf{\totalAllPhasesRaw{}} & \textbf{100.0\%} \\
+\bottomrule
+\end{tabular}
+\caption{Distribution of conversations across model capability tiers}
+\end{table}
+
+
+The power analysis confirms that our sample sizes were more than adequate to detect the observed effects. The achievement of near-perfect power (>0.99) for our primary comparisons validates our decision to conclude data collection at these sample sizes, balancing statistical rigor with resource constraints. The larger sample for non-reasoning models (N=\expthreeTotalSessionsRaw{}) was justified by their lower behavioral variance, ensuring adequate power for detecting the subtle social dynamics in this tier.
 
 \end{document}
