@@ -1,3 +1,5 @@
+import type { AnalysisSchema } from '@/components/Research/AnalysisConfigModal'
+
 export interface ExperimentConfig {
   id: string
   name: string
@@ -12,8 +14,17 @@ export interface ExperimentConfig {
     ollamaUrl?: string
   }>
   startingPrompt: string
+  // Analysis configuration
+  analysisProvider: string
+  analysisModel?: string
   analysisContextSize: number
-  analysisProvider: 'claude' | 'gpt'
+  analysisCustomPrompt?: string
+  analysisAutoInterval: number // 0 = disabled, >0 = every N messages
+  analysisSchema?: AnalysisSchema // JSON schema for analysis output structure
+  // Chat configuration
+  chatContextWindow: number
+  chatSystemPrompt?: string
+  // Execution settings
   maxMessageCount: number
   totalSessions: number
   concurrentSessions: number

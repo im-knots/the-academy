@@ -1194,12 +1194,68 @@ export class MCPClient {
       sessionId,
       analysisType
     })
-    
+
     if (result.success) {
       console.log(`✅ Conversation analyzed via MCP for session: ${sessionId}`)
       return result
     } else {
       throw new Error('Failed to analyze conversation via MCP')
+    }
+  }
+
+  async getSessionAnalysisConfig(sessionId: string): Promise<any> {
+    const result = await this.callTool('get_session_analysis_config', { sessionId })
+
+    if (result.success) {
+      console.log(`✅ Analysis config retrieved via MCP for session: ${sessionId}`)
+      return result
+    } else {
+      throw new Error('Failed to get analysis config via MCP')
+    }
+  }
+
+  async updateSessionAnalysisConfig(
+    sessionId: string,
+    config: { provider?: string; model?: string; messageWindow?: number; customPrompt?: string; autoInterval?: number; schema?: any }
+  ): Promise<any> {
+    const result = await this.callTool('update_session_analysis_config', {
+      sessionId,
+      ...config
+    })
+
+    if (result.success) {
+      console.log(`✅ Analysis config updated via MCP for session: ${sessionId}`)
+      return result
+    } else {
+      throw new Error('Failed to update analysis config via MCP')
+    }
+  }
+
+  async getSessionChatConfig(sessionId: string): Promise<any> {
+    const result = await this.callTool('get_session_chat_config', { sessionId })
+
+    if (result.success) {
+      console.log(`✅ Chat config retrieved via MCP for session: ${sessionId}`)
+      return result
+    } else {
+      throw new Error('Failed to get chat config via MCP')
+    }
+  }
+
+  async updateSessionChatConfig(
+    sessionId: string,
+    config: { contextWindow?: number; systemPrompt?: string }
+  ): Promise<any> {
+    const result = await this.callTool('update_session_chat_config', {
+      sessionId,
+      ...config
+    })
+
+    if (result.success) {
+      console.log(`✅ Chat config updated via MCP for session: ${sessionId}`)
+      return result
+    } else {
+      throw new Error('Failed to update chat config via MCP')
     }
   }
 

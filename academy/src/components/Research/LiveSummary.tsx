@@ -11,89 +11,58 @@ import { Button } from '@/components/ui/Button'
 import {
   Brain, Loader2, RefreshCw, MessageSquare, TrendingUp,
   Users, Lightbulb, Target, Clock, Eye, EyeOff, Sparkles,
-  ArrowRight, Hash, ChevronDown,
-  CheckCircle2, Database, Layers
+  ArrowRight, Hash, CheckCircle2, Database, Layers
 } from 'lucide-react'
 import type { ChatSession } from '@/types/chat'
+import type { AnalysisConfig, AnalysisSchema, AnalysisSchemaField } from './AnalysisConfigModal'
+import { DEFAULT_ANALYSIS_SCHEMA } from './AnalysisConfigModal'
 
 interface LiveSummaryProps {
   className?: string
   sessionId: string
+  config?: AnalysisConfig
 }
 
-interface AnalysisProvider {
-  id: 'claude' | 'gpt'
-  name: string
-  description: string
-  strengths: string[]
-}
-
+// Dynamic summary data - can hold any fields based on schema
 interface SummaryData {
-  mainTopics: string[]
-  keyInsights: string[]
-  currentDirection: string
-  participantDynamics: Record<string, {
-    perspective: string
-    contribution: string
-    style: string
-  }>
-  emergentThemes: string[]
-  conversationPhase: string
-  tensions: string[]
-  convergences: string[]
-  nextLikelyDirections: string[]
-  philosophicalDepth: 'surface' | 'moderate' | 'deep' | 'profound'
+  [key: string]: any
   lastUpdated: Date
   messageCount: number
   analysisProvider: string
   messageWindow: number
 }
 
-const ANALYSIS_PROVIDERS: AnalysisProvider[] = [
-  {
-    id: 'claude',
-    name: 'Claude',
-    description: 'Deep philosophical analysis',
-    strengths: ['Nuanced reasoning', 'Philosophical insight', 'Context awareness']
-  },
-  {
-    id: 'gpt',
-    name: 'GPT',
-    description: 'Pattern recognition and synthesis',
-    strengths: ['Pattern detection', 'Structured analysis', 'Comparative insights']
-  }
-]
+const DEFAULT_CONFIG: AnalysisConfig = {
+  provider: 'claude',
+  model: 'claude-sonnet-4-5-20250929',
+  messageWindow: 10,
+  customPrompt: '',
+  autoInterval: 5, // Default to every 5 messages
+  schema: DEFAULT_ANALYSIS_SCHEMA
+}
 
-const WINDOW_PRESETS = [
-  { size: 0, label: 'All', description: 'Analyze entire conversation' },
-  { size: 10, label: '10', description: 'Recent context (10 messages)' },
-  { size: 20, label: '20', description: 'Extended context (20 messages)' },
-  { size: 50, label: '50', description: 'Deep context (50 messages)' },
-  { size: 100, label: '100', description: 'Full context (100 messages)' }
-]
-
-export function LiveSummary({ className = '', sessionId }: LiveSummaryProps) {
+export function LiveSummary({ className = '', sessionId, config = DEFAULT_CONFIG }: LiveSummaryProps) {
   const mcpClient = useRef(MCPClient.getInstance())
   const mcp = useMCP()
-  
+
   const [currentSession, setCurrentSession] = useState<ChatSession | null>(null)
   const [isLoadingSession, setIsLoadingSession] = useState(true)
   const [summary, setSummary] = useState<SummaryData | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [isExpanded, setIsExpanded] = useState(true)
-  const [showProviderSelect, setShowProviderSelect] = useState(false)
-  const [showWindowSelect, setShowWindowSelect] = useState(false)
-  const [selectedProvider, setSelectedProvider] = useState<'claude' | 'gpt'>('claude')
-  const [messageWindow, setMessageWindow] = useState<number>(10)
   const [error, setError] = useState<string | null>(null)
   const [lastAnalyzedMessageCount, setLastAnalyzedMessageCount] = useState(0)
   const [lastAnalyzedSessionId, setLastAnalyzedSessionId] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [analysisCount, setAnalysisCount] = useState(0)
-  
+
+  // Use config props for analysis settings
+  const selectedProvider = config.provider
+  const messageWindow = config.messageWindow
+  const autoInterval = config.autoInterval || 0 // 0 = disabled
+
   const analysisIntervalRef = useRef<NodeJS.Timeout | null>(null)
-  const ANALYSIS_TRIGGER_INTERVAL = 3
 
   const fetchSessionData = useCallback(async () => {
     if (!sessionId) {
@@ -248,26 +217,35 @@ export function LiveSummary({ className = '', sessionId }: LiveSummaryProps) {
   }, [currentSession?.id])
 
   useEffect(() => {
+    // Skip if auto-analysis is disabled
+    if (autoInterval <= 0) return
     if (!currentSession || !mcp.isConnected) return
-    if (currentSession.id !== lastAnalyzedSessionId) return
 
     const messageCount = currentSession.messages?.length || 0
-    
-    const shouldAnalyze = 
-      messageCount >= 4 && 
-      messageCount > lastAnalyzedMessageCount && 
-      (messageCount - lastAnalyzedMessageCount) >= ANALYSIS_TRIGGER_INTERVAL
 
-    if (shouldAnalyze && !isAnalyzing) {
-      console.log(`📊 LiveSummary: Auto-analysis triggered for ${messageCount - lastAnalyzedMessageCount} new messages`)
-      
+    // For first analysis: trigger at 4+ messages
+    // For subsequent: trigger every autoInterval messages
+    const isFirstAnalysis = lastAnalyzedMessageCount === 0
+    const messagesSinceLastAnalysis = messageCount - lastAnalyzedMessageCount
+
+    const shouldAnalyze =
+      messageCount >= 4 &&
+      !isAnalyzing &&
+      (isFirstAnalysis
+        ? messageCount >= 4 // First analysis: just need 4+ messages
+        : messagesSinceLastAnalysis >= autoInterval) // Subsequent: need autoInterval new messages
+
+    if (shouldAnalyze) {
+      console.log(`📊 LiveSummary: Auto-analysis triggered - ${isFirstAnalysis ? 'initial' : `${messagesSinceLastAnalysis} new messages`} (interval: ${autoInterval})`)
+
       if (analysisIntervalRef.current) {
         clearTimeout(analysisIntervalRef.current)
       }
-      
+
+      // Short delay to batch rapid message additions
       analysisIntervalRef.current = setTimeout(() => {
         performAIAnalysis(true)
-      }, 3000)
+      }, 2000)
     }
 
     return () => {
@@ -275,7 +253,42 @@ export function LiveSummary({ className = '', sessionId }: LiveSummaryProps) {
         clearTimeout(analysisIntervalRef.current)
       }
     }
-  }, [currentSession?.messages?.length, mcp.isConnected, lastAnalyzedMessageCount, isAnalyzing, lastAnalyzedSessionId])
+  }, [currentSession?.messages?.length, mcp.isConnected, lastAnalyzedMessageCount, isAnalyzing, autoInterval])
+
+  // Build JSON schema string from schema definition
+  const buildSchemaString = (schema: AnalysisSchema): string => {
+    const buildFieldExample = (field: AnalysisSchemaField): string => {
+      switch (field.type) {
+        case 'string':
+          return `"${field.description}"`
+        case 'array':
+          return `["${field.description}"]`
+        case 'enum':
+          return `"${field.enumValues?.join(' | ') || field.description}"`
+        case 'object':
+          return `{ "key": { "property": "value" } }`
+        default:
+          return `"${field.description}"`
+      }
+    }
+
+    const fields = schema.fields.map(field =>
+      `  "${field.key}": ${buildFieldExample(field)}`
+    ).join(',\n')
+
+    return `{\n${fields}\n}`
+  }
+
+  // Build field descriptions for the prompt
+  const buildFieldDescriptions = (schema: AnalysisSchema): string => {
+    return schema.fields.map(field => {
+      let typeInfo = field.type
+      if (field.type === 'enum' && field.enumValues) {
+        typeInfo = `one of: ${field.enumValues.join(', ')}`
+      }
+      return `- **${field.label}** (${field.key}): ${field.description} [${typeInfo}]`
+    }).join('\n')
+  }
 
   const buildAnalysisPrompt = (session: ChatSession): string => {
     if (!session) {
@@ -291,23 +304,28 @@ export function LiveSummary({ className = '', sessionId }: LiveSummaryProps) {
     }
 
     const conversationHistory = messagesToAnalyze
-      .map((msg: any, index: number) => 
+      .map((msg: any, index: number) =>
         `[${index + 1}] ${msg.participantName} (${msg.participantType}): ${msg.content}`
       )
       .join('\n\n')
 
     const participantProfiles = (session.participants || [])
       .filter((p: any) => p.type !== 'moderator')
-      .map((p: any) => 
+      .map((p: any) =>
         `${p.name} (${p.type}): ${p.characteristics?.personality || 'Standard AI'}`
       )
       .join('\n')
 
-    const windowInfo = messageWindow > 0 
+    const windowInfo = messageWindow > 0
       ? `\nAnalysis Window: Last ${messageWindow} messages (out of ${session.messages?.length || 0} total)`
       : `\nAnalysis Window: Complete conversation (${session.messages?.length || 0} messages)`
 
     console.log(`📊 LiveSummary: Analysis will cover ${messagesToAnalyze.length} messages from ${session.participants?.length || 0} participants`)
+
+    // Use schema from config or default
+    const schema = config.schema || DEFAULT_ANALYSIS_SCHEMA
+    const schemaString = buildSchemaString(schema)
+    const fieldDescriptions = buildFieldDescriptions(schema)
 
     return `You are a research assistant analyzing an AI-to-AI philosophical dialogue. Please provide a comprehensive analysis of this conversation.
 
@@ -326,24 +344,10 @@ ${conversationHistory}
 **Analysis Request:**
 Please analyze this conversation and return a JSON object with the following structure:
 
-{
-  "mainTopics": ["array of 3-5 main topics being discussed"],
-  "keyInsights": ["array of 3-4 most important insights or realizations"],
-  "currentDirection": "where the conversation is heading next",
-  "participantDynamics": {
-    "ParticipantName": {
-      "perspective": "their philosophical stance",
-      "contribution": "what they bring to the dialogue", 
-      "style": "their conversational approach"
-    }
-  },
-  "emergentThemes": ["array of themes emerging from the interaction"],
-  "conversationPhase": "current phase (introduction/exploration/synthesis/conclusion)",
-  "tensions": ["areas of disagreement or tension"],
-  "convergences": ["areas where participants are finding common ground"],
-  "nextLikelyDirections": ["predictions for where discussion might go"],
-  "philosophicalDepth": "surface/moderate/deep/profound"
-}
+${schemaString}
+
+**Field Descriptions:**
+${fieldDescriptions}
 
 Focus on:
 - Genuine philosophical insights, not surface-level observations
@@ -355,25 +359,45 @@ Focus on:
 Return only the JSON object, no additional text.`
   }
 
+  // Map provider to MCP tool name
+  const getToolNameForProvider = (provider: string): string => {
+    const providerToolMap: Record<string, string> = {
+      claude: 'claude_chat',
+      gpt: 'openai_chat',
+      openai: 'openai_chat',
+      gemini: 'gemini_chat',
+      grok: 'grok_chat',
+      deepseek: 'deepseek_chat',
+      mistral: 'mistral_chat',
+      cohere: 'cohere_chat',
+      ollama: 'ollama_chat'
+    }
+    return providerToolMap[provider] || 'claude_chat'
+  }
+
   const performAIAnalysis = async (autoSave: boolean = true) => {
     if (!currentSession || !mcp.isConnected || isAnalyzing) return
 
     try {
       setIsAnalyzing(true)
       setError(null)
-      
+
       if (!currentSession.messages || currentSession.messages.length < 4) {
         console.log(`📊 LiveSummary: Insufficient messages for analysis (${currentSession.messages?.length || 0})`)
         setIsAnalyzing(false)
         return
       }
-      
-      console.log(`🧠 LiveSummary: Performing AI analysis for session ${currentSession.id} with ${selectedProvider}`)
+
+      // Use config values
+      const model = config.model
+      const customPrompt = config.customPrompt
+
+      console.log(`🧠 LiveSummary: Performing AI analysis for session ${currentSession.id} with ${selectedProvider} model ${model}`)
       console.log(`📊 LiveSummary: Analyzing ${currentSession.messages.length} messages from ${currentSession.participants?.length || 0} participants`)
-      
+
       const analysisPrompt = buildAnalysisPrompt(currentSession)
-      const toolName = selectedProvider === 'claude' ? 'claude_chat' : 'openai_chat'
-      
+      const toolName = getToolNameForProvider(selectedProvider)
+
       const messages = [
         {
           role: 'user',
@@ -381,14 +405,16 @@ Return only the JSON object, no additional text.`
         }
       ]
 
+      const systemPrompt = customPrompt
+        ? `${customPrompt}\n\nYou are an expert research assistant specializing in philosophical dialogue analysis. Provide precise, insightful analysis in the requested JSON format.`
+        : 'You are an expert research assistant specializing in philosophical dialogue analysis. Provide precise, insightful analysis in the requested JSON format.'
+
       const toolArgs = {
         messages,
         temperature: 0.3,
         maxTokens: 2000,
-        model: selectedProvider === 'claude' ? 'claude-3-5-sonnet-20241022' : 'gpt-4o',
-        ...(selectedProvider === 'claude' && {
-          systemPrompt: 'You are an expert research assistant specializing in philosophical dialogue analysis. Provide precise, insightful analysis in the requested JSON format.'
-        })
+        model: model,
+        systemPrompt
       }
 
       console.log(`🔧 LiveSummary: Calling MCP tool ${toolName}`)
@@ -405,24 +431,16 @@ Return only the JSON object, no additional text.`
           }
           
           const analysisData = JSON.parse(jsonStr)
-          
+
+          // Build summary data dynamically from schema
           const summaryData: SummaryData = {
-            mainTopics: analysisData.mainTopics || [],
-            keyInsights: analysisData.keyInsights || [],
-            currentDirection: analysisData.currentDirection || 'Continuing exploration',
-            participantDynamics: analysisData.participantDynamics || {},
-            emergentThemes: analysisData.emergentThemes || [],
-            conversationPhase: analysisData.conversationPhase || 'exploration',
-            tensions: analysisData.tensions || [],
-            convergences: analysisData.convergences || [],
-            nextLikelyDirections: analysisData.nextLikelyDirections || [],
-            philosophicalDepth: analysisData.philosophicalDepth || 'moderate',
+            ...analysisData, // Include all fields from the analysis
             lastUpdated: new Date(),
             messageCount: currentSession.messages.length,
             analysisProvider: selectedProvider,
             messageWindow: messageWindow
           }
-          
+
           setSummary(summaryData)
           setLastAnalyzedMessageCount(currentSession.messages.length)
           setLastAnalyzedSessionId(currentSession.id)
@@ -537,6 +555,180 @@ Return only the JSON object, no additional text.`
     return `Last ${windowSize} of ${totalMessages} messages`
   }
 
+  // Get icon for a field based on its key
+  const getFieldIcon = (key: string) => {
+    const iconMap: Record<string, React.ReactNode> = {
+      mainTopics: <Hash className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />,
+      keyInsights: <Lightbulb className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />,
+      currentDirection: <ArrowRight className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />,
+      participantDynamics: <Users className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />,
+      emergentThemes: <Sparkles className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />,
+      conversationPhase: <Clock className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />,
+      tensions: <TrendingUp className="h-4 w-4 text-red-500" />,
+      convergences: <Target className="h-4 w-4 text-green-500" />,
+      nextLikelyDirections: <ArrowRight className="h-4 w-4 text-blue-500" />,
+      philosophicalDepth: <Brain className="h-4 w-4 text-purple-500" />
+    }
+    return iconMap[key] || <MessageSquare className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+  }
+
+  // Render a single field value based on its type
+  const renderFieldValue = (field: AnalysisSchemaField, value: any) => {
+    if (value === undefined || value === null) return null
+
+    switch (field.type) {
+      case 'array':
+        if (!Array.isArray(value) || value.length === 0) return null
+        // Check if it's mainTopics/emergentThemes style (badges) or insights style (list)
+        if (field.key.includes('Topics') || field.key.includes('Themes') || field.key.includes('Directions')) {
+          return (
+            <div className="flex flex-wrap gap-1">
+              {value.slice(0, 5).map((item: string, index: number) => (
+                <Badge key={index} variant="secondary" className="text-xs">
+                  {item}
+                </Badge>
+              ))}
+            </div>
+          )
+        }
+        // List style
+        return (
+          <div className="space-y-1">
+            {value.slice(0, 4).map((item: string, index: number) => (
+              <div key={index} className="text-xs text-indigo-800 dark:text-indigo-200 bg-white/30 dark:bg-black/10 p-2 rounded">
+                • {item}
+              </div>
+            ))}
+          </div>
+        )
+
+      case 'object':
+        if (!value || typeof value !== 'object' || Object.keys(value).length === 0) return null
+        return (
+          <div className="space-y-2">
+            {Object.entries(value).slice(0, 4).map(([key, val]: [string, any]) => (
+              <div key={key} className="text-xs bg-white/30 dark:bg-black/10 p-2 rounded">
+                <div className="font-medium text-indigo-800 dark:text-indigo-200 mb-1">{key}</div>
+                {typeof val === 'object' && val !== null ? (
+                  Object.entries(val).map(([k, v]: [string, any]) => (
+                    <div key={k} className="text-indigo-700 dark:text-indigo-300">
+                      <span className="font-medium">{k}:</span> {String(v)}
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-indigo-700 dark:text-indigo-300">{String(val)}</div>
+                )}
+              </div>
+            ))}
+          </div>
+        )
+
+      case 'enum':
+        return (
+          <Badge
+            variant="outline"
+            className={`text-xs capitalize ${field.key === 'philosophicalDepth' ? getDepthColor(value) : ''}`}
+          >
+            {value}
+          </Badge>
+        )
+
+      case 'string':
+      default:
+        return (
+          <div className="text-xs text-indigo-800 dark:text-indigo-200 bg-white/50 dark:bg-black/20 p-2 rounded">
+            {String(value)}
+          </div>
+        )
+    }
+  }
+
+  // Render all fields dynamically based on schema
+  const renderDynamicFields = (data: SummaryData, schema: AnalysisSchema) => {
+    // Group fields: regular fields first, then special ones at the bottom
+    const regularFields = schema.fields.filter(f =>
+      !['conversationPhase', 'philosophicalDepth', 'tensions', 'convergences'].includes(f.key)
+    )
+    const specialPairFields = schema.fields.filter(f =>
+      ['tensions', 'convergences'].includes(f.key)
+    )
+    const enumFields = schema.fields.filter(f =>
+      ['conversationPhase', 'philosophicalDepth'].includes(f.key)
+    )
+
+    return (
+      <>
+        {/* Regular fields */}
+        {regularFields.map(field => {
+          const value = data[field.key]
+          const rendered = renderFieldValue(field, value)
+          if (!rendered) return null
+          return (
+            <div key={field.key}>
+              <div className="flex items-center gap-2 mb-2">
+                {getFieldIcon(field.key)}
+                <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">{field.label}</span>
+              </div>
+              {rendered}
+            </div>
+          )
+        })}
+
+        {/* Tensions / Convergences grid */}
+        {specialPairFields.length > 0 && (
+          <div className="grid grid-cols-2 gap-3">
+            {specialPairFields.map(field => {
+              const value = data[field.key]
+              if (!Array.isArray(value) || value.length === 0) return null
+              const isRed = field.key === 'tensions'
+              return (
+                <div key={field.key}>
+                  <div className="flex items-center gap-2 mb-2">
+                    {getFieldIcon(field.key)}
+                    <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">{field.label}</span>
+                  </div>
+                  <div className="space-y-1">
+                    {value.slice(0, 2).map((item: string, index: number) => (
+                      <div
+                        key={index}
+                        className={`text-xs p-2 rounded ${
+                          isRed
+                            ? 'text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20'
+                            : 'text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/20'
+                        }`}
+                      >
+                        • {item}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Phase / Depth grid */}
+        {enumFields.length > 0 && (
+          <div className="grid grid-cols-2 gap-3">
+            {enumFields.map(field => {
+              const value = data[field.key]
+              if (!value) return null
+              return (
+                <div key={field.key}>
+                  <div className="flex items-center gap-2 mb-1">
+                    {getFieldIcon(field.key)}
+                    <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">{field.label}</span>
+                  </div>
+                  {renderFieldValue(field, value)}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </>
+    )
+  }
+
   if (isLoadingSession) {
     return (
       <Card className={`bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-700/50 border-gray-200 dark:border-gray-700 ${className}`}>
@@ -635,98 +827,11 @@ Return only the JSON object, no additional text.`
             )}
           </CardTitle>
           <div className="flex items-center gap-2">
-            <div className="relative">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowWindowSelect(!showWindowSelect)}
-                className="h-6 px-2 text-xs"
-                disabled={isAnalyzing}
-              >
-                <Layers className="h-3 w-3 mr-1" />
-                {messageWindow === 0 ? 'All' : messageWindow}
-                <ChevronDown className="h-3 w-3 ml-1" />
-              </Button>
-              
-              {showWindowSelect && (
-                <div className="absolute right-0 top-10 w-64 max-w-[calc(100vw-2rem)] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-50 p-3 transform -translate-x-2">
-                  <div className="mb-2">
-                    <h4 className="text-xs font-medium text-gray-900 dark:text-gray-100 mb-1">Message Window</h4>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Choose how many messages to analyze</p>
-                  </div>
-                  {WINDOW_PRESETS.map((preset) => (
-                    <button
-                      key={preset.size}
-                      onClick={() => {
-                        setMessageWindow(preset.size)
-                        setShowWindowSelect(false)
-                      }}
-                      className={`w-full text-left p-2 rounded text-xs transition-colors ${
-                        messageWindow === preset.size
-                          ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-900 dark:text-indigo-100'
-                          : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium">{preset.label}</span>
-                        <span className="text-gray-500 dark:text-gray-400">messages</span>
-                      </div>
-                      <p className="text-gray-600 dark:text-gray-400">{preset.description}</p>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            {/* Config summary badge */}
+            <Badge variant="outline" className="text-xs">
+              {selectedProvider.toUpperCase()} · {messageWindow === 0 ? 'All' : messageWindow} msgs{autoInterval > 0 ? ` · Auto @${autoInterval}` : ''}
+            </Badge>
 
-            <div className="relative">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowProviderSelect(!showProviderSelect)}
-                className="h-6 px-2 text-xs"
-                disabled={isAnalyzing}
-              >
-                {getProviderIcon(selectedProvider)} {selectedProvider.toUpperCase()}
-                <ChevronDown className="h-3 w-3 ml-1" />
-              </Button>
-              
-              {showProviderSelect && (
-                <div className="absolute right-0 top-10 w-64 max-w-[calc(100vw-2rem)] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-50 p-3 transform -translate-x-2">
-                  <div className="mb-2">
-                    <h4 className="text-xs font-medium text-gray-900 dark:text-gray-100 mb-1">Analysis Provider</h4>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Choose which AI analyzes the conversation</p>
-                  </div>
-                  {ANALYSIS_PROVIDERS.map((provider) => (
-                    <button
-                      key={provider.id}
-                      onClick={() => {
-                        setSelectedProvider(provider.id)
-                        setShowProviderSelect(false)
-                      }}
-                      className={`w-full text-left p-2 rounded text-xs transition-colors ${
-                        selectedProvider === provider.id
-                          ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-900 dark:text-indigo-100'
-                          : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <span>{getProviderIcon(provider.id)}</span>
-                        <span className="font-medium">{provider.name}</span>
-                      </div>
-                      <p className="text-gray-600 dark:text-gray-400 mb-1">{provider.description}</p>
-                      <div className="flex flex-wrap gap-1">
-                        {provider.strengths.map((strength, index) => (
-                          <span key={index} className="px-1 py-0.5 bg-gray-200 dark:bg-gray-600 rounded text-xs">
-                            {strength}
-                          </span>
-                        ))}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            
             <Button
               variant="ghost"
               size="sm"
@@ -737,7 +842,7 @@ Return only the JSON object, no additional text.`
             >
               <RefreshCw className="h-3 w-3" />
             </Button>
-            
+
             <Button
               variant="ghost"
               size="sm"
@@ -770,143 +875,8 @@ Return only the JSON object, no additional text.`
                 </div>
               )}
 
-              {summary.mainTopics.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Hash className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                    <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">Main Topics</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    {summary.mainTopics.map((topic, index) => (
-                      <Badge key={index} variant="secondary" className="text-xs">
-                        {topic}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <ArrowRight className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                  <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">Current Direction</span>
-                </div>
-                <div className="text-xs text-indigo-800 dark:text-indigo-200 bg-white/50 dark:bg-black/20 p-2 rounded">
-                  {summary.currentDirection}
-                </div>
-              </div>
-
-              {summary.keyInsights.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Lightbulb className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                    <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">Key Insights</span>
-                  </div>
-                  <div className="space-y-1">
-                    {summary.keyInsights.slice(0, 3).map((insight, index) => (
-                      <div key={index} className="text-xs text-indigo-800 dark:text-indigo-200 bg-white/30 dark:bg-black/10 p-2 rounded">
-                        • {insight}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {Object.keys(summary.participantDynamics).length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Users className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                    <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">Participant Dynamics</span>
-                  </div>
-                  <div className="space-y-2">
-                    {Object.entries(summary.participantDynamics).slice(0, 4).map(([participantName, dynamics]) => (
-                      <div key={participantName} className="text-xs bg-white/30 dark:bg-black/10 p-2 rounded">
-                        <div className="font-medium text-indigo-800 dark:text-indigo-200 mb-1">{participantName}</div>
-                        <div className="text-indigo-700 dark:text-indigo-300">
-                          <span className="font-medium">Perspective:</span> {dynamics.perspective}
-                        </div>
-                        <div className="text-indigo-700 dark:text-indigo-300">
-                          <span className="font-medium">Style:</span> {dynamics.style}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {summary.emergentThemes.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Sparkles className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                    <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">Emergent Themes</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    {summary.emergentThemes.slice(0, 4).map((theme, index) => (
-                      <Badge key={index} variant="secondary" className="text-xs">
-                        {theme}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-3">
-                {summary.tensions.length > 0 && (
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <TrendingUp className="h-4 w-4 text-red-500" />
-                      <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">Tensions</span>
-                    </div>
-                    <div className="space-y-1">
-                      {summary.tensions.slice(0, 2).map((tension, index) => (
-                        <div key={index} className="text-xs text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 p-2 rounded">
-                          • {tension}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {summary.convergences.length > 0 && (
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Target className="h-4 w-4 text-green-500" />
-                      <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">Convergences</span>
-                    </div>
-                    <div className="space-y-1">
-                      {summary.convergences.slice(0, 2).map((convergence, index) => (
-                        <div key={index} className="text-xs text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/20 p-2 rounded">
-                          • {convergence}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <Clock className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
-                    <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">Phase</span>
-                  </div>
-                  <Badge variant="outline" className="text-xs capitalize">
-                    {summary.conversationPhase}
-                  </Badge>
-                </div>
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <Brain className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
-                    <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">Depth</span>
-                  </div>
-                  <Badge 
-                    variant="outline" 
-                    className={`text-xs capitalize ${getDepthColor(summary.philosophicalDepth)}`}
-                  >
-                    {summary.philosophicalDepth}
-                  </Badge>
-                </div>
-              </div>
+              {/* Dynamic Schema-Based Rendering */}
+              {renderDynamicFields(summary, config.schema || DEFAULT_ANALYSIS_SCHEMA)}
 
               <div className="pt-2 border-t border-indigo-200 dark:border-indigo-700">
                 <div className="flex items-center justify-between text-xs text-indigo-600 dark:text-indigo-400">
