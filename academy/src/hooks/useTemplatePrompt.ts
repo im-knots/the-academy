@@ -42,26 +42,21 @@ export function useTemplatePrompt() {
   }, []) // Empty dependency array - stable function
 
   // EVENT-DRIVEN: Subscribe to relevant events
+  // Only need to refresh on session switch - other components handle their own refreshes
   useEffect(() => {
     console.log('🎯 useTemplatePrompt: Setting up event subscriptions')
 
     // Initial fetch
     fetchCurrentSession()
 
-    // Subscribe to session-related events via the new event bus
+    // Only subscribe to session switch events - that's when we need a new template prompt
     const unsubscribeSessionSwitched = eventBus.subscribe(EVENT_TYPES.SESSION_SWITCHED, fetchCurrentSession)
-    const unsubscribeSessionUpdated = eventBus.subscribe(EVENT_TYPES.SESSION_UPDATED, fetchCurrentSession)
     const unsubscribeSessionCreated = eventBus.subscribe(EVENT_TYPES.SESSION_CREATED, fetchCurrentSession)
-    const unsubscribeSessionImported = eventBus.subscribe(EVENT_TYPES.SESSION_IMPORTED, fetchCurrentSession)
-    const unsubscribeSessionsListChanged = eventBus.subscribe(EVENT_TYPES.SESSIONS_LIST_CHANGED, fetchCurrentSession)
 
     return () => {
       console.log('🎯 useTemplatePrompt: Cleaning up event subscriptions')
       unsubscribeSessionSwitched()
-      unsubscribeSessionUpdated()
       unsubscribeSessionCreated()
-      unsubscribeSessionImported()
-      unsubscribeSessionsListChanged()
     }
   }, [fetchCurrentSession])
 

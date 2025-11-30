@@ -96,10 +96,15 @@ export function LiveSummary({ className = '', sessionId }: LiveSummaryProps) {
   const ANALYSIS_TRIGGER_INTERVAL = 3
 
   const fetchSessionData = useCallback(async () => {
-    if (!sessionId) return
+    if (!sessionId) {
+      console.log('📊 LiveSummary: No sessionId provided')
+      return
+    }
 
+    console.log(`📊 LiveSummary: Fetching session data for ${sessionId}`)
     try {
       const result = await mcpClient.current.callTool('get_session', { sessionId })
+      console.log('📊 LiveSummary: get_session result:', result.success, result.session?.messages?.length, 'messages')
       if (result.success && result.session) {
         const session = {
           ...result.session,
@@ -107,9 +112,10 @@ export function LiveSummary({ className = '', sessionId }: LiveSummaryProps) {
           updatedAt: new Date(result.session.updatedAt)
         }
         setCurrentSession(session)
+        console.log(`📊 LiveSummary: Session loaded with ${session.messages?.length || 0} messages`)
       }
     } catch (error) {
-      console.error('Failed to fetch session:', error)
+      console.error('❌ LiveSummary: Failed to fetch session:', error)
     } finally {
       setIsLoadingSession(false)
     }

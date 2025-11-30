@@ -1,13 +1,14 @@
-// src/components/Participants/AddParticipant.tsx - Updated with Internal Pub/Sub Event System
+// src/components/Participants/AddParticipant.tsx - Updated with Dynamic Model Loading
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { MCPClient } from '@/lib/mcp/client'
 import { eventBus, EVENT_TYPES } from '@/lib/events/eventBus'
+import { useAvailableModels } from '@/hooks/useAvailableModels'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { ParticipantAvatar } from '@/components/ui/ParticipantAvatar'
-import { X, Plus, Loader2 } from 'lucide-react'
+import { X, Plus, Loader2, RefreshCw, AlertCircle } from 'lucide-react'
 import { ChatSession } from '@/types/chat'
 
 interface AddParticipantProps {
@@ -23,12 +24,13 @@ const typeNames: Record<string, string> = {
   gemini: 'Gemini',
   ollama: 'Ollama',
   deepseek: 'DeepSeek',
-  mistral: 'Mistral', 
+  mistral: 'Mistral',
   cohere: 'Cohere'
 }
 
 export function AddParticipant({ isOpen, onClose, sessionId }: AddParticipantProps) {
   const mcpClient = useRef(MCPClient.getInstance())
+  const { modelOptions, providerStatus, isLoading: isLoadingModels, refresh: refreshModels } = useAvailableModels()
   const [currentSession, setCurrentSession] = useState<ChatSession | null>(null)
   const [isLoadingSession, setIsLoadingSession] = useState(true)
   const [isAddingParticipant, setIsAddingParticipant] = useState(false)
@@ -40,94 +42,10 @@ export function AddParticipant({ isOpen, onClose, sessionId }: AddParticipantPro
     model: '',
     personality: '',
     expertise: '',
-    ollamaUrl: 'http://localhost:11434' 
+    ollamaUrl: 'http://localhost:11434'
   })
 
   const tokenSteps = [500, 1000, 2000, 4000]
-  
-  const modelOptions = {
-    claude: [
-      { value: 'claude-opus-4-20250514', label: 'Claude 4 Opus'},
-      { value: 'claude-sonnet-4-20250514', label: 'Claude 4 Sonnet'},
-      { value: 'claude-3-7-sonnet-20250219', label: 'Claude 3.7 Sonnet'},
-      { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet' },
-      { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku' },
-      { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus' },
-      { value: 'claude-3-sonnet-20240229', label: 'Claude 3 Sonnet' },
-      { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku' }
-    ],
-    gpt: [
-      { value: 'gpt-4.1-2025-04-14', label: 'GPT-4.1' },
-      { value: 'gpt-4.1-nano-2025-04-14', label:'GPT-4.1 Nano'},
-      { value: 'gpt-4o', label: 'GPT-4o' },
-      { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
-      { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
-      { value: 'gpt-4', label: 'GPT-4' },
-      { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' }
-    ],
-    grok: [
-      { value: 'grok-3-latest', label: 'Grok 3' },
-      { value: 'grok-3-fast-latest', label: 'Grok 3 Fast' },
-      { value: 'grok-3-mini-latest', label: 'Grok 3 Mini' },
-      { value: 'grok-3-mini-fast-latest', label: 'Grok 3 Mini Fast' },
-      { value: 'grok-2-latest', label: 'Grok 2' }
-    ],
-    gemini: [
-      { value: 'gemini-2.5-flash-preview-05-20', label: 'Gemini 2.5 Flash Preview' },
-      { value: 'gemini-2.5-flash-preview-tts', label: 'Gemini 2.5 Flash Preview TTS' },
-      { value: 'gemini-2.5-pro-preview-06-05', label: 'Gemini 2.5 Pro Preview' },
-      { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
-      { value: 'gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite' }
-    ],
-    ollama: [
-      { value: 'llama3.2', label: 'Llama 3.2' },
-      { value: 'llama3.2:1b', label: 'Llama 3.2 1B' },
-      { value: 'llama3.2:3b', label: 'Llama 3.2 3B' },
-      { value: 'llama3.1', label: 'Llama 3.1' },
-      { value: 'llama3.1:8b', label: 'Llama 3.1 8B' },
-      { value: 'llama3.1:70b', label: 'Llama 3.1 70B' },
-      { value: 'llama3.1:405b', label: 'Llama 3.1 405B' },
-      { value: 'llama3', label: 'Llama 3' },
-      { value: 'llama2', label: 'Llama 2' },
-      { value: 'llama2:7b', label: 'Llama 2 7B' },
-      { value: 'llama2:13b', label: 'Llama 2 13B' },
-      { value: 'llama2:70b', label: 'Llama 2 70B' },
-      { value: 'mistral', label: 'Mistral' },
-      { value: 'mixtral', label: 'Mixtral' },
-      { value: 'mixtral:8x7b', label: 'Mixtral 8x7B' },
-      { value: 'phi3', label: 'Phi-3' },
-      { value: 'qwen2.5', label: 'Qwen 2.5' },
-      { value: 'gemma2', label: 'Gemma 2' },
-      { value: 'custom', label: 'Custom Model (Enter name)' }
-    ],
-    deepseek: [
-      { value: 'deepseek-chat', label: 'DeepSeek Chat (V3)' },
-      { value: 'deepseek-reasoner', label: 'DeepSeek Reasoner (R1)' },
-      { value: 'deepseek-coder', label: 'DeepSeek Coder' },
-    ],
-    mistral: [
-      { value: 'mistral-large-latest', label: 'Mistral Large (Latest)' },
-      { value: 'mistral-medium-latest', label: 'Mistral Medium (Latest)' },
-      { value: 'mistral-small-latest', label: 'Mistral Small (Latest)' },
-      { value: 'open-mixtral-8x22b', label: 'Mixtral 8x22B' },
-      { value: 'open-mixtral-8x7b', label: 'Mixtral 8x7B' },
-      { value: 'open-mistral-7b', label: 'Mistral 7B' },
-      { value: 'open-mistral-nemo', label: 'Mistral Nemo' },
-      { value: 'codestral-latest', label: 'Codestral (Latest)' },
-      { value: 'ministral-8b-2410', label: 'Ministral 8B' },
-      { value: 'ministral-3b-2410', label: 'Ministral 3B' },
-      { value: 'pixtral-large-2411', label: 'Pixtral Large' },
-    ],
-    cohere: [
-      { value: 'command-r-plus-08-2024', label: 'Command R+ (Latest)' },
-      { value: 'command-r-plus', label: 'Command R+' },
-      { value: 'command-r-08-2024', label: 'Command R (Latest)' },
-      { value: 'command-r', label: 'Command R' },
-      { value: 'command', label: 'Command' },
-      { value: 'command-light', label: 'Command Light' },
-      { value: 'custom', label: 'Custom Model (Enter name)' }
-    ]
-  }
 
   const participantTypes = [
     {
@@ -404,20 +322,50 @@ export function AddParticipant({ isOpen, onClose, sessionId }: AddParticipantPro
                   <div className="space-y-4">
                     {/* Model Selection */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                        Model
-                      </label>
-                      <select
-                        value={customSettings.model || modelOptions[selectedType]?.[0]?.value || ''}
-                        onChange={(e) => setCustomSettings(prev => ({ ...prev, model: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      >
-                        {modelOptions[selectedType]?.map((model) => (
-                          <option key={model.value} value={model.value}>
-                            {model.label}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+                          Model
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => refreshModels()}
+                          disabled={isLoadingModels}
+                          className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 disabled:opacity-50"
+                        >
+                          <RefreshCw className={`w-3 h-3 ${isLoadingModels ? 'animate-spin' : ''}`} />
+                          Refresh
+                        </button>
+                      </div>
+                      {isLoadingModels ? (
+                        <div className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-500 flex items-center gap-2">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Loading models...
+                        </div>
+                      ) : !providerStatus[selectedType]?.available ? (
+                        <div className="w-full px-3 py-2 border border-yellow-300 dark:border-yellow-600 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 flex items-center gap-2">
+                          <AlertCircle className="w-4 h-4" />
+                          <span className="text-sm">
+                            {providerStatus[selectedType]?.error || 'Provider not configured'}
+                          </span>
+                        </div>
+                      ) : modelOptions[selectedType]?.length === 0 ? (
+                        <div className="w-full px-3 py-2 border border-yellow-300 dark:border-yellow-600 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 flex items-center gap-2">
+                          <AlertCircle className="w-4 h-4" />
+                          <span className="text-sm">No models available</span>
+                        </div>
+                      ) : (
+                        <select
+                          value={customSettings.model || modelOptions[selectedType]?.[0]?.value || ''}
+                          onChange={(e) => setCustomSettings(prev => ({ ...prev, model: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                          {modelOptions[selectedType]?.map((model) => (
+                            <option key={model.value} value={model.value}>
+                              {model.label}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                     </div>
                     {selectedType === 'ollama' && (
                       <div>

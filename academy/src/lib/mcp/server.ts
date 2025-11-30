@@ -903,11 +903,12 @@ export class MCPServer {
       },
       {
         name: 'list_available_models',
-        description: 'List available AI models',
+        description: 'List available AI models dynamically fetched from provider APIs. Returns models that are currently available for your API keys.',
         inputSchema: {
           type: 'object',
           properties: {
-            provider: { type: 'string', description: 'Filter by provider' }
+            provider: { type: 'string', description: 'Filter by provider (claude, openai, grok, gemini, ollama, deepseek, mistral, cohere)' },
+            refresh: { type: 'boolean', description: 'Force refresh from provider APIs (bypasses cache)' }
           },
           additionalProperties: false
         }
@@ -1664,7 +1665,7 @@ export class MCPServer {
       participantId,
       temperature = 0.7,
       maxTokens = 2000,
-      model = 'claude-3-5-sonnet-20241022'
+      model = 'claude-sonnet-4-5-20250929'
     } = args;
     
     console.log('🔧 Using direct Claude API call with retry logic');
@@ -1837,7 +1838,7 @@ export class MCPServer {
         }
         
         // Filter out empty messages and ensure proper format
-        const validMessages = processedMessages.filter(msg => 
+        const validMessages = processedMessages.filter(msg =>
           msg && msg.content && typeof msg.content === 'string' && msg.content.trim()
         );
 
@@ -1845,18 +1846,50 @@ export class MCPServer {
           throw new Error('No valid messages provided');
         }
 
-        const requestBody = {
+        // Determine if this is a newer model that requires max_completion_tokens
+        // o1, o3, and gpt-4.1+, gpt-5+ models require max_completion_tokens instead of max_tokens
+        // Reasoning models (o1, o3) also don't support system messages or temperature
+        const isReasoningModel = model.startsWith('o1') || model.startsWith('o3');
+        const isNewModel = isReasoningModel ||
+          model.startsWith('gpt-4.1') ||
+          model.startsWith('gpt-5') ||
+          model.includes('4.1') ||
+          model.includes('5.1');
+
+        // For reasoning models, convert system messages to user messages
+        const finalMessages = isReasoningModel
+          ? validMessages.map(msg => ({
+              ...msg,
+              role: msg.role === 'system' ? 'user' : msg.role
+            }))
+          : validMessages;
+
+        // Build request body based on model type
+        const requestBody: Record<string, unknown> = {
           model: model,
-          messages: validMessages,
-          temperature: Math.max(0, Math.min(2, temperature)),
-          max_tokens: Math.min(maxTokens, 4000)
+          messages: finalMessages,
         };
 
-        console.log('🤖 Calling OpenAI API:', { 
-          model, 
-          messageCount: validMessages.length,
-          temperature,
-          maxTokens: requestBody.max_tokens
+        // New models use max_completion_tokens; reasoning models also don't support temperature
+        if (isNewModel) {
+          requestBody.max_completion_tokens = Math.min(maxTokens, 16000);
+          // Only reasoning models don't support temperature
+          if (!isReasoningModel) {
+            requestBody.temperature = Math.max(0, Math.min(2, temperature));
+          }
+        } else {
+          requestBody.temperature = Math.max(0, Math.min(2, temperature));
+          requestBody.max_tokens = Math.min(maxTokens, 4000);
+        }
+
+        console.log('🤖 Calling OpenAI API:', {
+          model,
+          isReasoningModel,
+          isNewModel,
+          messageCount: finalMessages.length,
+          temperature: isReasoningModel ? 'N/A (not supported)' : temperature,
+          tokenParam: isNewModel ? 'max_completion_tokens' : 'max_tokens',
+          tokenValue: isNewModel ? requestBody.max_completion_tokens : requestBody.max_tokens
         });
 
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -3422,7 +3455,7 @@ export class MCPServer {
           temperature: 0.7,
           maxTokens: 2000,
           responseDelay: 2000,
-          model: model || 'claude-3-5-sonnet-20241022',
+          model: model || 'claude-sonnet-4-5-20250929',
           ...settings
         },
         characteristics: characteristics || {},
@@ -3542,58 +3575,49 @@ export class MCPServer {
 
   private async toolListAvailableModels(args: any): Promise<any> {
     try {
-      const { provider } = args
-      
-      const models = {
-        claude: [
-          'claude-3-5-sonnet-20241022',
-          'claude-3-5-haiku-20241022',
-          'claude-3-opus-20240229'
-        ],
-        openai: [
-          'gpt-4',
-          'gpt-4-turbo',
-          'gpt-3.5-turbo'
-        ],
-        grok: [
-          'grok-3-latest',
-          'grok-beta'
-        ],
-        gemini: [
-          'gemini-2.0-flash',
-          'gemini-1.5-pro',
-          'gemini-1.5-flash'
-        ],
-        ollama: [
-          'llama2',
-          'mistral',
-          'codellama'
-        ],
-        deepseek: [
-          'deepseek-chat',
-          'deepseek-coder'
-        ],
-        mistral: [
-          'mistral-large-latest',
-          'mistral-medium-latest',
-          'mistral-small-latest'
-        ],
-        cohere: [
-          'command-r-plus',
-          'command-r',
-          'command'
-        ]
-      }
+      const { provider, refresh } = args
+      const { modelService } = await import('@/lib/models/model-service')
 
-      const result = provider ? 
-        { [provider]: models[provider as keyof typeof models] || [] } : 
-        models
+      // Debug: Log environment variable status
+      console.log('🔍 Model Service - Environment Check:', {
+        ANTHROPIC_API_KEY: !!process.env.ANTHROPIC_API_KEY,
+        OPENAI_API_KEY: !!process.env.OPENAI_API_KEY,
+        XAI_API_KEY: !!process.env.XAI_API_KEY,
+        GOOGLE_AI_API_KEY: !!process.env.GOOGLE_AI_API_KEY,
+        DEEPSEEK_API_KEY: !!process.env.DEEPSEEK_API_KEY,
+        MISTRAL_API_KEY: !!process.env.MISTRAL_API_KEY,
+        COHERE_API_KEY: !!process.env.COHERE_API_KEY,
+      })
 
-      return {
-        success: true,
-        models: result,
-        provider: provider || 'all',
-        message: 'Available models retrieved successfully'
+      if (provider) {
+        // Fetch models for a specific provider
+        const result = await modelService.getModelsForProvider(provider, refresh === true)
+        return {
+          success: true,
+          models: { [provider]: result.models },
+          providers: { [provider]: result },
+          provider,
+          message: result.available
+            ? `${result.models.length} models retrieved from ${provider}`
+            : `${provider} unavailable: ${result.error || 'Unknown error'}`
+        }
+      } else {
+        // Fetch models from all providers
+        const allModels = await modelService.getAllModels(refresh === true)
+
+        // Transform to simple format for backwards compatibility
+        const simpleModels: Record<string, string[]> = {}
+        for (const [key, value] of Object.entries(allModels)) {
+          simpleModels[key] = value.models.map(m => m.id)
+        }
+
+        return {
+          success: true,
+          models: simpleModels,
+          providers: allModels,
+          provider: 'all',
+          message: 'Available models retrieved from all providers'
+        }
       }
     } catch (error) {
       console.error('List available models failed:', error)
@@ -4368,7 +4392,7 @@ Return only the JSON object, no additional text.`
           systemPrompt: systemPrompt,  // Claude gets system prompt
           temperature: 0.3,  // Match client exactly
           maxTokens: 2000,
-          model: 'claude-3-5-sonnet-20241022',  // Match client model exactly
+          model: 'claude-sonnet-4-5-20250929',  // Use latest Claude model
           sessionId: sessionId
         })
       }
