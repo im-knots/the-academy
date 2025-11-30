@@ -903,12 +903,17 @@ export class MCPClient {
   // PHASE 4: CONVERSATION CONTROL METHODS (COMPLETE)
   // ========================================
 
-  async startConversationViaMCP(sessionId: string, initialPrompt?: string): Promise<any> {
+  async startConversationViaMCP(
+    sessionId: string,
+    initialPrompt?: string,
+    fileAttachment?: { base64: string; mimeType: string; name: string }
+  ): Promise<any> {
     const result = await this.callTool('start_conversation', {
       sessionId,
-      initialPrompt
+      initialPrompt,
+      fileAttachment
     })
-    
+
     if (result.success) {
       console.log(`✅ Conversation started via MCP: ${sessionId}`)
       return result
@@ -970,11 +975,16 @@ export class MCPClient {
     }
   }
 
-  async injectPromptViaMCP(sessionId: string, prompt: string, _participantId?: string): Promise<any> {
+  async injectPromptViaMCP(
+    sessionId: string,
+    prompt: string,
+    fileAttachment?: { base64: string; mimeType: string; name: string }
+  ): Promise<any> {
     // Use inject_moderator_prompt tool - this is for moderator interjections
     const result = await this.callTool('inject_moderator_prompt', {
       sessionId,
-      prompt
+      prompt,
+      fileAttachment
     })
 
     if (result.success) {

@@ -282,7 +282,7 @@ export function LiveSummary({ className = '', sessionId, config = DEFAULT_CONFIG
   // Build field descriptions for the prompt
   const buildFieldDescriptions = (schema: AnalysisSchema): string => {
     return schema.fields.map(field => {
-      let typeInfo = field.type
+      let typeInfo: string = field.type
       if (field.type === 'enum' && field.enumValues) {
         typeInfo = `one of: ${field.enumValues.join(', ')}`
       }
@@ -535,7 +535,7 @@ Return only the JSON object, no additional text.`
     }
   }
 
-  const getProviderIcon = (provider: string) => {
+  const _getProviderIcon = (provider: string) => {
     return provider === 'claude' ? '🟠' : '🟢'
   }
 

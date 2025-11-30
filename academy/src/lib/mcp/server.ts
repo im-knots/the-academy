@@ -459,7 +459,7 @@ export class MCPServer {
       // AI Provider Tools
       {
         name: 'claude_chat',
-        description: 'Send a message to Claude AI with direct API integration',
+        description: 'Send a message to Claude AI with direct API integration and optional image/file attachment',
         inputSchema: {
           type: 'object',
           properties: {
@@ -470,14 +470,16 @@ export class MCPServer {
             participantId: { type: 'string', description: 'Optional participant ID' },
             temperature: { type: 'number', description: 'Temperature for response generation' },
             maxTokens: { type: 'number', description: 'Maximum tokens for response' },
-            model: { type: 'string', description: 'Claude model to use' }
+            model: { type: 'string', description: 'Claude model to use' },
+            imageBase64: { type: 'string', description: 'Base64-encoded image data' },
+            imageMimeType: { type: 'string', description: 'MIME type of the image (image/jpeg, image/png, image/gif, image/webp)' }
           },
           required: []
         }
       },
       {
         name: 'openai_chat',
-        description: 'Send a message to OpenAI GPT with direct API integration',
+        description: 'Send a message to OpenAI GPT with direct API integration and optional image attachment',
         inputSchema: {
           type: 'object',
           properties: {
@@ -488,20 +490,22 @@ export class MCPServer {
             sessionId: { type: 'string', description: 'Optional session ID for context' },
             participantId: { type: 'string', description: 'Optional participant ID' },
             temperature: { type: 'number', description: 'Temperature for response generation' },
-            maxTokens: { type: 'number', description: 'Maximum tokens for response' }
+            maxTokens: { type: 'number', description: 'Maximum tokens for response' },
+            imageBase64: { type: 'string', description: 'Base64-encoded image data' },
+            imageMimeType: { type: 'string', description: 'MIME type of the image' }
           },
           required: []
         }
       },
       {
         name: 'grok_chat',
-        description: 'Direct Grok API access with exponential backoff retry',
+        description: 'Direct Grok API access with exponential backoff retry and optional image support',
         inputSchema: {
           type: 'object',
           properties: {
             message: { type: 'string', description: 'Message to send to Grok' },
-            messages: { 
-              type: 'array', 
+            messages: {
+              type: 'array',
               description: 'Array of messages for conversation context',
               items: {
                 type: 'object',
@@ -516,19 +520,21 @@ export class MCPServer {
             temperature: { type: 'number', description: 'Response creativity (0-1)', default: 0.7 },
             maxTokens: { type: 'number', description: 'Maximum response tokens', default: 2000 },
             sessionId: { type: 'string', description: 'Session ID for error tracking' },
-            participantId: { type: 'string', description: 'Participant ID for error tracking' }
+            participantId: { type: 'string', description: 'Participant ID for error tracking' },
+            imageBase64: { type: 'string', description: 'Base64-encoded image data' },
+            imageMimeType: { type: 'string', description: 'MIME type of the image' }
           }
         }
       },
       {
         name: 'gemini_chat',
-        description: 'Direct Gemini API access with exponential backoff retry',
+        description: 'Direct Gemini API access with exponential backoff retry and optional image support',
         inputSchema: {
           type: 'object',
           properties: {
             message: { type: 'string', description: 'Message to send to Gemini' },
-            messages: { 
-              type: 'array', 
+            messages: {
+              type: 'array',
               description: 'Array of messages for conversation context',
               items: {
                 type: 'object',
@@ -543,19 +549,21 @@ export class MCPServer {
             temperature: { type: 'number', description: 'Response creativity (0-1)', default: 0.7 },
             maxTokens: { type: 'number', description: 'Maximum response tokens', default: 2000 },
             sessionId: { type: 'string', description: 'Session ID for error tracking' },
-            participantId: { type: 'string', description: 'Participant ID for error tracking' }
+            participantId: { type: 'string', description: 'Participant ID for error tracking' },
+            imageBase64: { type: 'string', description: 'Base64-encoded image data' },
+            imageMimeType: { type: 'string', description: 'MIME type of the image' }
           }
         }
       },
       {
         name: 'ollama_chat',
-        description: 'Direct Ollama API access for local models with exponential backoff retry',
+        description: 'Direct Ollama API access for local models with exponential backoff retry and optional image support',
         inputSchema: {
           type: 'object',
           properties: {
             message: { type: 'string', description: 'Message to send to Ollama' },
-            messages: { 
-              type: 'array', 
+            messages: {
+              type: 'array',
               description: 'Array of messages for conversation context',
               items: {
                 type: 'object',
@@ -571,7 +579,9 @@ export class MCPServer {
             maxTokens: { type: 'number', description: 'Maximum response tokens', default: 2000 },
             sessionId: { type: 'string', description: 'Session ID for error tracking' },
             participantId: { type: 'string', description: 'Participant ID for error tracking' },
-            ollamaUrl: { type: 'string', description: 'Ollama server URL', default: 'http://localhost:11434' }
+            ollamaUrl: { type: 'string', description: 'Ollama server URL', default: 'http://localhost:11434' },
+            imageBase64: { type: 'string', description: 'Base64-encoded image data for vision models' },
+            imageMimeType: { type: 'string', description: 'MIME type of the image' }
           }
         }
       },
@@ -588,14 +598,16 @@ export class MCPServer {
             sessionId: { type: 'string', description: 'Optional session ID for context' },
             participantId: { type: 'string', description: 'Optional participant ID' },
             temperature: { type: 'number', description: 'Temperature for response generation' },
-            maxTokens: { type: 'number', description: 'Maximum tokens for response' }
+            maxTokens: { type: 'number', description: 'Maximum tokens for response' },
+            imageBase64: { type: 'string', description: 'Base64-encoded image data (for vision models)' },
+            imageMimeType: { type: 'string', description: 'MIME type of the image' }
           },
           required: []
         }
       },
       {
         name: 'mistral_chat',
-        description: 'Send a message to Mistral with direct API integration',
+        description: 'Send a message to Mistral with direct API integration and optional image support (Pixtral models)',
         inputSchema: {
           type: 'object',
           properties: {
@@ -606,7 +618,9 @@ export class MCPServer {
             sessionId: { type: 'string', description: 'Optional session ID for context' },
             participantId: { type: 'string', description: 'Optional participant ID' },
             temperature: { type: 'number', description: 'Temperature for response generation' },
-            maxTokens: { type: 'number', description: 'Maximum tokens for response' }
+            maxTokens: { type: 'number', description: 'Maximum tokens for response' },
+            imageBase64: { type: 'string', description: 'Base64-encoded image data' },
+            imageMimeType: { type: 'string', description: 'MIME type of the image' }
           },
           required: []
         }
@@ -618,8 +632,8 @@ export class MCPServer {
           type: 'object',
           properties: {
             message: { type: 'string', description: 'Message to send to Cohere' },
-            messages: { 
-              type: 'array', 
+            messages: {
+              type: 'array',
               description: 'Messages array for Cohere API',
               items: {
                 type: 'object',
@@ -634,7 +648,9 @@ export class MCPServer {
             temperature: { type: 'number', description: 'Response creativity (0-1)', default: 0.7 },
             maxTokens: { type: 'number', description: 'Maximum response tokens', default: 2000 },
             sessionId: { type: 'string', description: 'Session ID for error tracking' },
-            participantId: { type: 'string', description: 'Participant ID for error tracking' }
+            participantId: { type: 'string', description: 'Participant ID for error tracking' },
+            imageBase64: { type: 'string', description: 'Base64-encoded image data' },
+            imageMimeType: { type: 'string', description: 'MIME type of the image' }
           },
           required: []
         }
@@ -981,13 +997,23 @@ export class MCPServer {
       // Conversation Control Tools
       {
         name: 'start_conversation',
-        description: 'Start a conversation in a session',
+        description: 'Start a conversation in a session with optional file attachment',
         inputSchema: {
           type: 'object',
           properties: {
             sessionId: { type: 'string', description: 'Session ID' },
             initialPrompt: { type: 'string', description: 'Initial prompt' },
-            maxMessageCount: { type: 'number', description: 'Maximum number of messages before stopping' }
+            maxMessageCount: { type: 'number', description: 'Maximum number of messages before stopping' },
+            fileAttachment: {
+              type: 'object',
+              description: 'Optional file attachment',
+              properties: {
+                base64: { type: 'string', description: 'Base64-encoded file content' },
+                mimeType: { type: 'string', description: 'MIME type of the file' },
+                name: { type: 'string', description: 'Filename' }
+              },
+              required: ['base64', 'mimeType', 'name']
+            }
           },
           required: ['sessionId']
         }
@@ -1087,12 +1113,22 @@ export class MCPServer {
       },
       {
         name: 'inject_moderator_prompt',
-        description: 'Inject a moderator prompt',
+        description: 'Inject a moderator prompt with optional file attachment',
         inputSchema: {
           type: 'object',
           properties: {
             sessionId: { type: 'string', description: 'Session ID' },
-            prompt: { type: 'string', description: 'Moderator prompt' }
+            prompt: { type: 'string', description: 'Moderator prompt' },
+            fileAttachment: {
+              type: 'object',
+              description: 'Optional file attachment',
+              properties: {
+                base64: { type: 'string', description: 'Base64-encoded file content' },
+                mimeType: { type: 'string', description: 'MIME type of the file' },
+                name: { type: 'string', description: 'Filename' }
+              },
+              required: ['base64', 'mimeType', 'name']
+            }
           },
           required: ['sessionId', 'prompt']
         }
@@ -1721,19 +1757,21 @@ export class MCPServer {
   // ========================================
 
   private async callClaudeAPIDirect(args: any, abortSignal?: AbortSignal): Promise<any> {
-    const { 
-      message, 
-      messages, 
-      systemPrompt, 
-      sessionId, 
+    const {
+      message,
+      messages,
+      systemPrompt,
+      sessionId,
       participantId,
       temperature = 0.7,
       maxTokens = 2000,
-      model = 'claude-sonnet-4-5-20250929'
+      model = 'claude-sonnet-4-5-20250929',
+      imageBase64,
+      imageMimeType
     } = args;
-    
+
     console.log('🔧 Using direct Claude API call with retry logic');
-    
+
     return this.retryWithBackoff(
       async () => {
         if (abortSignal?.aborted) {
@@ -1741,7 +1779,7 @@ export class MCPServer {
         }
         // Process messages
         let processedMessages: any[];
-        
+
         if (messages && Array.isArray(messages)) {
           processedMessages = messages;
         } else if (message && typeof message === 'string') {
@@ -1749,19 +1787,22 @@ export class MCPServer {
         } else {
           throw new Error('No valid message or messages provided to Claude API');
         }
-        
+
         if (!processedMessages || processedMessages.length === 0) {
           throw new Error('Empty messages provided to Claude API');
         }
-        
+
         const apiKey = process.env.ANTHROPIC_API_KEY;
         if (!apiKey) {
           throw new Error('Anthropic API key not configured');
         }
-        
-        // Filter out empty messages and ensure proper format
-        const validMessages = processedMessages.filter(msg => 
-          msg && msg.content && typeof msg.content === 'string' && msg.content.trim()
+
+        // Filter out empty messages and ensure proper format - handle both string and array content
+        const validMessages = processedMessages.filter(msg =>
+          msg && msg.content && (
+            (typeof msg.content === 'string' && msg.content.trim()) ||
+            (Array.isArray(msg.content) && msg.content.length > 0)
+          )
         );
 
         if (validMessages.length === 0) {
@@ -1775,14 +1816,98 @@ export class MCPServer {
 
           if (role === 'system') {
             role = 'user';
-            content = `[System Context] ${content}`;
+            content = typeof content === 'string' ? `[System Context] ${content}` : content;
           }
 
           return {
             role: role === 'user' ? 'user' : 'assistant',
-            content: content.trim()
+            content: typeof content === 'string' ? content.trim() : content
           };
         });
+
+        // If we have a file attachment, modify the last user message to include it
+        if (imageBase64 && imageMimeType) {
+          // Find the last user message or create one
+          const lastUserMsgIndex = claudeMessages.map((m: any) => m.role).lastIndexOf('user');
+          if (lastUserMsgIndex >= 0) {
+            const lastMsg = claudeMessages[lastUserMsgIndex];
+            const textContent = typeof lastMsg.content === 'string' ? lastMsg.content : '';
+
+            // Determine if this is an image, document (PDF), or text file
+            const isImage = imageMimeType.startsWith('image/');
+            const isPDF = imageMimeType === 'application/pdf';
+            const isTextFile = [
+              'text/plain', 'text/markdown', 'application/json',
+              'application/x-latex', 'text/x-latex', 'application/x-tex', 'text/x-tex'
+            ].includes(imageMimeType);
+
+            let fileContent: any;
+            if (isImage) {
+              // Use image format for images
+              fileContent = {
+                type: 'image',
+                source: {
+                  type: 'base64',
+                  media_type: imageMimeType,
+                  data: imageBase64
+                }
+              };
+            } else if (isPDF) {
+              // Use document format for PDFs (Claude's native PDF support)
+              fileContent = {
+                type: 'document',
+                source: {
+                  type: 'base64',
+                  media_type: 'application/pdf',
+                  data: imageBase64
+                }
+              };
+            } else if (isTextFile) {
+              // For text files (TXT, MD, JSON, LaTeX), decode base64 and include as text
+              try {
+                const decodedText = Buffer.from(imageBase64, 'base64').toString('utf-8');
+                const isLatex = ['application/x-latex', 'text/x-latex', 'application/x-tex', 'text/x-tex'].includes(imageMimeType);
+                const fileLabel = imageMimeType === 'application/json' ? 'JSON file' :
+                                  imageMimeType === 'text/markdown' ? 'Markdown file' :
+                                  isLatex ? 'LaTeX file' : 'Text file';
+                // Include as part of the text content
+                fileContent = {
+                  type: 'text',
+                  text: `[${fileLabel} content]:\n\`\`\`\n${decodedText}\n\`\`\`\n\n`
+                };
+              } catch (e) {
+                console.log(`⚠️ Failed to decode text file: ${e}`);
+                fileContent = null;
+              }
+            } else {
+              // For other file types, skip
+              console.log(`⚠️ Unsupported file type for Claude: ${imageMimeType}, skipping attachment`);
+              fileContent = null;
+            }
+
+            if (fileContent) {
+              if (isTextFile && fileContent.type === 'text') {
+                // For text files, combine the file content with the user's message
+                claudeMessages[lastUserMsgIndex] = {
+                  role: 'user',
+                  content: fileContent.text + textContent
+                };
+              } else {
+                // For images and PDFs, use the content array format
+                claudeMessages[lastUserMsgIndex] = {
+                  role: 'user',
+                  content: [
+                    fileContent,
+                    {
+                      type: 'text',
+                      text: textContent
+                    }
+                  ]
+                };
+              }
+            }
+          }
+        }
 
         // Ensure conversation starts with user message
         if (claudeMessages.length > 0 && claudeMessages[0].role !== 'user') {
@@ -1793,7 +1918,7 @@ export class MCPServer {
         }
 
         // Build request
-        const requestBody: any = {  // <- ADD ': any' type annotation
+        const requestBody: any = {
           model: model,
           max_tokens: Math.min(maxTokens, 4000),
           temperature: Math.max(0, Math.min(1, temperature)),
@@ -1801,14 +1926,16 @@ export class MCPServer {
         };
 
         if (systemPrompt) {
-          requestBody.system = systemPrompt;  // <- NOW THIS WORKS
+          requestBody.system = systemPrompt;
         }
 
-        console.log('🤖 Calling Claude API:', { 
-          model, 
+        console.log('🤖 Calling Claude API:', {
+          model,
           messageCount: claudeMessages.length,
           temperature,
-          maxTokens: requestBody.max_tokens
+          maxTokens: requestBody.max_tokens,
+          hasAttachment: !!imageBase64,
+          attachmentType: imageMimeType || 'none'
         });
 
         const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -1861,29 +1988,31 @@ export class MCPServer {
   }
 
   private async callOpenAIAPIDirect(args: any, abortSignal?: AbortSignal): Promise<any> {
-    const { 
-      message, 
-      messages, 
-      systemPrompt, 
-      model = 'gpt-4', 
-      sessionId, 
+    const {
+      message,
+      messages,
+      systemPrompt,
+      model = 'gpt-4',
+      sessionId,
       participantId,
       temperature = 0.7,
-      maxTokens = 2000
+      maxTokens = 2000,
+      imageBase64,
+      imageMimeType
     } = args;
-    
+
     console.log('🔧 Using direct OpenAI API call with retry logic');
-    
+
     return this.retryWithBackoff(
       async () => {
         // Handle both parameter formats
         let processedMessages: any[];
-        
+
         if (messages && Array.isArray(messages)) {
           processedMessages = messages;
         } else if (message && typeof message === 'string') {
           processedMessages = [{ role: 'user', content: message }];
-          
+
           // Add system prompt if provided
           if (systemPrompt) {
             processedMessages.unshift({ role: 'system', content: systemPrompt });
@@ -1891,23 +2020,75 @@ export class MCPServer {
         } else {
           throw new Error('No valid message or messages provided to OpenAI API');
         }
-        
+
         if (!processedMessages || processedMessages.length === 0) {
           throw new Error('Empty messages provided to OpenAI API');
         }
-        
+
         const apiKey = process.env.OPENAI_API_KEY;
         if (!apiKey) {
           throw new Error('OpenAI API key not configured');
         }
-        
-        // Filter out empty messages and ensure proper format
+
+        // Filter out empty messages and ensure proper format - handle both string and array content
         const validMessages = processedMessages.filter(msg =>
-          msg && msg.content && typeof msg.content === 'string' && msg.content.trim()
+          msg && msg.content && (
+            (typeof msg.content === 'string' && msg.content.trim()) ||
+            (Array.isArray(msg.content) && msg.content.length > 0)
+          )
         );
 
         if (validMessages.length === 0) {
           throw new Error('No valid messages provided');
+        }
+
+        // If we have a file attachment, modify the last user message to include it
+        if (imageBase64 && imageMimeType) {
+          const lastUserMsgIndex = validMessages.map((m: any) => m.role).lastIndexOf('user');
+          if (lastUserMsgIndex >= 0) {
+            const lastMsg = validMessages[lastUserMsgIndex];
+            const textContent = typeof lastMsg.content === 'string' ? lastMsg.content : '';
+
+            const isImage = imageMimeType.startsWith('image/');
+            const isTextFile = [
+              'text/plain', 'text/markdown', 'application/json',
+              'application/x-latex', 'text/x-latex', 'application/x-tex', 'text/x-tex'
+            ].includes(imageMimeType);
+
+            if (isImage || imageMimeType === 'application/pdf') {
+              // Use vision format for images and PDFs
+              validMessages[lastUserMsgIndex] = {
+                role: 'user',
+                content: [
+                  {
+                    type: 'image_url',
+                    image_url: {
+                      url: `data:${imageMimeType};base64,${imageBase64}`
+                    }
+                  },
+                  {
+                    type: 'text',
+                    text: textContent
+                  }
+                ]
+              };
+            } else if (isTextFile) {
+              // For text files, decode and include as text
+              try {
+                const decodedText = Buffer.from(imageBase64, 'base64').toString('utf-8');
+                const isLatex = ['application/x-latex', 'text/x-latex', 'application/x-tex', 'text/x-tex'].includes(imageMimeType);
+                const fileLabel = imageMimeType === 'application/json' ? 'JSON file' :
+                                  imageMimeType === 'text/markdown' ? 'Markdown file' :
+                                  isLatex ? 'LaTeX file' : 'Text file';
+                validMessages[lastUserMsgIndex] = {
+                  role: 'user',
+                  content: `[${fileLabel} content]:\n\`\`\`\n${decodedText}\n\`\`\`\n\n${textContent}`
+                };
+              } catch (e) {
+                console.log(`⚠️ Failed to decode text file for OpenAI: ${e}`);
+              }
+            }
+          }
         }
 
         // Determine if this is a newer model that requires max_completion_tokens
@@ -2005,24 +2186,26 @@ export class MCPServer {
   }
 
   private async callGrokAPIDirect(args: any, abortSignal?: AbortSignal): Promise<any> {
-    const { 
-      message, 
-      messages, 
-      systemPrompt, 
-      sessionId, 
+    const {
+      message,
+      messages,
+      systemPrompt,
+      sessionId,
       participantId,
       temperature = 0.7,
       maxTokens = 2000,
-      model = 'grok-3-latest'
+      model = 'grok-3-latest',
+      imageBase64,
+      imageMimeType
     } = args;
-    
+
     console.log('🔧 Using direct Grok API call with retry logic');
-    
+
     return this.retryWithBackoff(
       async () => {
         // Process messages
         let processedMessages: any[];
-        
+
         if (messages && Array.isArray(messages)) {
           processedMessages = messages;
         } else if (message && typeof message === 'string') {
@@ -2030,19 +2213,22 @@ export class MCPServer {
         } else {
           throw new Error('No valid message or messages provided to Grok API');
         }
-        
+
         if (!processedMessages || processedMessages.length === 0) {
           throw new Error('Empty messages provided to Grok API');
         }
-        
+
         const apiKey = process.env.XAI_API_KEY;
         if (!apiKey) {
           throw new Error('xAI API key not configured');
         }
-        
+
         // Filter out empty messages and ensure proper format
-        const validMessages = processedMessages.filter(msg => 
-          msg && msg.content && typeof msg.content === 'string' && msg.content.trim()
+        const validMessages = processedMessages.filter(msg =>
+          msg && msg.content && (
+            (typeof msg.content === 'string' && msg.content.trim()) ||
+            (Array.isArray(msg.content) && msg.content.length > 0)
+          )
         );
 
         if (validMessages.length === 0) {
@@ -2054,6 +2240,30 @@ export class MCPServer {
           role: msg.role,
           content: msg.content
         }));
+
+        // If we have an image attachment, modify the last user message (OpenAI format)
+        if (imageBase64 && imageMimeType) {
+          const lastUserMsgIndex = grokMessages.map((m: any) => m.role).lastIndexOf('user');
+          if (lastUserMsgIndex >= 0) {
+            const lastMsg = grokMessages[lastUserMsgIndex];
+            const textContent = typeof lastMsg.content === 'string' ? lastMsg.content : '';
+            grokMessages[lastUserMsgIndex] = {
+              role: 'user',
+              content: [
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: `data:${imageMimeType};base64,${imageBase64}`
+                  }
+                },
+                {
+                  type: 'text',
+                  text: textContent
+                }
+              ]
+            };
+          }
+        }
 
         // Add system prompt if provided
         if (systemPrompt) {
@@ -2120,24 +2330,26 @@ export class MCPServer {
   }
 
   private async callGeminiAPIDirect(args: any, abortSignal?: AbortSignal): Promise<any> {
-    const { 
-      message, 
-      messages, 
-      systemPrompt, 
-      sessionId, 
+    const {
+      message,
+      messages,
+      systemPrompt,
+      sessionId,
       participantId,
       temperature = 0.7,
       maxTokens = 2000,
-      model = 'gemini-2.0-flash'
+      model = 'gemini-2.0-flash',
+      imageBase64,
+      imageMimeType
     } = args;
-    
+
     console.log('🔧 Using direct Gemini API call with retry logic');
-    
+
     return this.retryWithBackoff(
       async () => {
         // Process messages
         let processedMessages: any[];
-        
+
         if (messages && Array.isArray(messages)) {
           processedMessages = messages;
         } else if (message && typeof message === 'string') {
@@ -2145,19 +2357,22 @@ export class MCPServer {
         } else {
           throw new Error('No valid message or messages provided to Gemini API');
         }
-        
+
         if (!processedMessages || processedMessages.length === 0) {
           throw new Error('Empty messages provided to Gemini API');
         }
-        
+
         const apiKey = process.env.GOOGLE_AI_API_KEY;
         if (!apiKey) {
           throw new Error('Google AI API key not configured');
         }
-        
+
         // Filter out empty messages and ensure proper format
-        const validMessages = processedMessages.filter(msg => 
-          msg && msg.content && typeof msg.content === 'string' && msg.content.trim()
+        const validMessages = processedMessages.filter(msg =>
+          msg && msg.content && (
+            (typeof msg.content === 'string' && msg.content.trim()) ||
+            (Array.isArray(msg.content) && msg.content.length > 0)
+          )
         );
 
         if (validMessages.length === 0) {
@@ -2167,7 +2382,7 @@ export class MCPServer {
         // Transform messages to Gemini format
         const geminiContents = validMessages.map((msg: any) => {
           let role = msg.role;
-          
+
           // Gemini uses 'user' and 'model' roles
           if (role === 'assistant') {
             role = 'model';
@@ -2178,15 +2393,56 @@ export class MCPServer {
 
           return {
             role,
-            parts: [{ text: msg.content }]
+            parts: [{ text: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content) }] as any[]
           };
         });
 
+        // If we have a file attachment, add it to the last user message
+        if (imageBase64 && imageMimeType) {
+          const lastUserIndex = geminiContents.map((c: any) => c.role).lastIndexOf('user');
+          if (lastUserIndex >= 0) {
+            const isImage = imageMimeType.startsWith('image/');
+            const isPDF = imageMimeType === 'application/pdf';
+            const isTextFile = [
+              'text/plain', 'text/markdown', 'application/json',
+              'application/x-latex', 'text/x-latex', 'application/x-tex', 'text/x-tex'
+            ].includes(imageMimeType);
+
+            if (isImage || isPDF) {
+              // Add image/PDF part before the text using inline_data
+              geminiContents[lastUserIndex].parts.unshift({
+                inline_data: {
+                  mime_type: imageMimeType,
+                  data: imageBase64
+                }
+              } as any);
+            } else if (isTextFile) {
+              // For text files, decode and prepend to text content
+              try {
+                const decodedText = Buffer.from(imageBase64, 'base64').toString('utf-8');
+                const isLatex = ['application/x-latex', 'text/x-latex', 'application/x-tex', 'text/x-tex'].includes(imageMimeType);
+                const fileLabel = imageMimeType === 'application/json' ? 'JSON file' :
+                                  imageMimeType === 'text/markdown' ? 'Markdown file' :
+                                  isLatex ? 'LaTeX file' : 'Text file';
+                const textPart = geminiContents[lastUserIndex].parts.find((p: any) => p.text);
+                if (textPart) {
+                  textPart.text = `[${fileLabel} content]:\n\`\`\`\n${decodedText}\n\`\`\`\n\n${textPart.text}`;
+                }
+              } catch (e) {
+                console.log(`⚠️ Failed to decode text file for Gemini: ${e}`);
+              }
+            }
+          }
+        }
+
         // Handle system prompt by prepending to first user message
         if (systemPrompt) {
-          const firstUserIndex = geminiContents.findIndex(c => c.role === 'user');
+          const firstUserIndex = geminiContents.findIndex((c: any) => c.role === 'user');
           if (firstUserIndex >= 0) {
-            geminiContents[firstUserIndex].parts[0].text = `${systemPrompt}\n\n${geminiContents[firstUserIndex].parts[0].text}`;
+            const textPart = geminiContents[firstUserIndex].parts.find((p: any) => p.text);
+            if (textPart) {
+              textPart.text = `${systemPrompt}\n\n${textPart.text}`;
+            }
           } else {
             geminiContents.unshift({
               role: 'user',
@@ -2253,30 +2509,32 @@ export class MCPServer {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
   private async callOllamaAPIDirect(args: any, abortSignal?: AbortSignal): Promise<any> {
-    const { 
-      message, 
-      messages, 
-      systemPrompt, 
-      sessionId, 
+    const {
+      message,
+      messages,
+      systemPrompt,
+      sessionId,
       participantId,
       temperature = 0.7,
       maxTokens = 2000,
       model = 'llama2',
-      ollamaUrl = 'http://localhost:11434'
+      ollamaUrl = 'http://localhost:11434',
+      imageBase64,
+      imageMimeType
     } = args;
-    
+
     console.log('🦙 Using direct Ollama API call with retry logic');
-    
+
     return this.retryWithBackoff(
       async () => {
         // Process messages
         let processedMessages: any[];
-        
+
         if (messages && Array.isArray(messages)) {
           processedMessages = messages;
         } else if (message && typeof message === 'string') {
           processedMessages = [{ role: 'user', content: message }];
-          
+
           // Add system prompt if provided
           if (systemPrompt) {
             processedMessages.unshift({ role: 'system', content: systemPrompt });
@@ -2284,18 +2542,29 @@ export class MCPServer {
         } else {
           throw new Error('No valid message or messages provided to Ollama API');
         }
-        
+
         if (!processedMessages || processedMessages.length === 0) {
           throw new Error('Empty messages provided to Ollama API');
         }
-        
+
         // Format messages for Ollama API
         const formattedMessages = processedMessages.map(msg => ({
           role: msg.role === 'user' ? 'user' : msg.role === 'system' ? 'system' : 'assistant',
-          content: msg.content
+          content: msg.content,
+          // Ollama uses 'images' array for vision models
+          ...(msg.images ? { images: msg.images } : {})
         }));
 
-        const requestBody = {
+        // If we have an image attachment, add it to the last user message
+        if (imageBase64 && imageMimeType) {
+          const lastUserMsgIndex = formattedMessages.map((m: any) => m.role).lastIndexOf('user');
+          if (lastUserMsgIndex >= 0) {
+            // Ollama expects base64 images without the data URL prefix
+            formattedMessages[lastUserMsgIndex].images = [imageBase64];
+          }
+        }
+
+        const requestBody: any = {
           model: model,
           messages: formattedMessages,
           stream: false,
@@ -2305,12 +2574,13 @@ export class MCPServer {
           }
         };
 
-        console.log('🦙 Calling Ollama API:', { 
-          model, 
+        console.log('🦙 Calling Ollama API:', {
+          model,
           messageCount: formattedMessages.length,
           temperature,
           maxTokens,
-          ollamaUrl
+          ollamaUrl,
+          hasImage: !!imageBase64
         });
 
         const response = await fetch(`${ollamaUrl}/api/chat`, {
@@ -2359,29 +2629,31 @@ export class MCPServer {
   }
 
   private async callDeepseekAPIDirect(args: any, abortSignal?: AbortSignal): Promise<any> {
-    const { 
-      message, 
-      messages, 
-      systemPrompt, 
-      model = 'deepseek-chat', 
-      sessionId, 
+    const {
+      message,
+      messages,
+      systemPrompt,
+      model = 'deepseek-chat',
+      sessionId,
       participantId,
       temperature = 0.7,
-      maxTokens = 2000
+      maxTokens = 2000,
+      imageBase64,
+      imageMimeType
     } = args;
-    
+
     console.log('🔧 Using direct Deepseek API call with retry logic');
-    
+
     return this.retryWithBackoff(
       async () => {
         // Handle both parameter formats
         let processedMessages: any[];
-        
+
         if (messages && Array.isArray(messages)) {
           processedMessages = messages;
         } else if (message && typeof message === 'string') {
           processedMessages = [{ role: 'user', content: message }];
-          
+
           // Add system prompt if provided
           if (systemPrompt) {
             processedMessages.unshift({ role: 'system', content: systemPrompt });
@@ -2389,23 +2661,51 @@ export class MCPServer {
         } else {
           throw new Error('No valid message or messages provided to Deepseek API');
         }
-        
+
         if (!processedMessages || processedMessages.length === 0) {
           throw new Error('Empty messages provided to Deepseek API');
         }
-        
+
         const apiKey = process.env.DEEPSEEK_API_KEY;
         if (!apiKey) {
           throw new Error('Deepseek API key not configured');
         }
-        
+
         // Filter out empty messages and ensure proper format
-        const validMessages = processedMessages.filter(msg => 
-          msg && msg.content && typeof msg.content === 'string' && msg.content.trim()
+        const validMessages = processedMessages.filter(msg =>
+          msg && msg.content && (
+            (typeof msg.content === 'string' && msg.content.trim()) ||
+            (Array.isArray(msg.content) && msg.content.length > 0)
+          )
         );
 
         if (validMessages.length === 0) {
           throw new Error('No valid messages provided');
+        }
+
+        // If we have an image attachment, modify the last user message (OpenAI format)
+        // Note: Deepseek vision support is limited, but we use OpenAI-compatible format
+        if (imageBase64 && imageMimeType) {
+          const lastUserMsgIndex = validMessages.map((m: any) => m.role).lastIndexOf('user');
+          if (lastUserMsgIndex >= 0) {
+            const lastMsg = validMessages[lastUserMsgIndex];
+            const textContent = typeof lastMsg.content === 'string' ? lastMsg.content : '';
+            validMessages[lastUserMsgIndex] = {
+              role: 'user',
+              content: [
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: `data:${imageMimeType};base64,${imageBase64}`
+                  }
+                },
+                {
+                  type: 'text',
+                  text: textContent
+                }
+              ]
+            };
+          }
         }
 
         const requestBody = {
@@ -2415,10 +2715,11 @@ export class MCPServer {
           max_tokens: Math.min(maxTokens, 4000)
         };
 
-        console.log('🤖 Calling Deepseek API:', { 
-          model, 
+        console.log('🤖 Calling Deepseek API:', {
+          model,
           messageCount: validMessages.length,
           temperature,
+          hasImage: !!imageBase64,
           maxTokens: requestBody.max_tokens
         });
 
@@ -2471,29 +2772,31 @@ export class MCPServer {
   }
 
   private async callMistralAPIDirect(args: any, abortSignal?: AbortSignal): Promise<any> {
-    const { 
-      message, 
-      messages, 
-      systemPrompt, 
-      model = 'mistral-large-latest', 
-      sessionId, 
+    const {
+      message,
+      messages,
+      systemPrompt,
+      model = 'mistral-large-latest',
+      sessionId,
       participantId,
       temperature = 0.7,
-      maxTokens = 2000
+      maxTokens = 2000,
+      imageBase64,
+      imageMimeType
     } = args;
-    
+
     console.log('🔧 Using direct Mistral API call with retry logic');
-    
+
     return this.retryWithBackoff(
       async () => {
         // Handle both parameter formats
         let processedMessages: any[];
-        
+
         if (messages && Array.isArray(messages)) {
           processedMessages = messages;
         } else if (message && typeof message === 'string') {
           processedMessages = [{ role: 'user', content: message }];
-          
+
           // Add system prompt if provided
           if (systemPrompt) {
             processedMessages.unshift({ role: 'system', content: systemPrompt });
@@ -2501,23 +2804,48 @@ export class MCPServer {
         } else {
           throw new Error('No valid message or messages provided to Mistral API');
         }
-        
+
         if (!processedMessages || processedMessages.length === 0) {
           throw new Error('Empty messages provided to Mistral API');
         }
-        
+
         const apiKey = process.env.MISTRAL_API_KEY;
         if (!apiKey) {
           throw new Error('Mistral API key not configured');
         }
-        
+
         // Filter out empty messages and ensure proper format
-        const validMessages = processedMessages.filter(msg => 
-          msg && msg.content && typeof msg.content === 'string' && msg.content.trim()
+        const validMessages = processedMessages.filter(msg =>
+          msg && msg.content && (
+            (typeof msg.content === 'string' && msg.content.trim()) ||
+            (Array.isArray(msg.content) && msg.content.length > 0)
+          )
         );
 
         if (validMessages.length === 0) {
           throw new Error('No valid messages provided');
+        }
+
+        // If we have an image attachment, modify the last user message (Pixtral format)
+        if (imageBase64 && imageMimeType) {
+          const lastUserMsgIndex = validMessages.map((m: any) => m.role).lastIndexOf('user');
+          if (lastUserMsgIndex >= 0) {
+            const lastMsg = validMessages[lastUserMsgIndex];
+            const textContent = typeof lastMsg.content === 'string' ? lastMsg.content : '';
+            validMessages[lastUserMsgIndex] = {
+              role: 'user',
+              content: [
+                {
+                  type: 'image_url',
+                  image_url: `data:${imageMimeType};base64,${imageBase64}`
+                },
+                {
+                  type: 'text',
+                  text: textContent
+                }
+              ]
+            };
+          }
         }
 
         const requestBody = {
@@ -2527,10 +2855,11 @@ export class MCPServer {
           max_tokens: Math.min(maxTokens, 4000)
         };
 
-        console.log('🤖 Calling Mistral API:', { 
-          model, 
+        console.log('🤖 Calling Mistral API:', {
+          model,
           messageCount: validMessages.length,
           temperature,
+          hasImage: !!imageBase64,
           maxTokens: requestBody.max_tokens
         });
 
@@ -2591,21 +2920,23 @@ export class MCPServer {
       sessionId,
       participantId,
       temperature = 0.7,
-      maxTokens = 2000
+      maxTokens = 2000,
+      imageBase64,
+      imageMimeType
     } = args;
-    
+
     console.log('🔧 Using direct Cohere API call with retry logic');
-    
+
     return this.retryWithBackoff(
       async () => {
         // Handle both parameter formats
         let processedMessages: any[];
-        
+
         if (messages && Array.isArray(messages)) {
           processedMessages = messages;
         } else if (message && typeof message === 'string') {
           processedMessages = [{ role: 'user', content: message }];
-          
+
           // Add system prompt if provided
           if (systemPrompt) {
             processedMessages.unshift({ role: 'system', content: systemPrompt });
@@ -2613,23 +2944,51 @@ export class MCPServer {
         } else {
           throw new Error('No valid message or messages provided to Cohere API');
         }
-        
+
         if (!processedMessages || processedMessages.length === 0) {
           throw new Error('Empty messages provided to Cohere API');
         }
-        
+
         const apiKey = process.env.COHERE_API_KEY;
         if (!apiKey) {
           throw new Error('Cohere API key not configured');
         }
-        
+
         // Filter out empty messages and ensure proper format
         const validMessages = processedMessages.filter(msg =>
-          msg && msg.content && typeof msg.content === 'string' && msg.content.trim()
+          msg && msg.content && (
+            (typeof msg.content === 'string' && msg.content.trim()) ||
+            (Array.isArray(msg.content) && msg.content.length > 0)
+          )
         );
 
         if (validMessages.length === 0) {
           throw new Error('No valid messages provided');
+        }
+
+        // If we have an image attachment, modify the last user message
+        // Cohere uses content array with type: 'image_url' format
+        if (imageBase64 && imageMimeType) {
+          const lastUserMsgIndex = validMessages.map((m: any) => m.role).lastIndexOf('user');
+          if (lastUserMsgIndex >= 0) {
+            const lastMsg = validMessages[lastUserMsgIndex];
+            const textContent = typeof lastMsg.content === 'string' ? lastMsg.content : '';
+            validMessages[lastUserMsgIndex] = {
+              role: 'user',
+              content: [
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: `data:${imageMimeType};base64,${imageBase64}`
+                  }
+                },
+                {
+                  type: 'text',
+                  text: textContent
+                }
+              ]
+            };
+          }
         }
 
         const requestBody = {
@@ -2644,7 +3003,8 @@ export class MCPServer {
           model,
           messageCount: validMessages.length,
           temperature,
-          maxTokens: requestBody.max_tokens
+          maxTokens: requestBody.max_tokens,
+          hasImage: !!imageBase64
         });
 
         const response = await fetch('https://api.cohere.ai/v2/chat', {
@@ -3898,8 +4258,8 @@ export class MCPServer {
 
   private async toolStartConversation(args: any): Promise<any> {
     try {
-      const { sessionId, initialPrompt, maxMessageCount } = args  // Add maxMessageCount
-      
+      const { sessionId, initialPrompt, maxMessageCount, fileAttachment } = args
+
       if (!sessionId) {
         throw new Error('Session ID is required')
       }
@@ -3907,13 +4267,13 @@ export class MCPServer {
       const session = await db.query.sessions.findFirst({
         where: eq(sessions.id, sessionId)
       })
-      
+
       if (!session) {
         throw new Error(`Session ${sessionId} not found`)
       }
 
-      // Start the conversation using the server-side conversation manager with maxMessageCount
-      await this.conversationManager.startConversation(sessionId, initialPrompt, maxMessageCount)
+      // Start the conversation using the server-side conversation manager with maxMessageCount and fileAttachment
+      await this.conversationManager.startConversation(sessionId, initialPrompt, maxMessageCount, fileAttachment)
 
       return {
         success: true,
@@ -3921,6 +4281,7 @@ export class MCPServer {
         status: 'active',
         initialPrompt: initialPrompt || null,
         maxMessageCount: maxMessageCount || null,
+        hasFileAttachment: !!fileAttachment,
         message: 'Conversation started successfully using server-side management'
       }
     } catch (error) {
@@ -4251,8 +4612,8 @@ export class MCPServer {
 
   private async toolInjectModeratorPrompt(args: any): Promise<any> {
     try {
-      const { sessionId, prompt } = args
-      
+      const { sessionId, prompt, fileAttachment } = args
+
       if (!sessionId || !prompt) {
         throw new Error('Session ID and prompt are required')
       }
@@ -4274,14 +4635,25 @@ export class MCPServer {
         content: prompt,
         metadata: {
           isModeratorPrompt: true,
-          injectedAt: new Date().toISOString()
+          injectedAt: new Date().toISOString(),
+          ...(fileAttachment && {
+            hasAttachment: true,
+            attachmentName: fileAttachment.name,
+            attachmentMimeType: fileAttachment.mimeType
+          })
         }
       }).returning()
+
+      // If there's a file attachment, store it in the conversation state for the next AI response
+      if (fileAttachment) {
+        this.conversationManager.setNextMessageAttachment(sessionId, fileAttachment)
+      }
 
       return {
         success: true,
         sessionId: sessionId,
         messageData: moderatorMessage,
+        hasFileAttachment: !!fileAttachment,
         message: 'Moderator prompt injected successfully'
       }
     } catch (error) {
@@ -5359,13 +5731,21 @@ Return only the JSON object, no additional text.`
             
             // Step 3: Start the conversation with initial prompt via MCP tool
             const initialPrompt = (experimentConfig as any).systemPrompt || experimentConfig.startingPrompt || '';
-            
+
+            // Include file attachment if configured
+            const fileAttachment = experimentConfig.startingPromptAttachment ? {
+              base64: experimentConfig.startingPromptAttachment.base64,
+              mimeType: experimentConfig.startingPromptAttachment.mimeType,
+              name: experimentConfig.startingPromptAttachment.name
+            } : undefined;
+
             const startResult = await this.toolStartConversation({
               sessionId,
               initialPrompt: initialPrompt,
-              maxMessageCount: experimentConfig.maxMessageCount || 20
+              maxMessageCount: experimentConfig.maxMessageCount || 20,
+              fileAttachment
             });
-            
+
             if (!startResult.success) {
               throw new Error(`Failed to start conversation: ${startResult.error}`);
             }

@@ -20,11 +20,12 @@ import { ChatConfigModal, ChatConfig, DEFAULT_CHAT_CONFIG } from '@/components/C
 import { SessionsSection } from '@/components/Sessions/SessionsSection'
 import { ExperimentsInterface } from '@/components/Research/ExperimentsInterface'
 import { ExperimentsList } from '@/components/Research/ExperimentsList'
+import { FileUpload, FileAttachment } from '@/components/Chat/FileUpload'
 import {
   Users, Settings, Play, Pause, Plus, Sparkles, MessageSquare,
   Send, Hand, Square, AlertCircle, Clock, CheckCircle2, Loader2,
   Download, FileDown, ChevronLeft, History,
-  Wifi, WifiOff, Terminal, Monitor, Sliders
+  Wifi, WifiOff, Terminal, Monitor, Sliders, Paperclip
 } from 'lucide-react'
 
 import type { ExperimentConfig } from '@/types/experiment'
@@ -62,6 +63,9 @@ export function ChatInterface() {
   // Chat configuration state
   const [showChatConfigModal, setShowChatConfigModal] = useState(false)
   const [chatConfig, setChatConfig] = useState<ChatConfig>(DEFAULT_CHAT_CONFIG)
+
+  // File attachment state
+  const [fileAttachment, setFileAttachment] = useState<FileAttachment | null>(null)
 
   // Template prompt hook
   const { suggestedPrompt, clearSuggestedPrompt } = useTemplatePrompt()
@@ -425,11 +429,19 @@ export function ChatInterface() {
       setConversationState('starting')
       setError(null)
 
+      // Prepare file attachment data if present
+      const attachmentData = fileAttachment ? {
+        base64: fileAttachment.base64,
+        mimeType: fileAttachment.mimeType,
+        name: fileAttachment.name,
+      } : undefined
+
       // Start the AI-to-AI conversation using server-side orchestration
       // This calls the MCP start_conversation tool which uses ServerConversationManager
-      await mcpClient.startConversationViaMCP(currentSession.id, moderatorInput.trim())
+      await mcpClient.startConversationViaMCP(currentSession.id, moderatorInput.trim(), attachmentData)
 
       setModeratorInput('')
+      setFileAttachment(null)
       setConversationState('running')
 
     } catch (error) {
@@ -499,16 +511,24 @@ export function ChatInterface() {
 
   const handleInterject = async () => {
     if (!currentSession) return
-    
+
     if (isInterjecting) {
       // Send the interjection
       if (moderatorInput.trim()) {
+        // Prepare file attachment data if present
+        const attachmentData = fileAttachment ? {
+          base64: fileAttachment.base64,
+          mimeType: fileAttachment.mimeType,
+          name: fileAttachment.name,
+        } : undefined
+
         // This will emit events automatically via internal pub/sub
-        await mcpClient.injectPromptViaMCP(currentSession.id, moderatorInput.trim())
+        await mcpClient.injectPromptViaMCP(currentSession.id, moderatorInput.trim(), attachmentData)
         setModeratorInput('')
+        setFileAttachment(null)
       }
       setIsInterjecting(false)
-      
+
       // Resume conversation if it was running before interjection
       if (wasRunningBeforeInterjection) {
         await handleResumeConversation()
@@ -518,7 +538,7 @@ export function ChatInterface() {
       // Start interjecting
       const wasRunning = conversationState === 'running'
       setWasRunningBeforeInterjection(wasRunning)
-      
+
       if (wasRunning) {
         await handlePauseConversation()
       }
@@ -1058,8 +1078,8 @@ export function ChatInterface() {
               {currentSession.messages.map((message: any) => (
                 <div key={message.id} className="message-appear">
                   <div className="flex gap-4">
-                    <ParticipantAvatar 
-                      participantType={message.participantType} 
+                    <ParticipantAvatar
+                      participantType={message.participantType}
                       size="md"
                     />
                     <div className="flex-1 min-w-0">
@@ -1073,6 +1093,13 @@ export function ChatInterface() {
                         <span className="text-xs text-gray-500 dark:text-gray-400">
                           {new Date(message.timestamp).toLocaleTimeString()}
                         </span>
+                        {/* Show attachment indicator if message has one */}
+                        {message.metadata?.hasAttachment && (
+                          <span className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
+                            <Paperclip className="h-3 w-3" />
+                            {message.metadata.attachmentName}
+                          </span>
+                        )}
                       </div>
                       <div className="prose prose-gray dark:prose-invert max-w-none">
                         <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-200 dark:border-gray-700">
@@ -1131,25 +1158,46 @@ export function ChatInterface() {
               </div>
             )}
             
+            {/* File attachment preview */}
+            {fileAttachment && (
+              <div className="mb-3">
+                <FileUpload
+                  attachment={fileAttachment}
+                  onFileSelect={setFileAttachment}
+                  disabled={!hasAIParticipants || conversationState === 'starting' || conversationState === 'stopping'}
+                />
+              </div>
+            )}
+
             <div className="flex gap-4">
-              <div className="flex-1">
+              <div className="flex-1 relative">
                 <textarea
                   value={moderatorInput}
                   onChange={(e) => setModeratorInput(e.target.value)}
                   onKeyDown={handleKeyPress}
                   placeholder={
-                    !hasAIParticipants 
+                    !hasAIParticipants
                       ? "Add at least 2 AI participants first..."
-                      : hasMessages 
+                      : hasMessages
                         ? (isInterjecting ? "Enter your interjection..." : "Interject with guidance...")
                         : "Enter an opening prompt to begin the AI conversation..."
                   }
                   disabled={!hasAIParticipants || conversationState === 'starting' || conversationState === 'stopping'}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none min-h-[60px] max-h-[200px] disabled:opacity-50"
+                  className="w-full px-4 py-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none min-h-[60px] max-h-[200px] disabled:opacity-50"
                   rows={3}
                 />
+                {/* File upload button - positioned in lower right corner */}
+                {!fileAttachment && (
+                  <div className="absolute right-2 bottom-2">
+                    <FileUpload
+                      attachment={null}
+                      onFileSelect={setFileAttachment}
+                      disabled={!hasAIParticipants || conversationState === 'starting' || conversationState === 'stopping'}
+                    />
+                  </div>
+                )}
               </div>
-              
+
               <div className="flex flex-col gap-2 flex-shrink-0">
                 {hasMessages ? (
                   <Button

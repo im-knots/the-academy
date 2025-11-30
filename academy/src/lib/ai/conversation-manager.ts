@@ -39,6 +39,12 @@ interface ConversationContext {
   }
 }
 
+interface FileAttachment {
+  base64: string
+  mimeType: string
+  name: string
+}
+
 interface ConversationState {
   isRunning: boolean
   participantQueue: string[]
@@ -54,6 +60,7 @@ interface ConversationState {
   interruptedAt: Date | null
   resumeFromParticipant?: string
   cleanupInProgress?: boolean
+  fileAttachment?: FileAttachment  // File attachment for the initial prompt
 }
 
 export class ServerConversationManager {
@@ -72,10 +79,18 @@ export class ServerConversationManager {
     return ServerConversationManager.instance
   }
 
-  async startConversation(sessionId: string, initialPrompt?: string, maxMessageCount?: number): Promise<void> {
+  async startConversation(
+    sessionId: string,
+    initialPrompt?: string,
+    maxMessageCount?: number,
+    fileAttachment?: FileAttachment
+  ): Promise<void> {
     console.log('🚀 Starting server-side conversation for session:', sessionId)
     if (maxMessageCount) {
       console.log(`📊 Max message count set to: ${maxMessageCount}`)
+    }
+    if (fileAttachment) {
+      console.log(`📎 File attachment: ${fileAttachment.name} (${fileAttachment.mimeType})`)
     }
 
     // Cancel any existing conversation for this session
@@ -103,7 +118,7 @@ export class ServerConversationManager {
     const abortController = new AbortController()
 
     // Sort participants by creation order for sequential conversation
-    const sortedParticipants = aiParticipants.sort((a, b) => 
+    const sortedParticipants = aiParticipants.sort((a, b) =>
       new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     )
 
@@ -112,13 +127,13 @@ export class ServerConversationManager {
       await this.updateParticipantStatus(sessionId, participant.id, PARTICIPANT_STATUS.ACTIVE)
     }
 
-    // Initialize conversation state with maxMessageCount
+    // Initialize conversation state with maxMessageCount and fileAttachment
     this.activeConversations.set(sessionId, {
       isRunning: true,
       participantQueue: sortedParticipants.map(p => p.id),
       currentParticipantIndex: 0,
       messageCount: 0,
-      maxMessageCount: maxMessageCount || undefined,  // Store the max message count
+      maxMessageCount: maxMessageCount || undefined,
       abortController,
       isGenerating: false,
       lastGeneratedBy: undefined,
@@ -127,7 +142,8 @@ export class ServerConversationManager {
       interruptedParticipantId: undefined,
       interruptedAt: null,
       resumeFromParticipant: undefined,
-      cleanupInProgress: false
+      cleanupInProgress: false,
+      fileAttachment: fileAttachment  // Store file attachment for first response
     })
 
     console.log('📋 Sequential participant order:', sortedParticipants.map(p => `${p.name} (${p.type})`).join(' → '))
@@ -451,8 +467,19 @@ export class ServerConversationManager {
       // Build system prompt
       const systemPrompt = await this.buildSystemPrompt(participant, context)
 
+      // Check if we have a file attachment to include
+      // For initial prompts, only include on first AI response (messageCount === 0)
+      // For moderator interjections, always include if present (cleared after use)
+      const fileAttachment = conversationState?.fileAttachment
+
+      // Clear the file attachment after use (one-time use per interjection/initial prompt)
+      if (fileAttachment && conversationState) {
+        conversationState.fileAttachment = undefined
+        console.log(`📎 Including file attachment in response: ${fileAttachment.name}`)
+      }
+
       // Prepare tool arguments
-      const toolArgs = {
+      const toolArgs: any = {
         messages:
           (['gpt', 'grok', 'gemini', 'ollama', 'deepseek', 'mistral', 'cohere'].includes(participant.type) && systemPrompt)
             ? [{ role: 'system', content: systemPrompt }, ...messages]
@@ -461,11 +488,16 @@ export class ServerConversationManager {
         maxTokens: context.settings.maxTokens,
         model: context.settings.model,
         ...(participant.type === 'claude' && systemPrompt && { systemPrompt }),
-        ...(participant.type === 'ollama' && { 
-          ollamaUrl: participant.settings?.ollamaUrl || 'http://localhost:11434' 
+        ...(participant.type === 'ollama' && {
+          ollamaUrl: participant.settings?.ollamaUrl || 'http://localhost:11434'
         }),
         sessionId: sessionId,
-        participantId: participant.id
+        participantId: participant.id,
+        // Include file attachment if present (for vision-capable models)
+        ...(fileAttachment && {
+          imageBase64: fileAttachment.base64,
+          imageMimeType: fileAttachment.mimeType
+        })
       }
 
       // Check abort signal again before API call
@@ -798,12 +830,21 @@ Remember: You are ${participant.name}, not any other participant. Always maintai
   // Add cleanup method for experiments
   async cleanupExperimentSessions(experimentId: string): Promise<void> {
     console.log(`🧹 Cleaning up all sessions for experiment ${experimentId}`)
-    
+
     // Get all active conversations and stop them
     const sessionIds = Array.from(this.activeConversations.keys())
-    
+
     for (const sessionId of sessionIds) {
       await this.stopConversation(sessionId)
+    }
+  }
+
+  // Set a file attachment for the next AI response (used by moderator interjections)
+  setNextMessageAttachment(sessionId: string, fileAttachment: FileAttachment): void {
+    const conversationState = this.activeConversations.get(sessionId)
+    if (conversationState) {
+      conversationState.fileAttachment = fileAttachment
+      console.log(`📎 Set file attachment for next response in session ${sessionId}: ${fileAttachment.name}`)
     }
   }
 }
