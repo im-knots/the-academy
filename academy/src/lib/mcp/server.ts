@@ -780,6 +780,58 @@ export class MCPServer {
         }
       },
       {
+        name: 'get_session_analysis_config',
+        description: 'Get the analysis configuration for a session',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            sessionId: { type: 'string', description: 'Session ID' }
+          },
+          required: ['sessionId']
+        }
+      },
+      {
+        name: 'update_session_analysis_config',
+        description: 'Update the analysis configuration for a session',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            sessionId: { type: 'string', description: 'Session ID' },
+            provider: { type: 'string', description: 'Analysis provider (claude, gpt, gemini, etc.)' },
+            model: { type: 'string', description: 'Model to use for analysis' },
+            messageWindow: { type: 'number', description: 'Number of messages to analyze (0 = all)' },
+            customPrompt: { type: 'string', description: 'Custom analysis prompt' },
+            autoInterval: { type: 'number', description: 'Auto-analyze every N messages (0 = disabled)' },
+            schema: { type: 'object', description: 'JSON schema defining the analysis output structure' }
+          },
+          required: ['sessionId']
+        }
+      },
+      {
+        name: 'get_session_chat_config',
+        description: 'Get the chat configuration for a session (context window, system prompt)',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            sessionId: { type: 'string', description: 'Session ID' }
+          },
+          required: ['sessionId']
+        }
+      },
+      {
+        name: 'update_session_chat_config',
+        description: 'Update the chat configuration for a session',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            sessionId: { type: 'string', description: 'Session ID' },
+            contextWindow: { type: 'number', description: 'Number of messages to include in chat context' },
+            systemPrompt: { type: 'string', description: 'System prompt for chat participants' }
+          },
+          required: ['sessionId']
+        }
+      },
+      {
         name: 'duplicate_session',
         description: 'Duplicate an existing session',
         inputSchema: {
@@ -1466,6 +1518,18 @@ export class MCPServer {
           break
         case 'switch_current_session':
           result = await this.toolSwitchCurrentSession(args)
+          break
+        case 'get_session_analysis_config':
+          result = await this.toolGetSessionAnalysisConfig(args)
+          break
+        case 'update_session_analysis_config':
+          result = await this.toolUpdateSessionAnalysisConfig(args)
+          break
+        case 'get_session_chat_config':
+          result = await this.toolGetSessionChatConfig(args)
+          break
+        case 'update_session_chat_config':
+          result = await this.toolUpdateSessionChatConfig(args)
           break
         case 'duplicate_session':
           result = await this.toolDuplicateSession(args)
@@ -2873,11 +2937,11 @@ export class MCPServer {
   private async toolGetSession(args: any): Promise<any> {
     try {
       const { sessionId } = args
-      
+
       if (!sessionId) {
         throw new Error('Session ID is required')
       }
-      
+
       const session = await db.query.sessions.findFirst({
         where: eq(sessions.id, sessionId),
         with: {
@@ -2887,14 +2951,23 @@ export class MCPServer {
           }
         }
       })
-      
+
       if (!session) {
         throw new Error(`Session ${sessionId} not found`)
       }
-      
+
+      // Also fetch analysis snapshots
+      const snapshots = await db.query.analysisSnapshots.findMany({
+        where: eq(analysisSnapshots.sessionId, sessionId),
+        orderBy: [analysisSnapshots.timestamp]
+      })
+
       return {
         success: true,
-        session,
+        session: {
+          ...session,
+          analysisSnapshots: snapshots
+        },
         message: 'Session retrieved successfully'
       }
     } catch (error) {
@@ -3076,10 +3149,172 @@ export class MCPServer {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private async toolGetSessionAnalysisConfig(args: any): Promise<any> {
+    try {
+      const { sessionId } = args
+
+      if (!sessionId) {
+        throw new Error('Session ID is required')
+      }
+
+      const session = await db.query.sessions.findFirst({
+        where: eq(sessions.id, sessionId)
+      })
+
+      if (!session) {
+        throw new Error(`Session ${sessionId} not found`)
+      }
+
+      return {
+        success: true,
+        sessionId: sessionId,
+        config: {
+          provider: session.analysisProvider,
+          model: session.analysisModel,
+          messageWindow: session.analysisMessageWindow,
+          customPrompt: session.analysisCustomPrompt,
+          autoInterval: session.analysisAutoInterval,
+          schema: session.analysisSchema || {}
+        }
+      }
+    } catch (error) {
+      console.error('Get session analysis config failed:', error)
+      throw new Error(`Failed to get analysis config: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private async toolUpdateSessionAnalysisConfig(args: any): Promise<any> {
+    try {
+      const { sessionId, provider, model, messageWindow, customPrompt, autoInterval, schema } = args
+
+      if (!sessionId) {
+        throw new Error('Session ID is required')
+      }
+
+      const session = await db.query.sessions.findFirst({
+        where: eq(sessions.id, sessionId)
+      })
+
+      if (!session) {
+        throw new Error(`Session ${sessionId} not found`)
+      }
+
+      const updates: any = {
+        updatedAt: new Date()
+      }
+      if (provider !== undefined) updates.analysisProvider = provider
+      if (model !== undefined) updates.analysisModel = model
+      if (messageWindow !== undefined) updates.analysisMessageWindow = messageWindow
+      if (customPrompt !== undefined) updates.analysisCustomPrompt = customPrompt
+      if (autoInterval !== undefined) updates.analysisAutoInterval = autoInterval
+      if (schema !== undefined) updates.analysisSchema = schema
+
+      const [updatedSession] = await db
+        .update(sessions)
+        .set(updates)
+        .where(eq(sessions.id, sessionId))
+        .returning()
+
+      return {
+        success: true,
+        sessionId: sessionId,
+        config: {
+          provider: updatedSession.analysisProvider,
+          model: updatedSession.analysisModel,
+          messageWindow: updatedSession.analysisMessageWindow,
+          customPrompt: updatedSession.analysisCustomPrompt,
+          autoInterval: updatedSession.analysisAutoInterval,
+          schema: updatedSession.analysisSchema || {}
+        },
+        message: 'Analysis config updated successfully'
+      }
+    } catch (error) {
+      console.error('Update session analysis config failed:', error)
+      throw new Error(`Failed to update analysis config: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private async toolGetSessionChatConfig(args: any): Promise<any> {
+    try {
+      const { sessionId } = args
+
+      if (!sessionId) {
+        throw new Error('Session ID is required')
+      }
+
+      const session = await db.query.sessions.findFirst({
+        where: eq(sessions.id, sessionId)
+      })
+
+      if (!session) {
+        throw new Error(`Session ${sessionId} not found`)
+      }
+
+      return {
+        success: true,
+        sessionId: sessionId,
+        config: {
+          contextWindow: session.chatContextWindow,
+          systemPrompt: session.chatSystemPrompt
+        }
+      }
+    } catch (error) {
+      console.error('Get session chat config failed:', error)
+      throw new Error(`Failed to get chat config: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private async toolUpdateSessionChatConfig(args: any): Promise<any> {
+    try {
+      const { sessionId, contextWindow, systemPrompt } = args
+
+      if (!sessionId) {
+        throw new Error('Session ID is required')
+      }
+
+      const session = await db.query.sessions.findFirst({
+        where: eq(sessions.id, sessionId)
+      })
+
+      if (!session) {
+        throw new Error(`Session ${sessionId} not found`)
+      }
+
+      const updates: any = {
+        updatedAt: new Date()
+      }
+      if (contextWindow !== undefined) updates.chatContextWindow = contextWindow
+      if (systemPrompt !== undefined) updates.chatSystemPrompt = systemPrompt
+
+      const [updatedSession] = await db
+        .update(sessions)
+        .set(updates)
+        .where(eq(sessions.id, sessionId))
+        .returning()
+
+      return {
+        success: true,
+        sessionId: sessionId,
+        config: {
+          contextWindow: updatedSession.chatContextWindow,
+          systemPrompt: updatedSession.chatSystemPrompt
+        },
+        message: 'Chat config updated successfully'
+      }
+    } catch (error) {
+      console.error('Update session chat config failed:', error)
+      throw new Error(`Failed to update chat config: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
   private async toolSwitchCurrentSession(args: any): Promise<any> {
     try {
       const { sessionId } = args
-      
+
       if (!sessionId) {
         throw new Error('Session ID is required')
       }

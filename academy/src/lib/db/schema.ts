@@ -25,6 +25,16 @@ export const sessions = pgTable('sessions', {
   status: sessionStatusEnum('status').notNull().default('active'),
   metadata: jsonb('metadata').notNull().default({}),
   moderatorSettings: jsonb('moderator_settings').notNull().default({}),
+  // Analysis configuration
+  analysisProvider: text('analysis_provider').notNull().default('claude'),
+  analysisModel: text('analysis_model').notNull().default('claude-sonnet-4-5-20250929'),
+  analysisMessageWindow: integer('analysis_message_window').notNull().default(10),
+  analysisCustomPrompt: text('analysis_custom_prompt').notNull().default(''),
+  analysisAutoInterval: integer('analysis_auto_interval').notNull().default(5), // 0 = disabled, >0 = every N messages
+  analysisSchema: jsonb('analysis_schema').notNull().default({}), // JSON schema defining output structure
+  // Chat configuration (for participants)
+  chatContextWindow: integer('chat_context_window').notNull().default(20), // how many messages to include in context
+  chatSystemPrompt: text('chat_system_prompt').notNull().default(''), // empty = use default per participant
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow()
 }, (table) => ({

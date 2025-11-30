@@ -15,6 +15,8 @@ import { AddParticipant } from '@/components/Participants/AddParticipant'
 import { ExportModal } from '@/components/Export/ExportModal'
 import { MCPModal } from '@/components/MCP/MCPModal'
 import { LiveSummary } from '@/components/Research/LiveSummary'
+import { AnalysisConfigModal, AnalysisConfig, DEFAULT_ANALYSIS_CONFIG } from '@/components/Research/AnalysisConfigModal'
+import { ChatConfigModal, ChatConfig, DEFAULT_CHAT_CONFIG } from '@/components/Chat/ChatConfigModal'
 import { SessionsSection } from '@/components/Sessions/SessionsSection'
 import { ExperimentsInterface } from '@/components/Research/ExperimentsInterface'
 import { ExperimentsList } from '@/components/Research/ExperimentsList'
@@ -22,33 +24,10 @@ import {
   Users, Settings, Play, Pause, Plus, Sparkles, MessageSquare,
   Send, Hand, Square, AlertCircle, Clock, CheckCircle2, Loader2,
   Download, FileDown, ChevronLeft, History,
-  Wifi, WifiOff, Terminal, Monitor
+  Wifi, WifiOff, Terminal, Monitor, Sliders
 } from 'lucide-react'
 
-interface ExperimentConfig {
-  id: string
-  name: string
-  participants: Array<{
-    type: 'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama' | 'deepseek' | 'mistral' | 'cohere'
-    name: string
-    model?: string
-    temperature?: number
-    maxTokens?: number
-    personality?: string
-    expertise?: string
-    ollamaUrl?: string
-  }>
-  startingPrompt: string
-  analysisContextSize: number
-  analysisProvider: 'claude' | 'gpt'
-  maxMessageCount: number
-  totalSessions: number
-  concurrentSessions: number
-  sessionNamePattern: string
-  errorRateThreshold: number
-  createdAt: Date
-  lastModified: Date
-}
+import type { ExperimentConfig } from '@/types/experiment'
 
 export function ChatInterface() {
   const [showAddParticipant, setShowAddParticipant] = useState(false)
@@ -75,7 +54,15 @@ export function ChatInterface() {
 
   // Combined left panel state
   const [showLeftPanel, setShowLeftPanel] = useState(true)
-  
+
+  // Analysis configuration state
+  const [showAnalysisConfigModal, setShowAnalysisConfigModal] = useState(false)
+  const [analysisConfig, setAnalysisConfig] = useState<AnalysisConfig>(DEFAULT_ANALYSIS_CONFIG)
+
+  // Chat configuration state
+  const [showChatConfigModal, setShowChatConfigModal] = useState(false)
+  const [chatConfig, setChatConfig] = useState<ChatConfig>(DEFAULT_CHAT_CONFIG)
+
   // Template prompt hook
   const { suggestedPrompt, clearSuggestedPrompt } = useTemplatePrompt()
 
@@ -135,6 +122,21 @@ export function ChatInterface() {
           setConversationState('idle')
           setIsSessionPaused(false)
         }
+        // Load analysis config from session
+        setAnalysisConfig({
+          provider: result.session.analysisProvider || DEFAULT_ANALYSIS_CONFIG.provider,
+          model: result.session.analysisModel || DEFAULT_ANALYSIS_CONFIG.model,
+          messageWindow: result.session.analysisMessageWindow ?? DEFAULT_ANALYSIS_CONFIG.messageWindow,
+          customPrompt: result.session.analysisCustomPrompt || DEFAULT_ANALYSIS_CONFIG.customPrompt,
+          autoInterval: result.session.analysisAutoInterval ?? DEFAULT_ANALYSIS_CONFIG.autoInterval,
+          schema: result.session.analysisSchema || DEFAULT_ANALYSIS_CONFIG.schema
+        })
+        // Load chat config from session
+        setChatConfig({
+          contextWindow: result.session.chatContextWindow ?? DEFAULT_CHAT_CONFIG.contextWindow,
+          systemPrompt: result.session.chatSystemPrompt || DEFAULT_CHAT_CONFIG.systemPrompt
+        })
+        console.log('🔄 Analysis and chat config loaded from session')
       } else {
         console.log('🔄 Failed to fetch session or no session found')
       }
@@ -1276,9 +1278,29 @@ export function ChatInterface() {
               <CardContent className="p-4">
                 <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-3">Quick Actions</h3>
                 <div className="space-y-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-start"
+                    onClick={() => setShowChatConfigModal(true)}
+                  >
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    Chat Settings
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-start"
+                    onClick={() => setShowAnalysisConfigModal(true)}
+                  >
+                    <Sliders className="h-4 w-4 mr-2" />
+                    Analysis Settings
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
                     className="w-full justify-start"
                     onClick={() => setShowExportModal(true)}
                     disabled={!hasMessages}
@@ -1286,10 +1308,10 @@ export function ChatInterface() {
                     <Download className="h-4 w-4 mr-2" />
                     Export Chat Data
                   </Button>
-                  
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+
+                  <Button
+                    variant="outline"
+                    size="sm"
                     className="w-full justify-start"
                     onClick={() => setShowMCPModal(true)}
                   >
@@ -1301,7 +1323,7 @@ export function ChatInterface() {
             </Card>
 
             {/* Live AI Analysis */}
-            <LiveSummary sessionId={currentSession.id} />
+            <LiveSummary sessionId={currentSession.id} config={analysisConfig} />
           </div>
         </div>
       )}
@@ -1310,12 +1332,12 @@ export function ChatInterface() {
       {currentSession && (
         <>
           {console.log('🔄 Rendering modals. showAddParticipant:', showAddParticipant, 'currentSession.id:', currentSession.id)}
-          <AddParticipant 
-            isOpen={showAddParticipant} 
-            onClose={() => setShowAddParticipant(false)} 
+          <AddParticipant
+            isOpen={showAddParticipant}
+            onClose={() => setShowAddParticipant(false)}
             sessionId={currentSession.id}
           />
-          
+
           <ExportModal
             isOpen={showExportModal}
             onClose={() => setShowExportModal(false)}
@@ -1326,6 +1348,22 @@ export function ChatInterface() {
             isOpen={showMCPModal}
             onClose={() => setShowMCPModal(false)}
             sessionId={currentSession.id}
+          />
+
+          <AnalysisConfigModal
+            isOpen={showAnalysisConfigModal}
+            onClose={() => setShowAnalysisConfigModal(false)}
+            sessionId={currentSession.id}
+            config={analysisConfig}
+            onSave={setAnalysisConfig}
+          />
+
+          <ChatConfigModal
+            isOpen={showChatConfigModal}
+            onClose={() => setShowChatConfigModal(false)}
+            sessionId={currentSession.id}
+            config={chatConfig}
+            onSave={setChatConfig}
           />
         </>
       )}

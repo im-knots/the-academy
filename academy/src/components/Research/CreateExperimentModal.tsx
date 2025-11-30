@@ -9,8 +9,11 @@ import { ExperimentConfig } from '@/types/experiment'
 import { ParticipantAvatar } from '@/components/ui/ParticipantAvatar'
 import {
   X, Plus, Upload, Save, Users, AlertCircle,
-  TestTubeDiagonal, ChevronDown, ChevronUp, RefreshCw, Loader2
+  TestTubeDiagonal, ChevronDown, ChevronUp, RefreshCw, Loader2,
+  Brain, MessageSquare, Layers, Settings, Code
 } from 'lucide-react'
+import { DEFAULT_ANALYSIS_PROMPT, DEFAULT_ANALYSIS_SCHEMA, type AnalysisSchema } from '@/components/Research/AnalysisConfigModal'
+import { DEFAULT_CHAT_SYSTEM_PROMPT } from '@/components/Chat/ChatConfigModal'
 
 interface ParticipantConfig {
   type: 'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama' | 'deepseek' | 'mistral' | 'cohere'
@@ -52,14 +55,28 @@ export function CreateExperimentModal({ isOpen, onClose, onSave }: CreateExperim
     name: '',
     participants: [],
     startingPrompt: '',
-    analysisContextSize: 10,
+    // Analysis config
     analysisProvider: 'claude',
+    analysisModel: 'claude-sonnet-4-5-20250929',
+    analysisContextSize: 10,
+    analysisCustomPrompt: '',
+    analysisAutoInterval: 5,
+    analysisSchema: DEFAULT_ANALYSIS_SCHEMA,
+    // Chat config
+    chatContextWindow: 20,
+    chatSystemPrompt: '',
+    // Execution settings
     maxMessageCount: 50,
     totalSessions: 25,
     concurrentSessions: 3,
     sessionNamePattern: '',
     errorRateThreshold: 0.1
   })
+  const [showAdvancedAnalysis, setShowAdvancedAnalysis] = useState(false)
+  const [showAdvancedChat, setShowAdvancedChat] = useState(false)
+  const [showSchemaEditor, setShowSchemaEditor] = useState(false)
+  const [schemaText, setSchemaText] = useState(JSON.stringify(DEFAULT_ANALYSIS_SCHEMA, null, 2))
+  const [schemaError, setSchemaError] = useState<string | null>(null)
 
   // Auto-generate session name pattern whenever name changes
   const generateSessionNamePattern = useCallback((name: string) => {
@@ -83,8 +100,17 @@ export function CreateExperimentModal({ isOpen, onClose, onSave }: CreateExperim
       name: '',
       participants: [],
       startingPrompt: '',
-      analysisContextSize: 10,
+      // Analysis config
       analysisProvider: 'claude',
+      analysisModel: 'claude-sonnet-4-5-20250929',
+      analysisContextSize: 10,
+      analysisCustomPrompt: '',
+      analysisAutoInterval: 5,
+      analysisSchema: DEFAULT_ANALYSIS_SCHEMA,
+      // Chat config
+      chatContextWindow: 20,
+      chatSystemPrompt: '',
+      // Execution settings
       maxMessageCount: 50,
       totalSessions: 25,
       concurrentSessions: 3,
@@ -94,6 +120,46 @@ export function CreateExperimentModal({ isOpen, onClose, onSave }: CreateExperim
     setSelectedTypes(new Set())
     setExpandedParticipants(new Set())
     setShowParticipantPicker(false)
+    setShowAdvancedAnalysis(false)
+    setShowAdvancedChat(false)
+    setShowSchemaEditor(false)
+    setSchemaText(JSON.stringify(DEFAULT_ANALYSIS_SCHEMA, null, 2))
+    setSchemaError(null)
+  }, [])
+
+  // Handle schema text changes with validation
+  const handleSchemaChange = useCallback((text: string) => {
+    setSchemaText(text)
+    try {
+      const parsed = JSON.parse(text)
+      // Validate basic structure
+      if (!parsed.fields || !Array.isArray(parsed.fields)) {
+        setSchemaError('Schema must have a "fields" array')
+        return
+      }
+      // Validate each field has required properties
+      for (const field of parsed.fields) {
+        if (!field.key || !field.label || !field.type) {
+          setSchemaError('Each field must have key, label, and type')
+          return
+        }
+        if (!['string', 'array', 'object', 'enum'].includes(field.type)) {
+          setSchemaError(`Invalid field type: ${field.type}. Must be string, array, object, or enum`)
+          return
+        }
+      }
+      setSchemaError(null)
+      setFormData(prev => ({ ...prev, analysisSchema: parsed }))
+    } catch (e) {
+      setSchemaError('Invalid JSON format')
+    }
+  }, [])
+
+  const handleResetSchema = useCallback(() => {
+    const defaultText = JSON.stringify(DEFAULT_ANALYSIS_SCHEMA, null, 2)
+    setSchemaText(defaultText)
+    setSchemaError(null)
+    setFormData(prev => ({ ...prev, analysisSchema: DEFAULT_ANALYSIS_SCHEMA }))
   }, [])
 
   const handleCreate = useCallback(() => {
@@ -541,37 +607,231 @@ export function CreateExperimentModal({ isOpen, onClose, onSave }: CreateExperim
 
             {/* Analysis Settings */}
             <div className="space-y-4">
-              <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">Analysis Settings</h3>
-              
+              <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                <Brain className="h-4 w-4 text-indigo-500" />
+                Analysis Settings
+              </h3>
+
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Analysis Context Size
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.analysisContextSize}
-                    onChange={(e) => setFormData(prev => ({ ...prev, analysisContextSize: parseInt(e.target.value) }))}
-                    min="5"
-                    max="100"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Analysis Provider
                   </label>
                   <select
                     value={formData.analysisProvider}
-                    onChange={(e) => setFormData(prev => ({ ...prev, analysisProvider: e.target.value as 'claude' | 'gpt' }))}
+                    onChange={(e) => {
+                      const provider = e.target.value
+                      const models = modelOptions[provider] || []
+                      setFormData(prev => ({
+                        ...prev,
+                        analysisProvider: provider,
+                        analysisModel: models[0]?.value || ''
+                      }))
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="claude">Claude</option>
-                    <option value="gpt">GPT</option>
+                    {Object.entries(providerStatus).filter(([_, s]) => s.available).map(([provider]) => (
+                      <option key={provider} value={provider}>{provider.charAt(0).toUpperCase() + provider.slice(1)}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Analysis Model
+                  </label>
+                  <select
+                    value={formData.analysisModel || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, analysisModel: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    {(modelOptions[formData.analysisProvider || 'claude'] || []).map(model => (
+                      <option key={model.value} value={model.value}>{model.label}</option>
+                    ))}
                   </select>
                 </div>
               </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Context Window (messages)
+                  </label>
+                  <select
+                    value={formData.analysisContextSize}
+                    onChange={(e) => setFormData(prev => ({ ...prev, analysisContextSize: parseInt(e.target.value) }))}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="0">All Messages</option>
+                    <option value="10">Last 10</option>
+                    <option value="20">Last 20</option>
+                    <option value="50">Last 50</option>
+                    <option value="100">Last 100</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Auto-Analysis Interval
+                  </label>
+                  <select
+                    value={formData.analysisAutoInterval}
+                    onChange={(e) => setFormData(prev => ({ ...prev, analysisAutoInterval: parseInt(e.target.value) }))}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="0">Disabled</option>
+                    <option value="3">Every 3 messages</option>
+                    <option value="5">Every 5 messages</option>
+                    <option value="10">Every 10 messages</option>
+                    <option value="20">Every 20 messages</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Advanced Analysis Options */}
+              <button
+                type="button"
+                onClick={() => setShowAdvancedAnalysis(!showAdvancedAnalysis)}
+                className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+              >
+                {showAdvancedAnalysis ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                Advanced Analysis Options
+              </button>
+
+              {showAdvancedAnalysis && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Custom Analysis Prompt (Optional)
+                    </label>
+                    <textarea
+                      value={formData.analysisCustomPrompt || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, analysisCustomPrompt: e.target.value }))}
+                      placeholder={DEFAULT_ANALYSIS_PROMPT}
+                      rows={3}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Leave empty to use default. The placeholder shows the default prompt.
+                    </p>
+                  </div>
+
+                  {/* Schema Editor Toggle */}
+                  <button
+                    type="button"
+                    onClick={() => setShowSchemaEditor(!showSchemaEditor)}
+                    className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+                  >
+                    {showSchemaEditor ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    <Code className="h-4 w-4" />
+                    Analysis Output Schema
+                  </button>
+
+                  {/* Schema Editor */}
+                  {showSchemaEditor && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Output Schema (JSON)
+                        </label>
+                        <Button variant="ghost" size="sm" onClick={handleResetSchema}>
+                          <RefreshCw className="h-3 w-3 mr-1" />
+                          Reset
+                        </Button>
+                      </div>
+                      <textarea
+                        value={schemaText}
+                        onChange={(e) => handleSchemaChange(e.target.value)}
+                        rows={10}
+                        className={`w-full px-3 py-2 font-mono text-xs border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                          schemaError
+                            ? 'border-red-500 dark:border-red-500'
+                            : 'border-gray-300 dark:border-gray-600'
+                        }`}
+                      />
+                      {schemaError ? (
+                        <p className="text-xs text-red-500 dark:text-red-400 flex items-center gap-1">
+                          <AlertCircle className="h-3 w-3" />
+                          {schemaError}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Define what fields the analysis should return. Each field needs: key, label, type (string/array/object/enum), description.
+                        </p>
+                      )}
+                      <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                        <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Current Fields:</p>
+                        <div className="flex flex-wrap gap-1">
+                          {(formData.analysisSchema?.fields || []).map((field) => (
+                            <span
+                              key={field.key}
+                              className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded text-xs"
+                            >
+                              {field.label}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Chat Settings */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                <MessageSquare className="h-4 w-4 text-emerald-500" />
+                Chat Settings
+              </h3>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Chat Context Window (messages)
+                </label>
+                <select
+                  value={formData.chatContextWindow}
+                  onChange={(e) => setFormData(prev => ({ ...prev, chatContextWindow: parseInt(e.target.value) }))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="5">5 messages (minimal)</option>
+                  <option value="10">10 messages (light)</option>
+                  <option value="20">20 messages (standard)</option>
+                  <option value="50">50 messages (extended)</option>
+                  <option value="0">All messages (full history)</option>
+                </select>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Number of recent messages included when generating participant responses
+                </p>
+              </div>
+
+              {/* Advanced Chat Options */}
+              <button
+                type="button"
+                onClick={() => setShowAdvancedChat(!showAdvancedChat)}
+                className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+              >
+                {showAdvancedChat ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                Advanced Chat Options
+              </button>
+
+              {showAdvancedChat && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Global System Prompt (Optional)
+                  </label>
+                  <textarea
+                    value={formData.chatSystemPrompt || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, chatSystemPrompt: e.target.value }))}
+                    placeholder={DEFAULT_CHAT_SYSTEM_PROMPT}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Applied to all participants. Individual personas are added on top of this.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Execution Settings */}

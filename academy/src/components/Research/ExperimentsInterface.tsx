@@ -722,6 +722,9 @@ export function ExperimentsInterface({
     // Message events - for live updates
     const unsubscribeMessageSent = eventBus.subscribe(EVENT_TYPES.MESSAGE_SENT, handleMessageEvent)
 
+    // Analysis events - for snapshot count updates
+    const unsubscribeAnalysisSaved = eventBus.subscribe(EVENT_TYPES.ANALYSIS_SAVED, handleSessionEvent)
+
     return () => {
       console.log(`🧪 ExperimentsInterface: Cleaning up internal pub/sub event subscriptions for experiment ${selectedExperiment.id}`)
       unsubscribeExperimentCreated()
@@ -733,6 +736,7 @@ export function ExperimentsInterface({
       unsubscribeSessionUpdated()
       unsubscribeSessionDeleted()
       unsubscribeMessageSent()
+      unsubscribeAnalysisSaved()
     }
   }, [selectedExperiment?.id, handleExperimentEvent, handleSessionEvent, handleMessageEvent, loadExperimentStatus, loadExperimentResults])
 

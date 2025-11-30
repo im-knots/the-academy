@@ -232,9 +232,9 @@ export function AddParticipant({ isOpen, onClose, sessionId }: AddParticipantPro
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
         {/* Header - Fixed */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex-shrink-0 flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <div>
             <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Add Participant</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Choose an AI agent</p>
@@ -245,7 +245,7 @@ export function AddParticipant({ isOpen, onClose, sessionId }: AddParticipantPro
         </div>
 
         {/* Content - Scrollable */}
-        <div className="overflow-y-auto max-h-[calc(90vh-140px)]">
+        <div className="flex-1 overflow-y-auto min-h-0">
           {isLoadingSession ? (
             <div className="p-12 text-center">
               <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-gray-400" />
@@ -458,12 +458,12 @@ export function AddParticipant({ isOpen, onClose, sessionId }: AddParticipantPro
         </div>
 
         {/* Footer - Fixed */}
-        <div className="border-t border-gray-200 dark:border-gray-700 p-6 bg-gray-50 dark:bg-gray-800/50">
+        <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 p-6 bg-gray-50 dark:bg-gray-800/50">
           <div className="flex justify-end gap-3">
             <Button variant="outline" onClick={onClose} disabled={isAddingParticipant}>
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={handleAdd}
               disabled={!selectedType || isAddingParticipant || isLoadingSession}
               className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
