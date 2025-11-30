@@ -262,7 +262,7 @@ export function useMCP(): MCPHook {
         await clientRef.current.sendRequest('list_tools', {})
         actuallyConnected = true
         console.log('✅ useMCP: MCP client is already connected!')
-      } catch (error) {
+      } catch (_error) {
         console.log('🔧 useMCP: MCP client needs initialization...')
         await clientRef.current.initialize()
         actuallyConnected = true
@@ -1390,13 +1390,15 @@ export function useMCP(): MCPHook {
     }
   }, [])
 
-  const executeExperimentViaMCP = useCallback(async (experimentId: string, experimentConfig: any) => {
+  const executeExperimentViaMCP = useCallback(async (experimentId: string, _experimentConfig?: any) => {
     if (!clientRef.current) throw new Error('MCP client not initialized')
-    
+
     console.log(`🚀 useMCP: Executing experiment via MCP: ${experimentId}`)
-    
+
     try {
-      const result = await clientRef.current.executeExperimentViaMCP(experimentId, experimentConfig)
+      // Note: experimentConfig is passed but executeExperimentViaMCP only uses experimentId
+      // The server looks up the config from the stored experiment
+      const result = await clientRef.current.executeExperimentViaMCP(experimentId)
       return result
     } catch (error) {
       console.error('Failed to execute experiment via MCP:', error)

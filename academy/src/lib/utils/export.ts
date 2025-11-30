@@ -1,5 +1,6 @@
 // src/lib/utils/export.ts
-import { ChatSession, Message, AnalysisSnapshot, APIError } from '@/types/chat'
+import { ChatSession, Message, AnalysisSnapshot } from '@/types/chat'
+import { APIError } from '@/lib/mcp/types'
 
 export interface ExportOptions {
   format: 'json' | 'csv'
@@ -135,7 +136,7 @@ export class ExportManager {
           message.timestamp.toISOString(),
           'message',
           this.escapeCSVField(message.participantName),
-          message.participantType,
+          message.type,
           message.participantId,
           this.escapeCSVField(message.content),
           message.id

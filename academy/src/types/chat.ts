@@ -13,7 +13,11 @@ export interface Message {
     systemPrompt?: string
     responseTime?: number
     model?: string
-    usage?: any
+    usage?: {
+      promptTokens?: number
+      completionTokens?: number
+      totalTokens?: number
+    }
   }
 }
 

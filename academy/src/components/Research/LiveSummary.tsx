@@ -8,12 +8,11 @@ import { eventBus, EVENT_TYPES } from '@/lib/events/eventBus'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
-import { 
-  Brain, Loader2, RefreshCw, MessageSquare, TrendingUp, 
+import {
+  Brain, Loader2, RefreshCw, MessageSquare, TrendingUp,
   Users, Lightbulb, Target, Clock, Eye, EyeOff, Sparkles,
-  ArrowRight, Hash, Zap, Settings, ChevronDown, Bot,
-  Save, CheckCircle2, BookmarkPlus, History, Database,
-  Layers
+  ArrowRight, Hash, ChevronDown,
+  CheckCircle2, Database, Layers
 } from 'lucide-react'
 import type { ChatSession } from '@/types/chat'
 
@@ -456,7 +455,7 @@ Return only the JSON object, no additional text.`
       console.log(`💾 LiveSummary: Saving analysis snapshot for session ${currentSession.id}`)
 
       const moderatorInterventions = (currentSession.messages || []).filter(
-        msg => msg.participantType === 'moderator'
+        (msg: any) => msg.type === 'moderator' || msg.participantType === 'moderator'
       ).length
 
       const activeParticipants = (currentSession.participants || [])

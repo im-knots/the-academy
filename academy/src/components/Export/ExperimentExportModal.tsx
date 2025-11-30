@@ -1,21 +1,21 @@
 // src/components/Export/ExperimentExportModal.tsx
 'use client'
 
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { MCPClient } from '@/lib/mcp/client'
 import { ExportManager, ExportOptions } from '@/lib/utils/export'
-import { eventBus, EVENT_TYPES } from '@/lib/events/eventBus'
 import { Button } from '@/components/ui/Button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
+import { Card, CardContent } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
-import { 
-  X, Download, FileText, Database, Eye, EyeOff, Settings, 
-  MessageSquare, Users, Clock, CheckCircle2, FileDown,
-  Copy, Check, Brain, History, TrendingUp, Zap, AlertTriangle,
-  TestTubeDiagonal, Square, CheckSquare, BarChart3, Package,
-  Loader2, AlertCircle, Calendar, FileArchive, ChevronDown, ChevronRight
+import {
+  X, Download, Eye,
+  MessageSquare, Users,
+  Zap, AlertTriangle,
+  TestTubeDiagonal, Square, CheckSquare, BarChart3,
+  Loader2, FileArchive, ChevronDown, ChevronRight
 } from 'lucide-react'
-import type { ChatSession, APIError } from '@/types/chat'
+import type { ChatSession } from '@/types/chat'
+import type { APIError } from '@/lib/mcp/types'
 import type { ExperimentConfig, ExperimentRun } from '@/types/experiment'
 
 interface SessionWithAnalysis extends ChatSession {
@@ -56,17 +56,19 @@ export function ExperimentExportModal({
   })
   const [isLoading, setIsLoading] = useState(true)
   const [isExporting, setIsExporting] = useState(false)
-  const [loadingSessionId, setLoadingSessionId] = useState<string | null>(null)
+  // State used for tracking but value not directly read
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_loadingSessionId, setLoadingSessionId] = useState<string | null>(null)
   const [showPreview, setShowPreview] = useState(false)
   const [previewSessionId, setPreviewSessionId] = useState<string | null>(null)
   const [previewContent, setPreviewContent] = useState('')
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set())
-  
-  // Aggregate stats
-  const [totalMessages, setTotalMessages] = useState(0)
-  const [totalAnalysis, setTotalAnalysis] = useState(0)
-  const [totalErrors, setTotalErrors] = useState(0)
-  const [totalFileSize, setTotalFileSize] = useState(0)
+
+  // Aggregate stats - setters used to track during data fetching
+  const [, setTotalMessages] = useState(0)
+  const [, setTotalAnalysis] = useState(0)
+  const [, setTotalErrors] = useState(0)
+  const [, setTotalFileSize] = useState(0)
 
   // Fetch all session data
   const fetchAllSessionData = useCallback(async () => {

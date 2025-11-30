@@ -4,12 +4,11 @@
 import { useState, useRef, useCallback } from 'react'
 import { eventBus, EVENT_TYPES } from '@/lib/events/eventBus'
 import { Button } from '@/components/ui/Button'
-import { Badge } from '@/components/ui/Badge'
-import { ExperimentConfig, ExperimentRun } from '@/types/experiment'
+import { ExperimentConfig } from '@/types/experiment'
 import { ParticipantAvatar } from '@/components/ui/ParticipantAvatar'
-import { 
+import {
   X, Plus, Upload, Save, Users, AlertCircle,
-  TestTubeDiagonal, FileJson, ChevronDown, ChevronUp, Settings
+  TestTubeDiagonal, ChevronDown, ChevronUp
 } from 'lucide-react'
 
 interface ParticipantConfig {
@@ -184,9 +183,10 @@ export function CreateExperimentModal({ isOpen, onClose, onSave }: CreateExperim
       return
     }
     
+    const { id: _unusedId, ...restFormData } = formData
     const newExperiment: ExperimentConfig = {
+      ...restFormData as Omit<ExperimentConfig, 'id' | 'createdAt' | 'lastModified'>,
       id: `exp-${Date.now()}`,
-      ...formData as ExperimentConfig,
       createdAt: new Date(),
       lastModified: new Date()
     }
@@ -517,7 +517,7 @@ export function CreateExperimentModal({ isOpen, onClose, onSave }: CreateExperim
                                   className="w-full"
                                 />
                                 <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
-                                  {participant.temperature.toFixed(1)}
+                                  {(participant.temperature ?? 0.7).toFixed(1)}
                                 </div>
                               </div>
 
@@ -581,7 +581,7 @@ export function CreateExperimentModal({ isOpen, onClose, onSave }: CreateExperim
                     No participants added yet
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                    Click "Add Participants" to select AI agents
+                    Click &quot;Add Participants&quot; to select AI agents
                   </p>
                 </div>
               )}

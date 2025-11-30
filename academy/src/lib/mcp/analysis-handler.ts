@@ -10,6 +10,7 @@ export class MCPAnalysisHandler {
   private static instance: MCPAnalysisHandler
   private subscribers: Map<string, Array<(data: any) => void>> = new Map()
   private mcpClient: MCPClient
+  private currentProvider: 'claude' | 'gpt' = 'claude'
 
   private constructor() {
     console.log(`🔧 MCPAnalysisHandler: Initializing... (${isBrowser ? 'client' : 'server'} context)`)
@@ -21,6 +22,17 @@ export class MCPAnalysisHandler {
       MCPAnalysisHandler.instance = new MCPAnalysisHandler()
     }
     return MCPAnalysisHandler.instance
+  }
+
+  // Set the analysis provider
+  setProvider(provider: 'claude' | 'gpt'): void {
+    this.currentProvider = provider
+    console.log(`🔧 MCPAnalysisHandler: Provider set to ${provider}`)
+  }
+
+  // Get the current analysis provider
+  getCurrentProvider(): 'claude' | 'gpt' {
+    return this.currentProvider
   }
 
   // Save analysis snapshot via MCP

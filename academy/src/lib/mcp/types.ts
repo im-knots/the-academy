@@ -3,12 +3,12 @@ export interface MCPMessage {
   id: string
   type: 'request' | 'response' | 'notification'
   method?: string
-  params?: any
-  result?: any
+  params?: Record<string, unknown>
+  result?: unknown
   error?: {
     code: number
     message: string
-    data?: any
+    data?: unknown
   }
 }
 
@@ -17,24 +17,24 @@ export interface JSONRPCRequest {
   jsonrpc: '2.0'
   id?: string | number | null
   method: string
-  params?: any
+  params?: Record<string, unknown>
 }
 
 export interface JSONRPCResponse {
   jsonrpc: '2.0'
   id: string | number | null
-  result?: any
+  result?: unknown
   error?: {
     code: number
     message: string
-    data?: any
+    data?: unknown
   }
 }
 
 export interface JSONRPCError {
   code: number
   message: string
-  data?: any
+  data?: unknown
 }
 
 // Conversation context interface
@@ -65,7 +65,7 @@ export interface AIProvider {
 export interface APIError {
   id: string;
   timestamp: Date;
-  provider: 'claude' | 'openai' | 'grok' | 'gemini' | 'ollama' | 'deepseek' | 'mistral' | 'cohere';
+  provider: 'claude' | 'openai' | 'gpt' | 'grok' | 'gemini' | 'ollama' | 'deepseek' | 'mistral' | 'cohere';
   operation: string;
   attempt: number;
   maxAttempts: number;
@@ -78,7 +78,7 @@ export interface RetryConfig {
   maxRetries: number;
   baseDelay: number;
   maxDelay: number;
-  retryCondition?: (error: any) => boolean;
+  retryCondition?: (error: Error) => boolean;
 }
 
 export interface ExportOptions {

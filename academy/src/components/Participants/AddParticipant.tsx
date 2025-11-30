@@ -5,11 +5,10 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { MCPClient } from '@/lib/mcp/client'
 import { eventBus, EVENT_TYPES } from '@/lib/events/eventBus'
 import { Button } from '@/components/ui/Button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { ParticipantAvatar } from '@/components/ui/ParticipantAvatar'
-import { X, Plus, Brain, MessageSquare, User, Sparkles, Settings, Loader2 } from 'lucide-react'
-import { Participant, ChatSession } from '@/types/chat'
+import { X, Plus, Loader2 } from 'lucide-react'
+import { ChatSession } from '@/types/chat'
 
 interface AddParticipantProps {
   isOpen: boolean

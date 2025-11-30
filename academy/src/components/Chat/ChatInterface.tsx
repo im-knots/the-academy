@@ -1,11 +1,10 @@
-// src/components/Chat/ChatInterface.tsx - Updated with Internal Pub/Sub Event System
+// src/components/Chat/ChatInterface.tsx - Updated with Server-Side Conversation Orchestration
 'use client'
 
 import Image from 'next/image'
 import { useState, useEffect, useCallback } from 'react'
 import { useTemplatePrompt } from '@/hooks/useTemplatePrompt'
 import { useMCP } from '@/hooks/useMCP'
-import { MCPConversationManager } from '@/lib/ai/mcp-conversation-manager'
 import { MCPClient } from '@/lib/mcp/client'
 import { eventBus, EVENT_TYPES } from '@/lib/events/eventBus'
 import { Card, CardContent } from '@/components/ui/Card'
@@ -19,9 +18,9 @@ import { LiveSummary } from '@/components/Research/LiveSummary'
 import { SessionsSection } from '@/components/Sessions/SessionsSection'
 import { ExperimentsInterface } from '@/components/Research/ExperimentsInterface'
 import { ExperimentsList } from '@/components/Research/ExperimentsList'
-import { 
-  Brain, Users, Settings, Play, Pause, Plus, Sparkles, MessageSquare, 
-  Zap, Send, Hand, Square, AlertCircle, Clock, CheckCircle2, Loader2,
+import {
+  Users, Settings, Play, Pause, Plus, Sparkles, MessageSquare,
+  Send, Hand, Square, AlertCircle, Clock, CheckCircle2, Loader2,
   Download, FileDown, ChevronLeft, History,
   Wifi, WifiOff, Terminal, Monitor
 } from 'lucide-react'
@@ -66,7 +65,7 @@ export function ChatInterface() {
   // New state for MCP-based data
   const [currentSession, setCurrentSession] = useState<any>(null)
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
-  const [sessions, setSessions] = useState<any[]>([])
+  const [, setSessions] = useState<any[]>([])
   const [isSessionPaused, setIsSessionPaused] = useState(false)
   const [loading, setLoading] = useState(true)
   
@@ -80,12 +79,9 @@ export function ChatInterface() {
   // Template prompt hook
   const { suggestedPrompt, clearSuggestedPrompt } = useTemplatePrompt()
   
-  // MCP integration
+  // MCP integration - using server-side conversation orchestration
   const mcp = useMCP()
   const mcpClient = MCPClient.getInstance()
-  
-  // Get the conversation manager instance
-  const conversationManager = MCPConversationManager.getInstance()
 
   // Handle session switching
   const handleSessionChange = async (sessionId: string) => {
@@ -365,21 +361,7 @@ export function ChatInterface() {
     setSelectedExperiment(experiment)
   }
 
-  const handleDeleteExperiment = async (experimentId: string) => {
-    try {
-      await mcp.deleteExperimentViaMCP(experimentId)
-      
-      // Clear selection if deleting the selected experiment
-      if (selectedExperiment?.id === experimentId) {
-        setSelectedExperiment(null)
-      }
-      
-      // Reload experiments
-      await loadExperiments()
-    } catch (error) {
-      console.error('Failed to delete experiment:', error)
-    }
-  }
+
 
   const toggleModeratorPanel = () => {
     setShowModeratorPanel(!showModeratorPanel)
@@ -403,24 +385,22 @@ export function ChatInterface() {
 
   const hasMessages = currentSession?.messages && currentSession.messages.length > 0
   const hasParticipants = currentSession?.participants && currentSession.participants.length > 0
-  const hasAIParticipants = (currentSession?.participants || []).filter(p => p.type !== 'moderator').length >= 2
+  const hasAIParticipants = (currentSession?.participants || []).filter((p: { type: string }) => p.type !== 'moderator').length >= 2
 
   const handleStartConversation = async () => {
     if (!currentSession || !hasAIParticipants || !moderatorInput.trim()) return
-    
+
     try {
       setConversationState('starting')
       setError(null)
-      
-      // Start the AI-to-AI conversation using the client-side manager
-      await conversationManager.startConversation(currentSession.id, moderatorInput.trim())
-      
+
+      // Start the AI-to-AI conversation using server-side orchestration
+      // This calls the MCP start_conversation tool which uses ServerConversationManager
+      await mcpClient.startConversationViaMCP(currentSession.id, moderatorInput.trim())
+
       setModeratorInput('')
       setConversationState('running')
-      
-      // Update session status via MCP - this will emit events automatically
-      await mcpClient.resumeConversationViaMCP(currentSession.id)
-      
+
     } catch (error) {
       console.error('Failed to start conversation:', error)
       setError(error instanceof Error ? error.message : 'Failed to start conversation')
@@ -430,17 +410,17 @@ export function ChatInterface() {
 
   const handlePauseConversation = async () => {
     if (!currentSession) return
-    
+
     try {
       setConversationState('pausing')
       setError(null)
-      
-      conversationManager.pauseConversation(currentSession.id)
-      // This will emit events automatically via internal pub/sub
+
+      // Pause conversation using server-side orchestration
+      // This calls the MCP pause_conversation tool which uses ServerConversationManager
       await mcpClient.pauseConversationViaMCP(currentSession.id)
       setConversationState('idle')
       setIsSessionPaused(true)
-      
+
     } catch (error) {
       console.error('Failed to pause conversation:', error)
       setError(error instanceof Error ? error.message : 'Failed to pause conversation')
@@ -450,17 +430,17 @@ export function ChatInterface() {
 
   const handleResumeConversation = async () => {
     if (!currentSession) return
-    
+
     try {
       setConversationState('starting')
       setError(null)
-      
-      conversationManager.resumeConversation(currentSession.id)
-      // This will emit events automatically via internal pub/sub
+
+      // Resume conversation using server-side orchestration
+      // This calls the MCP resume_conversation tool which uses ServerConversationManager
       await mcpClient.resumeConversationViaMCP(currentSession.id)
       setConversationState('running')
       setIsSessionPaused(false)
-      
+
     } catch (error) {
       console.error('Failed to resume conversation:', error)
       setError(error instanceof Error ? error.message : 'Failed to resume conversation')
@@ -470,16 +450,16 @@ export function ChatInterface() {
 
   const handleStopConversation = async () => {
     if (!currentSession) return
-    
+
     try {
       setConversationState('stopping')
       setError(null)
-      
-      conversationManager.stopConversation(currentSession.id)
-      // This will emit events automatically via internal pub/sub
+
+      // Stop conversation using server-side orchestration
+      // This calls the MCP stop_conversation tool which uses ServerConversationManager
       await mcpClient.stopConversationViaMCP(currentSession.id)
       setConversationState('idle')
-      
+
     } catch (error) {
       console.error('Failed to stop conversation:', error)
       setError(error instanceof Error ? error.message : 'Failed to stop conversation')
@@ -572,6 +552,9 @@ export function ChatInterface() {
     )
   }
 
+  // Store viewMode in a variable that won't be narrowed for use in UI components
+  const currentViewMode = viewMode
+
   // Render experiments interface if in experiment mode
   if (viewMode === 'experiment') {
     return (
@@ -595,12 +578,12 @@ export function ChatInterface() {
               </div>
             </div>
           </div>
-          
+
           {/* View Mode Switcher */}
           <div className="p-4">
             <div className="flex items-center border border-gray-200 dark:border-gray-600 rounded-md">
               <Button
-                variant={viewMode === 'chat' ? 'default' : 'ghost'}
+                variant={currentViewMode === 'chat' ? 'default' : 'ghost'}
                 size="sm"
                 onClick={() => setViewMode('chat')}
                 className="rounded-r-none border-r flex-1"
@@ -609,7 +592,7 @@ export function ChatInterface() {
                 Chat
               </Button>
               <Button
-                variant={viewMode === 'experiment' ? 'default' : 'ghost'}
+                variant={currentViewMode === 'experiment' ? 'default' : 'ghost'}
                 size="sm"
                 onClick={() => setViewMode('experiment')}
                 className="rounded-l-none flex-1"
@@ -671,7 +654,7 @@ export function ChatInterface() {
           <div className="p-4">
             <div className="flex items-center border border-gray-200 dark:border-gray-600 rounded-md">
               <Button
-                variant={viewMode === 'chat' ? 'default' : 'ghost'}
+                variant={currentViewMode === 'chat' ? 'default' : 'ghost'}
                 size="sm"
                 onClick={() => setViewMode('chat')}
                 className="rounded-r-none border-r flex-1"
@@ -680,7 +663,7 @@ export function ChatInterface() {
                 Chat
               </Button>
               <Button
-                variant={viewMode === 'experiment' ? 'default' : 'ghost'}
+                variant={currentViewMode === 'experiment' ? 'default' : 'ghost'}
                 size="sm"
                 onClick={() => setViewMode('experiment')}
                 className="rounded-l-none flex-1"
@@ -690,9 +673,9 @@ export function ChatInterface() {
               </Button>
             </div>
           </div>
-          
-          {viewMode === 'chat' ? (
-            <SessionsSection 
+
+          {currentViewMode === 'chat' ? (
+            <SessionsSection
               currentSessionId={currentSessionId}
               onSessionChange={handleSessionChange}
             />
@@ -774,7 +757,7 @@ export function ChatInterface() {
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center border border-gray-200 dark:border-gray-600 rounded-md">
             <Button
-              variant={viewMode === 'chat' ? 'default' : 'ghost'}
+              variant={currentViewMode === 'chat' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setViewMode('chat')}
               className="rounded-r-none border-r flex-1"
@@ -783,7 +766,7 @@ export function ChatInterface() {
               Chat
             </Button>
             <Button
-              variant={viewMode === 'experiment' ? 'default' : 'ghost'}
+              variant={currentViewMode === 'experiment' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setViewMode('experiment')}
               className="rounded-l-none flex-1"
@@ -799,7 +782,6 @@ export function ChatInterface() {
           <div className="p-4">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-medium text-gray-900 dark:text-gray-100">Participants</h2>
-              {console.log('🔄 Participants section - currentSession:', currentSession?.id, 'conversationState:', conversationState)}
               <Button
                 variant="ghost"
                 size="sm"
@@ -1042,7 +1024,7 @@ export function ChatInterface() {
             </div>
           ) : (
             <div className="max-w-4xl mx-auto p-6 space-y-6">
-              {currentSession.messages.map((message: any, index: number) => (
+              {currentSession.messages.map((message: any) => (
                 <div key={message.id} className="message-appear">
                   <div className="flex gap-4">
                     <ParticipantAvatar 

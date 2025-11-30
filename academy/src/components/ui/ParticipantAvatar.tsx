@@ -2,7 +2,7 @@
 'use client'
 
 import Image from 'next/image'
-import { Settings, User } from 'lucide-react'
+import { Settings } from 'lucide-react'
 
 interface ParticipantAvatarProps {
   participantType: 'claude' | 'gpt' | 'grok' | 'gemini' | 'ollama' | 'deepseek' | 'mistral' | 'cohere' | 'moderator'

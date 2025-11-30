@@ -10,10 +10,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { 
   X, Activity, AlertCircle, CheckCircle2, Clock, Database, 
-  Loader2, RefreshCw, Terminal, Zap, Brain, MessageSquare, 
-  Users, BarChart3, Eye, EyeOff, Copy, Download, Sparkles, 
-  BookOpen, Play, Pause, Square, Send, FileDown, Settings,
-  Monitor, Wifi, WifiOff, Server, Code, Cpu
+  Loader2, RefreshCw, Terminal, Zap, Brain, MessageSquare,
+  Users, BarChart3, Eye, EyeOff, Copy, Download, Sparkles,
+  BookOpen, Play, Pause, Square, Settings,
+  Monitor, Wifi, WifiOff, Server, Cpu
 } from 'lucide-react'
 import type { ChatSession } from '@/types/chat'
 
@@ -30,7 +30,7 @@ interface PromptArgument {
   type?: string
 }
 
-interface MCPPrompt {
+interface _MCPPrompt {
   name: string
   description?: string
   arguments?: PromptArgument[]
@@ -244,7 +244,7 @@ export function MCPModal({ isOpen, onClose, sessionId }: MCPModalProps) {
       if (toolArgs.trim()) {
         try {
           args = JSON.parse(toolArgs)
-        } catch (error) {
+        } catch (_error) {
           throw new Error('Invalid JSON in tool arguments')
         }
       }
@@ -936,7 +936,7 @@ export function MCPModal({ isOpen, onClose, sessionId }: MCPModalProps) {
                     <CardContent className="text-center py-12">
                       <BarChart3 className="h-12 w-12 mx-auto mb-4 text-gray-400" />
                       <p className="text-gray-500 dark:text-gray-400 mb-4">
-                        Click "Analyze" to generate insights via MCP
+                        Click &quot;Analyze&quot; to generate insights via MCP
                       </p>
                       <Button onClick={loadAnalysis} disabled={!mcp.isConnected}>
                         <BarChart3 className="h-4 w-4 mr-2" />

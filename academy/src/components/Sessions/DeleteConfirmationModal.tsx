@@ -72,7 +72,7 @@ export function DeleteConfirmationModal({
               <p className="text-gray-900 dark:text-gray-100">
                 Are you sure you want to delete {' '}
                 <span className="font-semibold text-red-600 dark:text-red-400">
-                  "{sessionName}"
+                  &quot;{sessionName}&quot;
                 </span>
                 ?
               </p>
