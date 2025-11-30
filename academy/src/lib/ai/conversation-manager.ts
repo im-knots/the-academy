@@ -4,6 +4,7 @@
 import { db } from '../db/client'
 import { sessions, messages, participants } from '../db/schema'
 import { eq, and, desc } from 'drizzle-orm'
+import { serverEvents, SERVER_EVENT_TYPES } from '../events/serverEvents'
 
 // Add participant status constants
 interface ParticipantStatus {
@@ -616,6 +617,14 @@ Remember: You are ${participant.name}, not any other participant. Always maintai
       participantType: messageData.participantType,
       timestamp: new Date()
     })
+
+    // Emit server event for SSE clients
+    serverEvents.emit(SERVER_EVENT_TYPES.MESSAGE_ADDED, {
+      sessionId,
+      participantId: messageData.participantId,
+      participantName: messageData.participantName,
+      participantType: messageData.participantType,
+    }, sessionId)
   }
 
   private async updateParticipantStatus(sessionId: string, participantId: string, status: 'idle' | 'active' | 'thinking' | 'error'): Promise<void> {
@@ -625,6 +634,13 @@ Remember: You are ${participant.name}, not any other participant. Always maintai
         eq(participants.sessionId, sessionId),
         eq(participants.id, participantId)
       ))
+
+    // Emit server event for SSE clients
+    serverEvents.emit(SERVER_EVENT_TYPES.PARTICIPANT_STATUS_CHANGED, {
+      sessionId,
+      participantId,
+      status,
+    }, sessionId)
   }
 
   async pauseConversation(sessionId: string): Promise<void> {

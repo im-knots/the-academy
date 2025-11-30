@@ -69,20 +69,34 @@ export class MCPClient {
     return this.requestId++
   }
 
+  // Cache for session context to avoid constant API calls
+  private sessionContextCache: { sessionId?: string; participantId?: string; cachedAt?: number } = {};
+  private sessionContextCacheTTL = 30000; // 30 second TTL
+
   // Enhanced method to get current session context via MCP
   private async getCurrentSessionContext(): Promise<{ sessionId?: string; participantId?: string }> {
     // Don't try to get session context if not initialized yet
     if (!this.initialized) {
       return {};
     }
-    
+
+    // Return cached context if still valid
+    const now = Date.now();
+    if (this.sessionContextCache.cachedAt &&
+        (now - this.sessionContextCache.cachedAt) < this.sessionContextCacheTTL) {
+      return {
+        sessionId: this.sessionContextCache.sessionId,
+        participantId: this.sessionContextCache.participantId
+      };
+    }
+
     try {
       // Use sendRequestInternal directly to avoid circular dependency with sendRequest
       const result = await this.sendRequestInternal('call_tool', {
         name: 'get_current_session_id',
         arguments: {}
       });
-      
+
       // Parse the result content if it's a string
       let parsedResult = result;
       if (result.content?.[0]?.text) {
@@ -92,19 +106,30 @@ export class MCPClient {
           parsedResult = { success: false };
         }
       }
-      
+
       if (parsedResult.success && parsedResult.sessionId) {
+        // Cache the result
+        this.sessionContextCache = {
+          sessionId: parsedResult.sessionId,
+          participantId: undefined,
+          cachedAt: now
+        };
         return {
           sessionId: parsedResult.sessionId,
           participantId: undefined // Will be set by specific operations if needed
         };
       }
-      
+
       return {};
     } catch (error) {
       console.warn('⚠️ MCP Client: Failed to get session context:', error);
       return {};
     }
+  }
+
+  // Invalidate session context cache (call this when session changes)
+  invalidateSessionContextCache(): void {
+    this.sessionContextCache = {};
   }
 
   // Log errors to the error tracking system via MCP - only log final failures
@@ -439,21 +464,27 @@ export class MCPClient {
     try {
       // Session operations
       if (toolName === 'create_session' && result.sessionId) {
+        // Invalidate cache since a new session was created
+        this.invalidateSessionContextCache()
         await eventEmitter.sessionCreated(result)
         await eventEmitter.sessionsListChanged()
       }
-      
+
       if (toolName === 'delete_session' && args.sessionId) {
+        // Invalidate cache since a session was deleted
+        this.invalidateSessionContextCache()
         await eventEmitter.sessionDeleted(args.sessionId)
         await eventEmitter.sessionsListChanged()
       }
-      
+
       if (toolName === 'update_session' && args.sessionId) {
         await eventEmitter.sessionUpdated(result)
         await eventEmitter.sessionsListChanged()
       }
       
       if (toolName === 'switch_current_session' && args.sessionId) {
+        // Invalidate session context cache when session changes
+        this.invalidateSessionContextCache()
         await eventEmitter.sessionSwitched(args.sessionId)
       }
       
@@ -497,17 +528,22 @@ export class MCPClient {
       if (toolName === 'start_conversation' && args.sessionId) {
         await eventEmitter.conversationStarted(args.sessionId)
       }
-      
+
       if (toolName === 'pause_conversation' && args.sessionId) {
         await eventEmitter.conversationPaused(args.sessionId)
       }
-      
+
       if (toolName === 'resume_conversation' && args.sessionId) {
         await eventEmitter.conversationResumed(args.sessionId)
       }
-      
+
       if (toolName === 'stop_conversation' && args.sessionId) {
         await eventEmitter.conversationStopped(args.sessionId)
+      }
+
+      // Moderator injection adds a message
+      if (toolName === 'inject_moderator_prompt' && args.sessionId) {
+        await eventEmitter.messageSent(args.sessionId, result)
       }
       
       // Analysis operations
@@ -831,12 +867,19 @@ export class MCPClient {
     }
   }
 
-  async listAvailableModels(): Promise<any> {
-    const result = await this.callTool('get_available_models', {})
-    
+  async listAvailableModels(provider?: string, refresh?: boolean): Promise<any> {
+    const result = await this.callTool('list_available_models', {
+      provider,
+      refresh
+    })
+
     if (result.success) {
       console.log(`✅ Available models retrieved via MCP`)
-      return result.models || {}
+      return {
+        models: result.models || {},
+        providers: result.providers || {},
+        message: result.message
+      }
     } else {
       throw new Error('Failed to get available models via MCP')
     }
@@ -927,15 +970,15 @@ export class MCPClient {
     }
   }
 
-  async injectPromptViaMCP(sessionId: string, prompt: string, participantId?: string): Promise<any> {
-    const result = await this.callTool('inject_prompt', {
+  async injectPromptViaMCP(sessionId: string, prompt: string, _participantId?: string): Promise<any> {
+    // Use inject_moderator_prompt tool - this is for moderator interjections
+    const result = await this.callTool('inject_moderator_prompt', {
       sessionId,
-      prompt,
-      participantId
+      prompt
     })
-    
+
     if (result.success) {
-      console.log(`✅ Prompt injected via MCP: ${sessionId}`)
+      console.log(`✅ Moderator prompt injected via MCP: ${sessionId}`)
       return result
     } else {
       throw new Error('Failed to inject prompt via MCP')

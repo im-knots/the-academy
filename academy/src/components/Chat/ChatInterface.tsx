@@ -2,7 +2,7 @@
 'use client'
 
 import Image from 'next/image'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTemplatePrompt } from '@/hooks/useTemplatePrompt'
 import { useMCP } from '@/hooks/useMCP'
 import { MCPClient } from '@/lib/mcp/client'
@@ -78,7 +78,7 @@ export function ChatInterface() {
   
   // Template prompt hook
   const { suggestedPrompt, clearSuggestedPrompt } = useTemplatePrompt()
-  
+
   // MCP integration - using server-side conversation orchestration
   const mcp = useMCP()
   const mcpClient = MCPClient.getInstance()
@@ -158,15 +158,13 @@ export function ChatInterface() {
   // EVENT-DRIVEN: Handle session-specific updates
   const handleSessionUpdated = useCallback(async (payload: any) => {
     console.log('🔄 ChatInterface: Session updated event received:', payload.data)
-    
+
     // If this is the current session, refresh it
+    // Note: SessionsSection handles its own sessions list refresh
     if (payload.data.sessionId === currentSessionId) {
       await fetchCurrentSession()
     }
-    
-    // Also refresh sessions list to keep it in sync
-    await fetchSessions()
-  }, [currentSessionId, fetchCurrentSession, fetchSessions])
+  }, [currentSessionId, fetchCurrentSession])
 
   // EVENT-DRIVEN: Handle session switching
   const handleSessionSwitched = useCallback(async (payload: any) => {
@@ -297,6 +295,37 @@ export function ChatInterface() {
       fetchCurrentSession()
     }
   }, [currentSessionId, fetchCurrentSession])
+
+  // Lightweight polling for the current session only when conversation is running
+  // This is necessary because server-side conversation updates don't trigger client events
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  useEffect(() => {
+    // Only poll when conversation is running and we have a session
+    if (conversationState !== 'running' || !currentSessionId) {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current)
+        pollingIntervalRef.current = null
+      }
+      return
+    }
+
+    // Poll current session only (not sessions list) at reasonable interval
+    pollingIntervalRef.current = setInterval(async () => {
+      try {
+        await fetchCurrentSession()
+      } catch (error) {
+        console.error('Session polling error:', error)
+      }
+    }, 2000) // Poll every 2 seconds while running
+
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current)
+        pollingIntervalRef.current = null
+      }
+    }
+  }, [conversationState, currentSessionId, fetchCurrentSession])
 
   // Load experiments on mount
   useEffect(() => {
