@@ -26,7 +26,7 @@ export interface ExperimentConfig {
 export interface ExperimentRun {
   id: string
   configId: string
-  status: 'pending' | 'running' | 'paused' | 'completed' | 'failed'
+  status: 'pending' | 'running' | 'paused' | 'completed' | 'failed' | 'stopped'
   startedAt?: Date
   completedAt?: Date
   pausedAt?: Date

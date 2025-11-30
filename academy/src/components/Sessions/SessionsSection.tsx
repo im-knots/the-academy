@@ -5,11 +5,10 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { MCPClient } from '@/lib/mcp/client'
 import { eventBus, EVENT_TYPES } from '@/lib/events/eventBus'
 import { Button } from '@/components/ui/Button'
-import { Badge } from '@/components/ui/Badge'
-import { 
-  Plus, MoreVertical, Edit3, Trash2, Copy, MessageSquare, 
+import {
+  Plus, MoreVertical, Edit3, Trash2, Copy, MessageSquare,
   Users, Clock, Sparkles, Brain, BookOpen, Search,
-  ChevronDown, Star, Archive, Coffee, Zap, Loader2
+  ChevronDown, Coffee, Zap, Loader2
 } from 'lucide-react'
 import { DeleteConfirmationModal } from './DeleteConfirmationModal'
 import type { ChatSession } from '@/types/chat'
@@ -258,8 +257,8 @@ export function SessionsSection({ currentSessionId, onSessionChange }: SessionsS
           updatedAt: new Date(s.updatedAt)
         })))
       }
-    } catch (error) {
-      console.error('Failed to fetch sessions:', error)
+    } catch (_error) {
+      console.error('Failed to fetch sessions:', _error)
     } finally {
       setIsLoading(false)
     }

@@ -5,7 +5,7 @@ import { useEffect, useCallback } from 'react'
 import { eventBus, EVENT_TYPES } from '@/lib/events/eventBus'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
-import { ExperimentConfig, ExperimentRun } from '@/types/experiment'
+import { ExperimentConfig } from '@/types/experiment'
 import { Beaker, Plus, Clock, Users, Loader2 } from 'lucide-react'
 
 
@@ -75,17 +75,17 @@ export function ExperimentsList({
 
   // Helper function to safely get participant count
   const getParticipantCount = (exp: ExperimentConfig): number => {
-    return exp.participants?.length || exp.config?.participants?.length || 0
+    return exp.participants?.length || (exp as any).config?.participants?.length || 0
   }
 
   // Helper function to safely get max message count
   const getMaxMessageCount = (exp: ExperimentConfig): number => {
-    return exp.maxMessageCount || exp.config?.maxMessageCount || 0
+    return exp.maxMessageCount || (exp as any).config?.maxMessageCount || 0
   }
 
   // Helper function to safely get total sessions
   const getTotalSessions = (exp: ExperimentConfig): number => {
-    return exp.totalSessions || exp.config?.totalSessions || 0
+    return exp.totalSessions || (exp as any).config?.totalSessions || 0
   }
 
   // Helper function to safely format date
@@ -93,7 +93,7 @@ export function ExperimentsList({
     try {
       const dateObj = date instanceof Date ? date : new Date(date)
       return dateObj.toLocaleDateString()
-    } catch (error) {
+    } catch (_error) {
       return 'Unknown date'
     }
   }

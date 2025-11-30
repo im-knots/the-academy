@@ -6,14 +6,15 @@ import { MCPClient } from '@/lib/mcp/client'
 import { ExportManager, ExportOptions } from '@/lib/utils/export'
 import { eventBus, EVENT_TYPES } from '@/lib/events/eventBus'
 import { Button } from '@/components/ui/Button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
+import { Card, CardContent } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
-import { 
-  X, Download, FileText, Database, Eye, EyeOff, Settings, 
-  MessageSquare, Users, Clock, CheckCircle2, FileDown,
-  Copy, Check, Brain, History, TrendingUp, Zap, AlertTriangle
+import {
+  X, Download, FileText, Database, Eye, EyeOff,
+  MessageSquare, Users, Clock, FileDown,
+  Copy, Check, Brain, Zap, AlertTriangle
 } from 'lucide-react'
-import type { ChatSession, APIError } from '@/types/chat'
+import type { ChatSession } from '@/types/chat'
+import type { APIError } from '@/lib/mcp/types'
 
 interface ExportModalProps {
   isOpen: boolean
@@ -25,7 +26,7 @@ export function ExportModal({ isOpen, onClose, sessionId }: ExportModalProps) {
   const mcpClient = useRef(MCPClient.getInstance())
   const [currentSession, setCurrentSession] = useState<ChatSession | null>(null)
   const [sessionErrors, setSessionErrors] = useState<APIError[]>([])
-  const [errorStats, setErrorStats] = useState<any>({})
+  const [, setErrorStats] = useState<any>({})
   const [exportOptions, setExportOptions] = useState<ExportOptions>({
     format: 'json',
     includeMetadata: true,
@@ -752,7 +753,7 @@ export function ExportModal({ isOpen, onClose, sessionId }: ExportModalProps) {
                       Preview Your Export
                     </h4>
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                      Click "Preview" to see how your exported data will look
+                      Click &quot;Preview&quot; to see how your exported data will look
                     </p>
                     <div className="space-y-1 text-xs text-gray-500 mb-4">
                       {analysisCount > 0 && (

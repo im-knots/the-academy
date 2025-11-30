@@ -12,13 +12,14 @@ export default function Home() {
   const [mcpClient] = useState(() => MCPClient.getInstance())
 
   // EVENT-DRIVEN: Handle initialization errors or reconnection needs
-  const handleConnectionEvent = useCallback(async (payload: any) => {
+  // Note: This callback is defined but not currently used - kept for future reconnection handling
+  const _handleConnectionEvent = useCallback(async (payload: any) => {
     console.log('🏠 Home: Connection event received:', payload.data)
-    
+
     // If connection is lost and restored, we might need to re-initialize
     if (payload.type === 'connection_restored' && !isInitialized) {
-      console.log('🏠 Home: Connection restored, re-initializing...')
-      await initializeApp()
+      console.log('🏠 Home: Connection restored, would need to re-initialize...')
+      // Note: initializeApp would need to be called here when reconnection is implemented
     }
   }, [isInitialized])
 

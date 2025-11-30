@@ -372,7 +372,8 @@ export class ServerConversationManager {
 
         // Wait between responses
         if (!conversationState.abortController?.signal.aborted) {
-          const baseDelay = currentParticipant.settings?.responseDelay || 4000
+          const settings = currentParticipant.settings as { responseDelay?: number } | null
+          const baseDelay = settings?.responseDelay || 4000
           const adaptiveDelay = currentParticipant.type === 'gpt' ? baseDelay * 1.2 : baseDelay
           await new Promise(resolve => setTimeout(resolve, Math.max(adaptiveDelay, 3000)))
         }
@@ -617,7 +618,7 @@ Remember: You are ${participant.name}, not any other participant. Always maintai
     })
   }
 
-  private async updateParticipantStatus(sessionId: string, participantId: string, status: string): Promise<void> {
+  private async updateParticipantStatus(sessionId: string, participantId: string, status: 'idle' | 'active' | 'thinking' | 'error'): Promise<void> {
     await db.update(participants)
       .set({ status })
       .where(and(

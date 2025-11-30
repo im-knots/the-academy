@@ -1,7 +1,7 @@
 // src/components/Research/ExperimentsInterface.tsx - Fixed with Event-Driven Updates
 'use client'
 
-import { useState, useEffect, useRef, useCallback, useMemo, useTransition, startTransition, memo } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo, useTransition, memo } from 'react'
 import { useMCP } from '@/hooks/useMCP'
 import { MCPClient } from '@/lib/mcp/client'
 import { eventBus, EVENT_TYPES } from '@/lib/events/eventBus'
@@ -11,13 +11,13 @@ import { Button } from '@/components/ui/Button'
 import { ExperimentConfig, ExperimentRun } from '@/types/experiment'
 import { CreateExperimentModal } from '@/components/Research/CreateExperimentModal'
 import { ExperimentExportModal } from '@/components/Export/ExperimentExportModal'
-import { 
-  TestTubeDiagonal, Plus, Play, Pause, Square, 
-  AlertCircle, CheckCircle2, Loader2, 
+import {
+  TestTubeDiagonal, Plus, Play, Pause, Square,
+  AlertCircle, CheckCircle2, Loader2,
   Activity, Trash2, Clock,
-  TrendingUp, AlertTriangle, Zap, Users, 
-  BarChart3, Settings2, Database, Edit2,
-  Download, RefreshCw, ChevronDown, ChevronRight,
+  AlertTriangle, Zap, Users,
+  Edit2, Settings2,
+  Download, RefreshCw,
   MessageSquare, Calendar, FileText, Copy
 } from 'lucide-react'
 
@@ -229,11 +229,11 @@ const SessionCard = memo(({ session }: { session: ExperimentSession }) => {
 
 SessionCard.displayName = 'SessionCard'
 
-export function ExperimentsInterface({ 
-  sessionId, 
-  experiments, 
-  selectedExperiment, 
-  onSelectExperiment, 
+export function ExperimentsInterface({
+  sessionId: _sessionId,
+  experiments: _experiments,
+  selectedExperiment,
+  onSelectExperiment,
   onCreateExperiment,
   onNewExperiment
 }: ExperimentsInterfaceProps) {
@@ -272,7 +272,7 @@ export function ExperimentsInterface({
     stopExperimentViaMCP,
     getExperimentResultsViaMCP,
     deleteExperimentViaMCP,
-    updateExperimentViaMCP,
+    updateExperimentViaMCP: _updateExperimentViaMCP,
     createExperimentViaMCP
   } = useMCP()
 
@@ -381,6 +381,7 @@ export function ExperimentsInterface({
       return
     }
 
+    setIsLoadingResults(true)
     try {
       const response = await getExperimentResultsViaMCP(selectedExperiment.id)
       console.log('🧪 Raw API response:', response)
@@ -441,7 +442,7 @@ export function ExperimentsInterface({
                 participantCount: 0,
                 status: isActive ? 'active' : 'completed',
                 createdAt: new Date(),
-                fullDetails: null
+                fullDetails: undefined
               }
             }
           })
@@ -482,6 +483,8 @@ export function ExperimentsInterface({
       }
     } catch (error) {
       console.error('Failed to load experiment results:', error)
+    } finally {
+      setIsLoadingResults(false)
     }
   }, [selectedExperiment, getExperimentResultsViaMCP, fetchSessionDetails])
 
@@ -1358,10 +1361,10 @@ export function ExperimentsInterface({
                       <div className="space-y-4">
                         <div>
                           <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Participants ({selectedExperiment.participants?.length || selectedExperiment.config?.participants?.length || 0})
+                            Participants ({selectedExperiment.participants?.length || (selectedExperiment as any).config?.participants?.length || 0})
                           </h4>
                           <div className="space-y-2">
-                            {(selectedExperiment.participants || selectedExperiment.config?.participants || []).map((p, idx) => (
+                            {(selectedExperiment.participants || (selectedExperiment as any).config?.participants || []).map((p: any, idx: number) => (
                               <div key={idx} className="flex items-center gap-2 text-sm">
                                 <Badge variant="outline" className="capitalize">
                                   {p.type}

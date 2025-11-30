@@ -1,20 +1,19 @@
 // src/lib/mcp/server.ts - Updated with PostgreSQL
-import { JSONRPCRequest, JSONRPCResponse, JSONRPCError } from './types'
+import { JSONRPCRequest, JSONRPCResponse, APIError, RetryConfig } from './types'
 import { mcpAnalysisHandler } from './analysis-handler'
-import { Participant, APIError, RetryConfig } from '@/types/chat'
 import { ExperimentConfig, ExperimentRun } from '@/types/experiment'
 import { ServerConversationManager } from '@/lib/ai/conversation-manager'
 import { db } from '@/lib/db/client'
-import { 
-  sessions, 
-  messages, 
-  participants, 
+import {
+  sessions,
+  messages,
+  participants,
   analysisSnapshots,
   experiments,
   experimentRuns,
-  apiErrors 
+  apiErrors
 } from '@/lib/db/schema'
-import { eq, and, desc, inArray } from 'drizzle-orm'
+import { eq, and, desc, inArray, count } from 'drizzle-orm'
 
 export class MCPServer {
   private experimentConfigs = new Map<string, ExperimentConfig>()
@@ -155,7 +154,8 @@ export class MCPServer {
         }
 
         // Check if we should retry
-        if (attempt <= finalConfig.maxRetries && finalConfig.retryCondition?.(error)) {
+        const errorObj = error instanceof Error ? error : new Error(String(error))
+        if (attempt <= finalConfig.maxRetries && finalConfig.retryCondition?.(errorObj)) {
           const delay = Math.min(
             finalConfig.baseDelay * Math.pow(2, attempt - 1),
             finalConfig.maxDelay
@@ -206,23 +206,25 @@ export class MCPServer {
       return this.uninitializedError(request.id)
     }
 
+    const requestId = request.id ?? null
+
     switch (request.method) {
       case 'initialize':
-        return this.handleInitialize(request.params, request.id)
+        return this.handleInitialize(request.params, requestId)
       case 'list_resources':
-        return this.handleListResources(request.id)
+        return this.handleListResources(requestId)
       case 'read_resource':
-        return this.handleReadResource(request.params, request.id)
+        return this.handleReadResource(request.params, requestId)
       case 'list_tools':
-        return this.handleListTools(request.id)
+        return this.handleListTools(requestId)
       case 'call_tool':
-        return this.handleCallTool(request.params, request.id)
+        return this.handleCallTool(request.params, requestId)
       case 'list_prompts':
-        return this.handleListPrompts(request.id)
+        return this.handleListPrompts(requestId)
       case 'get_prompt':
-        return this.handleGetPrompt(request.params, request.id)
+        return this.handleGetPrompt(request.params, requestId)
       case 'refresh_resources':
-        return this.handleRefreshResources(request.id)
+        return this.handleRefreshResources(requestId)
       default:
         return {
           jsonrpc: '2.0',
@@ -235,7 +237,7 @@ export class MCPServer {
     }
   }
 
-  private async handleInitialize(params: any, id: any): Promise<JSONRPCResponse> {
+  private async handleInitialize(_params: unknown, id: string | number | null): Promise<JSONRPCResponse> {
     await this.initialize()
     
     return {
@@ -2152,6 +2154,7 @@ export class MCPServer {
     );
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
   private async callOllamaAPIDirect(args: any, abortSignal?: AbortSignal): Promise<any> {
     const { 
       message, 
@@ -2577,7 +2580,7 @@ export class MCPServer {
         // Cohere v2 returns content as array of content blocks
         if (Array.isArray(data.message.content)) {
           // Find first text block and extract its text
-          const textBlock = data.message.content.find(block => block.type === 'text');
+          const textBlock = data.message.content.find((block: { type: string; text?: string }) => block.type === 'text');
           if (!textBlock || !textBlock.text) {
             throw new Error('No text content found in Cohere response');
           }
@@ -2640,37 +2643,37 @@ export class MCPServer {
   private async getStoreDebugInfo(): Promise<any> {
     // Get counts from database
     const [sessionCount] = await db
-      .select({ count: db.count() })
+      .select({ count: count() })
       .from(sessions)
-    
+
     const currentSession = await db.query.sessions.findFirst({
       where: eq(sessions.status, 'active'),
       orderBy: [desc(sessions.updatedAt)]
     })
-    
-    let messageCount = 0
-    let participantCount = 0
-    
+
+    let messageCountVal = 0
+    let participantCountVal = 0
+
     if (currentSession) {
       const [msgCount] = await db
-        .select({ count: db.count() })
+        .select({ count: count() })
         .from(messages)
         .where(eq(messages.sessionId, currentSession.id))
-      messageCount = msgCount.count
-      
+      messageCountVal = msgCount.count
+
       const [partCount] = await db
-        .select({ count: db.count() })
+        .select({ count: count() })
         .from(participants)
         .where(eq(participants.sessionId, currentSession.id))
-      participantCount = partCount.count
+      participantCountVal = partCount.count
     }
-    
+
     const [experimentCount] = await db
-      .select({ count: db.count() })
+      .select({ count: count() })
       .from(experiments)
-    
+
     const [runCount] = await db
-      .select({ count: db.count() })
+      .select({ count: count() })
       .from(experimentRuns)
     
     return {
@@ -2678,8 +2681,8 @@ export class MCPServer {
         hasStore: true,
         currentSessionId: currentSession?.id || null,
         sessionsCount: sessionCount.count,
-        currentSessionMessagesCount: messageCount,
-        currentSessionParticipantsCount: participantCount,
+        currentSessionMessagesCount: messageCountVal,
+        currentSessionParticipantsCount: participantCountVal,
       },
       environment: {
         hasAnthropicKey: !!process.env.ANTHROPIC_API_KEY,
@@ -2702,20 +2705,26 @@ export class MCPServer {
   private async toolGetAPIErrors(args: any): Promise<any> {
     try {
       const { sessionId } = args;
-      
-      let errors: APIError[]
-      
+
+      let dbErrors
+
       if (sessionId) {
-        errors = await db.query.apiErrors.findMany({
+        dbErrors = await db.query.apiErrors.findMany({
           where: eq(apiErrors.sessionId, sessionId),
           orderBy: [desc(apiErrors.timestamp)]
         })
       } else {
-        errors = await db.query.apiErrors.findMany({
+        dbErrors = await db.query.apiErrors.findMany({
           orderBy: [desc(apiErrors.timestamp)],
           limit: 100
         })
       }
+
+      // Cast provider to the expected union type
+      const errors = dbErrors.map(e => ({
+        ...e,
+        provider: e.provider as APIError['provider']
+      })) as APIError[]
       
       return {
         success: true,
@@ -2903,6 +2912,7 @@ export class MCPServer {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
   private async toolGetCurrentSessionId(args: any): Promise<any> {
     try {
       // Find the active session
@@ -2939,7 +2949,7 @@ export class MCPServer {
         throw new Error('Valid error object is required')
       }
 
-      // Save error to database
+      // Save error to database (metadata column doesn't exist, removed)
       const [savedError] = await db.insert(apiErrors).values({
         provider: error.provider || 'unknown',
         operation: error.operation || 'unknown',
@@ -2947,11 +2957,7 @@ export class MCPServer {
         attempt: error.attempt || 1,
         maxAttempts: error.maxAttempts || 1,
         sessionId: error.sessionId,
-        participantId: error.participantId,
-        metadata: {
-          timestamp: error.timestamp || new Date().toISOString(),
-          id: error.id
-        }
+        participantId: error.participantId
       }).returning()
 
       return {
@@ -3016,7 +3022,7 @@ export class MCPServer {
       }
       if (name !== undefined) updates.name = name
       if (description !== undefined) updates.description = description
-      if (metadata !== undefined) updates.metadata = { ...session.metadata, ...metadata }
+      if (metadata !== undefined) updates.metadata = { ...(session.metadata as object || {}), ...metadata }
 
       // Update the session
       const [updatedSession] = await db
@@ -3088,17 +3094,17 @@ export class MCPServer {
         where: eq(sessions.id, sessionId),
         with: {
           participants: true,
-          messages: includeMessages ? true : false
+          messages: true
         }
       })
-      
+
       if (!originalSession) {
         throw new Error(`Session ${sessionId} not found`)
       }
-      
+
       // Create new session name
       const duplicateName = newName || `${originalSession.name} (Copy)`
-      
+
       // Create the duplicate session
       const [duplicateSession] = await db.insert(sessions).values({
         name: duplicateName,
@@ -3107,10 +3113,10 @@ export class MCPServer {
         metadata: originalSession.metadata,
         moderatorSettings: originalSession.moderatorSettings
       }).returning()
-      
+
       // Duplicate participants
-      if (originalSession.participants.length > 0) {
-        const duplicatedParticipants = originalSession.participants.map(p => ({
+      if (originalSession.participants && originalSession.participants.length > 0) {
+        const duplicatedParticipants = originalSession.participants.map((p: any) => ({
           sessionId: duplicateSession.id,
           name: p.name,
           type: p.type,
@@ -3122,24 +3128,25 @@ export class MCPServer {
           avatar: p.avatar,
           color: p.color
         }))
-        
+
         await db.insert(participants).values(duplicatedParticipants)
       }
-      
+
       // Duplicate messages if requested
       if (includeMessages && originalSession.messages && originalSession.messages.length > 0) {
         // Get participant ID mapping
         const newParticipants = await db.query.participants.findMany({
           where: eq(participants.sessionId, duplicateSession.id)
         })
-        
+
         const participantMap = new Map()
-        originalSession.participants.forEach((oldP, idx) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        originalSession.participants.forEach((oldP: any) => {
           const newP = newParticipants.find(p => p.name === oldP.name && p.type === oldP.type)
           if (newP) participantMap.set(oldP.id, newP.id)
         })
-        
-        const duplicatedMessages = originalSession.messages.map(m => ({
+
+        const duplicatedMessages = originalSession.messages.map((m: any) => ({
           sessionId: duplicateSession.id,
           participantId: participantMap.get(m.participantId) || m.participantId,
           participantName: m.participantName,
@@ -3243,6 +3250,7 @@ export class MCPServer {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
   private async toolListTemplates(args: any): Promise<any> {
     try {
       // Return available session templates
@@ -3388,7 +3396,7 @@ export class MCPServer {
 
   private async toolAddParticipant(args: any): Promise<any> {
     try {
-      const { sessionId, name, type, provider, model, settings, characteristics } = args
+      const { sessionId, name, type, provider: _provider, model, settings, characteristics } = args
       
       if (!sessionId || !name || !type) {
         throw new Error('Session ID, participant name, and type are required')
@@ -3701,12 +3709,12 @@ export class MCPServer {
   private async toolResumeConversation(args: any): Promise<any> {
     try {
       const { sessionId } = args
-      
+
       if (!sessionId) {
         throw new Error('Session ID is required')
       }
 
-      await this.conversationManager.pauseConversation(sessionId)
+      await this.conversationManager.resumeConversation(sessionId)
 
       const session = await db.query.sessions.findFirst({
         where: eq(sessions.id, sessionId)
@@ -3822,8 +3830,6 @@ export class MCPServer {
         throw new Error('Session ID is required')
       }
 
-      const conversationStats = await this.conversationManager.getConversationStats(sessionId)
-
       const session = await db.query.sessions.findFirst({
         where: eq(sessions.id, sessionId),
         with: {
@@ -3896,10 +3902,10 @@ export class MCPServer {
       // Update message
       const [updatedMessage] = await db
         .update(messages)
-        .set({ 
+        .set({
           content,
           metadata: {
-            ...message.metadata,
+            ...(message.metadata as object || {}),
             edited: true,
             editedAt: new Date().toISOString()
           }
@@ -3911,7 +3917,7 @@ export class MCPServer {
         success: true,
         sessionId: sessionId,
         messageId: messageId,
-        message: updatedMessage,
+        updatedMessage: updatedMessage,
         message: 'Message updated successfully'
       }
     } catch (error) {
@@ -4187,20 +4193,20 @@ export class MCPServer {
         throw new Error(`Session ${sessionId} not found`)
       }
 
-      const [messageCount] = await db
-        .select({ count: db.count() })
+      const [messageCountResult] = await db
+        .select({ count: count() })
         .from(messages)
         .where(eq(messages.sessionId, sessionId))
 
       const preview = {
         sessionName: session.name,
-        totalMessages: messageCount.count,
+        totalMessages: messageCountResult.count,
         totalParticipants: session.participants.length,
         sampleMessages: session.messages.slice(0, 5),
         format: format,
-        estimatedSize: format === 'json' ? 
-          `~${Math.round(messageCount.count * 0.5)}KB` : 
-          `~${Math.round(messageCount.count * 0.1)}KB`
+        estimatedSize: format === 'json' ?
+          `~${Math.round(messageCountResult.count * 0.5)}KB` :
+          `~${Math.round(messageCountResult.count * 0.1)}KB`
       }
 
       return {
@@ -4403,7 +4409,7 @@ Return only the JSON object, no additional text.`
           analysisProvider: provider,
           messageWindow: messageWindow
         }
-      } catch (parseError) {
+      } catch (_parseError) {
         console.warn(`⚠️ MCP Server: Failed to parse analysis as JSON from ${provider}, using defaults`)
         // Provide default structure matching client expectations
         summaryData = {
@@ -4525,6 +4531,7 @@ Return only the JSON object, no additional text.`
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
   private async toolGetAnalysisProviders(args: any): Promise<any> {
     try {
       const providers = [
@@ -4578,7 +4585,7 @@ Return only the JSON object, no additional text.`
         .update(sessions)
         .set({
           metadata: {
-            ...session.metadata,
+            ...(session.metadata as object || {}),
             autoAnalyze: enabled
           }
         })
@@ -4629,8 +4636,8 @@ Return only the JSON object, no additional text.`
         provider,
         conversationPhase,
         analysis: analysisData,
-        conversationContext,
-        ...otherFields
+        conversationContext
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } = analysis
 
       // Validate required fields with better logging
@@ -4811,6 +4818,7 @@ Return only the JSON object, no additional text.`
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
   private async toolGetExperiments(args: any): Promise<any> {
     try {
       const allExperiments = await db.query.experiments.findMany({
@@ -4818,7 +4826,7 @@ Return only the JSON object, no additional text.`
       });
 
       const formattedExperiments = allExperiments.map(exp => ({
-        ...exp.config,  // Flatten config properties to top level
+        ...(exp.config as object || {}),  // Flatten config properties to top level
         id: exp.id,
         status: exp.status,
         createdAt: exp.createdAt,
@@ -4892,7 +4900,7 @@ Return only the JSON object, no additional text.`
         .update(experiments)
         .set({
           ...updates,
-          config: updates.config ? { ...experiment.config, ...updates.config } : experiment.config,
+          config: updates.config ? { ...(experiment.config as object || {}), ...updates.config } : experiment.config,
           updatedAt: new Date()
         })
         .where(eq(experiments.id, experimentId))
@@ -4900,7 +4908,7 @@ Return only the JSON object, no additional text.`
 
       // Update local config
       if (updates.config) {
-        this.experimentConfigs.set(experimentId, updatedExperiment.config);
+        this.experimentConfigs.set(experimentId, updatedExperiment.config as ExperimentConfig);
       }
 
       return {
@@ -4975,18 +4983,19 @@ Return only the JSON object, no additional text.`
       }
 
       // Create experiment run
+      const experimentConfig = experiment.config as ExperimentConfig
       const [run] = await db.insert(experimentRuns).values({
         experimentId,
         status: 'running',
         progress: 0,
-        totalSessions: experiment.config.totalSessions || 10,
+        totalSessions: experimentConfig?.totalSessions || 10,
         completedSessions: 0,
         failedSessions: 0,
         averageMessageCount: 0,
         results: {}
       }).returning();
 
-      this.experimentRuns.set(experimentId, run);
+      this.experimentRuns.set(experimentId, run as any);
 
       // Update experiment status
       await db
@@ -5020,8 +5029,8 @@ Return only the JSON object, no additional text.`
         throw new Error('Experiment config not found');
       }
 
-      const experimentConfig = experiment.config;
-      console.log('🔬 Starting experiment execution:', experimentConfig.name);
+      const experimentConfig = experiment.config as ExperimentConfig;
+      console.log('🔬 Starting experiment execution:', experimentConfig?.name);
 
       // Initialize session tracking for this experiment
       if (!this.activeExperimentSessions.has(experimentId)) {
@@ -5090,7 +5099,7 @@ Return only the JSON object, no additional text.`
             });
             
             // Step 3: Start the conversation with initial prompt via MCP tool
-            const initialPrompt = experimentConfig.systemPrompt || experimentConfig.startingPrompt || '';
+            const initialPrompt = (experimentConfig as any).systemPrompt || experimentConfig.startingPrompt || '';
             
             const startResult = await this.toolStartConversation({
               sessionId,
@@ -5242,9 +5251,8 @@ Return only the JSON object, no additional text.`
   }
 
   private async waitForConversationCompletion(sessionId: string, maxMessageCount: number = 20): Promise<void> {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       let messageCount = 0;
-      const startTime = Date.now();
 
       const checkInterval = setInterval(async () => {
         try {
@@ -5358,7 +5366,7 @@ Return only the JSON object, no additional text.`
       errors: run.errors || []
     }).returning();
 
-    this.experimentRuns.set(experimentId, newRun);
+    this.experimentRuns.set(experimentId, newRun as any);
 
     return {
       success: true,
@@ -5386,8 +5394,8 @@ Return only the JSON object, no additional text.`
       if (!dbRun) {
         throw new Error('No experiment run found');
       }
-      
-      this.experimentRuns.set(experimentId, dbRun);
+
+      this.experimentRuns.set(experimentId, dbRun as any);
     }
 
     const runToUpdate = this.experimentRuns.get(experimentId)!;
@@ -5403,7 +5411,7 @@ Return only the JSON object, no additional text.`
       .returning();
 
     // Update in memory
-    this.experimentRuns.set(experimentId, updatedRun);
+    this.experimentRuns.set(experimentId, updatedRun as any);
 
     return {
       success: true,
@@ -5421,14 +5429,15 @@ Return only the JSON object, no additional text.`
     }
 
     // Check memory first
-    let run = this.experimentRuns.get(experimentId);
-    
+    let run: ExperimentRun | undefined = this.experimentRuns.get(experimentId);
+
     // If not in memory, get latest from database
     if (!run) {
-      run = await db.query.experimentRuns.findFirst({
+      const dbRun = await db.query.experimentRuns.findFirst({
         where: eq(experimentRuns.experimentId, experimentId),
         orderBy: [desc(experimentRuns.startedAt)]
       });
+      run = dbRun as ExperimentRun | undefined;
     }
 
     return {
@@ -5666,7 +5675,7 @@ Return only the JSON object, no additional text.`
       }
 
       // Get sessions by IDs from the run
-      let experimentSessions = [];
+      let experimentSessions: any[] = [];
       if (latestRun.sessionIds && Array.isArray(latestRun.sessionIds) && latestRun.sessionIds.length > 0) {
         // Get sessions by their IDs
         experimentSessions = await db.query.sessions.findMany({

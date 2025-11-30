@@ -1,8 +1,6 @@
 // src/lib/mcp/client.ts - Updated with Internal Pub/Sub Event System
 import { JSONRPCRequest, JSONRPCResponse, APIError, RetryConfig } from './types'
-import { ExperimentConfig } from '@/types/experiment'
-import { MCPConversationManager } from '../ai/mcp-conversation-manager'
-import { eventBus, eventEmitter, EVENT_TYPES } from '../events/eventBus'
+import { eventEmitter } from '../events/eventBus'
 
 export class MCPClient {
   private static instance: MCPClient
@@ -183,7 +181,8 @@ export class MCPClient {
         console.error(`❌ MCP Client: Attempt ${attempt} failed for ${fullContext.operationName}:`, error);
 
         const isLastAttempt = attempt >= finalConfig.maxRetries + 1;
-        const isRetryable = finalConfig.retryCondition?.(error);
+        const errorObj = error instanceof Error ? error : new Error(String(error));
+        const isRetryable = finalConfig.retryCondition?.(errorObj);
 
         // Log error for export (only final failures)
         await this.logError(error, {
@@ -1628,7 +1627,7 @@ export class MCPClient {
   }
 
   // Helper method to sync errors with store - enhanced with better error handling
-  private async syncErrorsWithStore(sessionId?: string, provider?: string): Promise<void> {
+  private async syncErrorsWithStore(sessionId?: string, _provider?: string): Promise<void> {
     // Don't try to sync errors if not initialized
     if (!this.initialized) {
       return;
@@ -1664,7 +1663,7 @@ export class MCPClient {
         errorCount: errors.length,
         lastError: errors.length > 0 ? errors[errors.length - 1].error : undefined
       };
-    } catch (error) {
+    } catch (_error) {
       return {
         connected: false,
         errorCount: 0,
