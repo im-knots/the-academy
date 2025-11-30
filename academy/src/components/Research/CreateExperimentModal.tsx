@@ -7,12 +7,13 @@ import { useAvailableModels } from '@/hooks/useAvailableModels'
 import { Button } from '@/components/ui/Button'
 import { ExperimentConfig } from '@/types/experiment'
 import { ParticipantAvatar } from '@/components/ui/ParticipantAvatar'
+import { FileUpload, FileAttachment } from '@/components/Chat/FileUpload'
 import {
   X, Plus, Upload, Save, Users, AlertCircle,
   TestTubeDiagonal, ChevronDown, ChevronUp, RefreshCw, Loader2,
-  Brain, MessageSquare, Layers, Settings, Code
+  Brain, MessageSquare, Code
 } from 'lucide-react'
-import { DEFAULT_ANALYSIS_PROMPT, DEFAULT_ANALYSIS_SCHEMA, type AnalysisSchema } from '@/components/Research/AnalysisConfigModal'
+import { DEFAULT_ANALYSIS_PROMPT, DEFAULT_ANALYSIS_SCHEMA } from '@/components/Research/AnalysisConfigModal'
 import { DEFAULT_CHAT_SYSTEM_PROMPT } from '@/components/Chat/ChatConfigModal'
 
 interface ParticipantConfig {
@@ -77,6 +78,7 @@ export function CreateExperimentModal({ isOpen, onClose, onSave }: CreateExperim
   const [showSchemaEditor, setShowSchemaEditor] = useState(false)
   const [schemaText, setSchemaText] = useState(JSON.stringify(DEFAULT_ANALYSIS_SCHEMA, null, 2))
   const [schemaError, setSchemaError] = useState<string | null>(null)
+  const [promptFileAttachment, setPromptFileAttachment] = useState<FileAttachment | null>(null)
 
   // Auto-generate session name pattern whenever name changes
   const generateSessionNamePattern = useCallback((name: string) => {
@@ -125,6 +127,7 @@ export function CreateExperimentModal({ isOpen, onClose, onSave }: CreateExperim
     setShowSchemaEditor(false)
     setSchemaText(JSON.stringify(DEFAULT_ANALYSIS_SCHEMA, null, 2))
     setSchemaError(null)
+    setPromptFileAttachment(null)
   }, [])
 
   // Handle schema text changes with validation
@@ -150,7 +153,7 @@ export function CreateExperimentModal({ isOpen, onClose, onSave }: CreateExperim
       }
       setSchemaError(null)
       setFormData(prev => ({ ...prev, analysisSchema: parsed }))
-    } catch (e) {
+    } catch (_e) {
       setSchemaError('Invalid JSON format')
     }
   }, [])
@@ -166,30 +169,38 @@ export function CreateExperimentModal({ isOpen, onClose, onSave }: CreateExperim
     if (!formData.name || !formData.startingPrompt || formData.participants?.length === 0) {
       return
     }
-    
+
     const { id: _unusedId, ...restFormData } = formData
     const newExperiment: ExperimentConfig = {
       ...restFormData as Omit<ExperimentConfig, 'id' | 'createdAt' | 'lastModified'>,
       id: `exp-${Date.now()}`,
       createdAt: new Date(),
-      lastModified: new Date()
+      lastModified: new Date(),
+      // Include file attachment if present
+      ...(promptFileAttachment && {
+        startingPromptAttachment: {
+          base64: promptFileAttachment.base64,
+          mimeType: promptFileAttachment.mimeType,
+          name: promptFileAttachment.name
+        }
+      })
     }
-    
+
     console.log('🧪 CreateExperimentModal: Creating new experiment, will emit EXPERIMENT_CREATED event')
-    
+
     // Call the parent save handler
     onSave(newExperiment)
-    
+
     // EVENT-DRIVEN: Emit experiment created event via internal pub/sub
     eventBus.emit(EVENT_TYPES.EXPERIMENT_CREATED, {
       experimentId: newExperiment.id,
       experimentData: newExperiment
     })
-    
+
     // Reset form and close modal
     resetForm()
     onClose()
-  }, [formData, onSave, onClose, resetForm])
+  }, [formData, promptFileAttachment, onSave, onClose, resetForm])
 
   // NOW we can do conditional rendering - after ALL hooks are called
   if (!isOpen) return null
@@ -357,6 +368,17 @@ export function CreateExperimentModal({ isOpen, onClose, onSave }: CreateExperim
                   rows={4}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                 />
+
+                {/* File attachment for starting prompt */}
+                <div className="mt-2">
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                    Attach Image (optional - will be included with the first message)
+                  </label>
+                  <FileUpload
+                    attachment={promptFileAttachment}
+                    onFileSelect={setPromptFileAttachment}
+                  />
+                </div>
               </div>
             </div>
 

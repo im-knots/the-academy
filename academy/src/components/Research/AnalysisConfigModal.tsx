@@ -157,7 +157,7 @@ export function AnalysisConfigModal({ isOpen, onClose, sessionId, config, onSave
       }
       setSchemaError(null)
       setLocalConfig(prev => ({ ...prev, schema: parsed }))
-    } catch (e) {
+    } catch (_e) {
       setSchemaError('Invalid JSON format')
     }
   }, [])

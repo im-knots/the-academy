@@ -1,5 +1,11 @@
 import type { AnalysisSchema } from '@/components/Research/AnalysisConfigModal'
 
+export interface FileAttachmentData {
+  base64: string
+  mimeType: string
+  name: string
+}
+
 export interface ExperimentConfig {
   id: string
   name: string
@@ -14,6 +20,7 @@ export interface ExperimentConfig {
     ollamaUrl?: string
   }>
   startingPrompt: string
+  startingPromptAttachment?: FileAttachmentData // Optional file/image attachment for starting prompt
   // Analysis configuration
   analysisProvider: string
   analysisModel?: string
